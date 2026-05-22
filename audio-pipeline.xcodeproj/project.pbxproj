@@ -6,13 +6,33 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B41F3CA7F935963EBA8FC7E6 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F83379B555813CEE20BE895F /* Cocoa.framework */; };
+		BB7779D276DB5101C1E916C8 /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0475E3E8DFEC1AE131F9B629 /* SmokeTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		298D066AE547F4A69E78EE2F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 64F04E692FBDBC4A00B58BE7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 64F04E702FBDBC4A00B58BE7;
+			remoteInfo = "audio-pipeline";
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		0475E3E8DFEC1AE131F9B629 /* SmokeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SmokeTests.swift; sourceTree = "<group>"; };
+		15CF6A5696D76A63A88920B3 /* audio-pipelineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "audio-pipelineTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		64F04E712FBDBC4A00B58BE7 /* audio-pipeline.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "audio-pipeline.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F83379B555813CEE20BE895F /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		64F04E732FBDBC4A00B58BE7 /* audio-pipeline */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = "audio-pipeline";
 			sourceTree = "<group>";
 		};
@@ -26,14 +46,41 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		877C8CE2B947169700554471 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B41F3CA7F935963EBA8FC7E6 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		064ADC1B724CD061BBA1EADA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				FF00AFB0FAEE5DA6BEEE1408 /* OS X */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		3429CFC1A5D3A42954B56D3A /* audio-pipelineTests */ = {
+			isa = PBXGroup;
+			children = (
+				0475E3E8DFEC1AE131F9B629 /* SmokeTests.swift */,
+			);
+			name = "audio-pipelineTests";
+			path = "audio-pipelineTests";
+			sourceTree = SOURCE_ROOT;
+		};
 		64F04E682FBDBC4A00B58BE7 = {
 			isa = PBXGroup;
 			children = (
 				64F04E732FBDBC4A00B58BE7 /* audio-pipeline */,
 				64F04E722FBDBC4A00B58BE7 /* Products */,
+				064ADC1B724CD061BBA1EADA /* Frameworks */,
+				3429CFC1A5D3A42954B56D3A /* audio-pipelineTests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -41,8 +88,17 @@
 			isa = PBXGroup;
 			children = (
 				64F04E712FBDBC4A00B58BE7 /* audio-pipeline.app */,
+				15CF6A5696D76A63A88920B3 /* audio-pipelineTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		FF00AFB0FAEE5DA6BEEE1408 /* OS X */ = {
+			isa = PBXGroup;
+			children = (
+				F83379B555813CEE20BE895F /* Cocoa.framework */,
+			);
+			name = "OS X";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -64,11 +120,27 @@
 				64F04E732FBDBC4A00B58BE7 /* audio-pipeline */,
 			);
 			name = "audio-pipeline";
-			packageProductDependencies = (
-			);
 			productName = "audio-pipeline";
 			productReference = 64F04E712FBDBC4A00B58BE7 /* audio-pipeline.app */;
 			productType = "com.apple.product-type.application";
+		};
+		833E0F427B9A6971A775E4C9 /* audio-pipelineTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 94DE8AAA6E7E5E715074EF86 /* Build configuration list for PBXNativeTarget "audio-pipelineTests" */;
+			buildPhases = (
+				119A573F56C0774BE29A7749 /* Sources */,
+				877C8CE2B947169700554471 /* Frameworks */,
+				2BFFF20BDFABDEE4F40EBEFA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0B230F562B061A390E8A2C4F /* PBXTargetDependency */,
+			);
+			name = "audio-pipelineTests";
+			productName = "audio-pipelineTests";
+			productReference = 15CF6A5696D76A63A88920B3 /* audio-pipelineTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -100,11 +172,19 @@
 			projectRoot = "";
 			targets = (
 				64F04E702FBDBC4A00B58BE7 /* audio-pipeline */,
+				833E0F427B9A6971A775E4C9 /* audio-pipelineTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		2BFFF20BDFABDEE4F40EBEFA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		64F04E6F2FBDBC4A00B58BE7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -115,6 +195,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		119A573F56C0774BE29A7749 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB7779D276DB5101C1E916C8 /* SmokeTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		64F04E6D2FBDBC4A00B58BE7 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -123,6 +211,15 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0B230F562B061A390E8A2C4F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = "audio-pipeline";
+			target = 64F04E702FBDBC4A00B58BE7 /* audio-pipeline */;
+			targetProxy = 298D066AE547F4A69E78EE2F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		64F04E7A2FBDBC4C00B58BE7 /* Debug */ = {
@@ -254,6 +351,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
@@ -289,6 +387,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
@@ -313,6 +412,38 @@
 			};
 			name = Release;
 		};
+		871DE529D6EFD03CBD7E761A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.3;
+				PRODUCT_BUNDLE_IDENTIFIER = "work.miklos.audio-pipeline.tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/audio-pipeline.app/Contents/MacOS/audio-pipeline";
+			};
+			name = Release;
+		};
+		878B4CC1C143EE7724809BD1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.3;
+				PRODUCT_BUNDLE_IDENTIFIER = "work.miklos.audio-pipeline.tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/audio-pipeline.app/Contents/MacOS/audio-pipeline";
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -330,6 +461,15 @@
 			buildConfigurations = (
 				64F04E7D2FBDBC4C00B58BE7 /* Debug */,
 				64F04E7E2FBDBC4C00B58BE7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		94DE8AAA6E7E5E715074EF86 /* Build configuration list for PBXNativeTarget "audio-pipelineTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				871DE529D6EFD03CBD7E761A /* Release */,
+				878B4CC1C143EE7724809BD1 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
