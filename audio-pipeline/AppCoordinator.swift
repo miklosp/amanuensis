@@ -99,10 +99,44 @@ final class AppCoordinator {
     func stopRecording() async {
         guard case .recording = status, let active = session else { return }
         status = .stopping
+        let folder = active.folder
         let result = active.stop()
         session = nil
         status = .idle
         Self.log.info("recording stopped — mic frames \(result.mic.framesWritten, privacy: .public), system frames \(result.system?.framesWritten ?? -1, privacy: .public)")
+        Task { await runOutputConversion(for: folder) }
+    }
+
+    // Runs after a recording stops. Converts mic/system tracks to FLAC per the
+    // output-format setting, then refreshes the recordings list.
+    private func runOutputConversion(for folder: RecordingFolder) async {
+        let format = settings.outputFormat
+        guard format != .caf else {
+            library.refresh()
+            return
+        }
+
+        let tracks: [(caf: URL, flac: URL)] = [
+            (folder.micURL,
+             folder.url.appending(path: "mic.flac", directoryHint: .notDirectory)),
+            (folder.systemURL,
+             folder.url.appending(path: "system.flac", directoryHint: .notDirectory)),
+        ]
+
+        for track in tracks {
+            guard FileManager.default.fileExists(atPath: track.caf.path) else { continue }
+            do {
+                try await FLACExporter.export(from: track.caf, to: track.flac)
+                if format == .flac {
+                    try? FileManager.default.removeItem(at: track.caf)
+                }
+            } catch {
+                lastError = "FLAC conversion failed: \(error.localizedDescription)"
+                Self.log.error("FLAC export failed for \(track.caf.lastPathComponent, privacy: .public): \(String(describing: error), privacy: .public)")
+            }
+        }
+
+        library.refresh()
     }
 
     func openRecordingsFolder() {
