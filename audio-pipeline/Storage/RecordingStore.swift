@@ -1,0 +1,54 @@
+import AppKit
+import Foundation
+import os
+
+struct RecordingStore {
+    let baseURL: URL
+
+    init() {
+        baseURL = URL.applicationSupportDirectory
+            .appending(path: "audio-pipeline", directoryHint: .isDirectory)
+            .appending(path: "recordings", directoryHint: .isDirectory)
+    }
+
+    func makeRecordingFolder(label: String?, date: Date = Date()) throws -> RecordingFolder {
+        let name = Self.folderName(date: date, label: label)
+        let folder = baseURL.appending(path: name, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(
+            at: folder,
+            withIntermediateDirectories: true
+        )
+        return RecordingFolder(url: folder, name: name, startedAt: date)
+    }
+
+    func revealInFinder() {
+        try? FileManager.default.createDirectory(
+            at: baseURL,
+            withIntermediateDirectories: true
+        )
+        NSWorkspace.shared.open(baseURL)
+    }
+
+    // ISO-8601 with `:` stripped to keep folder names shell-friendly.
+    private static func folderName(date: Date, label: String?) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        let stamp = formatter.string(from: date)
+            .replacingOccurrences(of: ":", with: "-")
+        if let label, !label.isEmpty {
+            let safe = label.replacingOccurrences(of: "/", with: "-")
+            return "\(stamp)_\(safe)"
+        }
+        return stamp
+    }
+}
+
+struct RecordingFolder: Sendable {
+    let url: URL
+    let name: String
+    let startedAt: Date
+
+    var micURL: URL { url.appending(path: "mic.caf", directoryHint: .notDirectory) }
+    var systemURL: URL { url.appending(path: "system.caf", directoryHint: .notDirectory) }
+    var metadataURL: URL { url.appending(path: "meta.json", directoryHint: .notDirectory) }
+}

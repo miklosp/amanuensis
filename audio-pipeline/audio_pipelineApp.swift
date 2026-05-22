@@ -1,17 +1,18 @@
-//
-//  audio_pipelineApp.swift
-//  audio-pipeline
-//
-//  Created by Miklos Petravich on 5/20/26.
-//
-
 import SwiftUI
 
 @main
-struct audio_pipelineApp: App {
+struct AudioPipelineApp: App {
+    @State private var coordinator = AppCoordinator()
+
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        MenuBarExtra {
+            MenuBarContent(coordinator: coordinator)
+        } label: {
+            Image(systemName: coordinator.isRecording
+                  ? "record.circle.fill"
+                  : "waveform.circle")
+                .symbolRenderingMode(.hierarchical)
         }
+        .menuBarExtraStyle(.menu)
     }
 }
