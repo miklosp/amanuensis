@@ -5,10 +5,8 @@ import os
 struct RecordingStore {
     let baseURL: URL
 
-    init() {
-        baseURL = URL.applicationSupportDirectory
-            .appending(path: "audio-pipeline", directoryHint: .isDirectory)
-            .appending(path: "recordings", directoryHint: .isDirectory)
+    init(baseURL: URL) {
+        self.baseURL = baseURL
     }
 
     func makeRecordingFolder(label: String?, date: Date = Date()) throws -> RecordingFolder {

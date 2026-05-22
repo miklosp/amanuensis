@@ -20,8 +20,12 @@ final class AppCoordinator {
     private(set) var lastError: String?
     private(set) var lastFolderURL: URL?
 
-    private let store = RecordingStore()
+    let settings: AppSettings
     private var session: RecordingSession?
+
+    init() {
+        self.settings = AppSettings()
+    }
 
     var isRecording: Bool {
         if case .recording = status { return true }
@@ -67,6 +71,7 @@ final class AppCoordinator {
 
         let folder: RecordingFolder
         do {
+            let store = RecordingStore(baseURL: settings.recordingsDirectory)
             folder = try store.makeRecordingFolder(label: nil)
         } catch {
             lastError = "Couldn't create recording folder: \(error.localizedDescription)"
@@ -98,7 +103,7 @@ final class AppCoordinator {
     }
 
     func openRecordingsFolder() {
-        store.revealInFinder()
+        RecordingStore(baseURL: settings.recordingsDirectory).revealInFinder()
     }
 
     func openLastRecordingFolder() {
