@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MenuBarContent: View {
     @Bindable var coordinator: AppCoordinator
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Group {
@@ -24,6 +25,10 @@ struct MenuBarContent: View {
 
             Button("Open recordings folder") {
                 coordinator.openRecordingsFolder()
+            }
+
+            Button("Recordings…") {
+                openWindow(id: "recordings")
             }
 
             if let error = coordinator.lastError {

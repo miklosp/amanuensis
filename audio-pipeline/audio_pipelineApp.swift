@@ -18,5 +18,9 @@ struct AudioPipelineApp: App {
         Settings {
             SettingsView(settings: coordinator.settings)
         }
+
+        Window("Recordings", id: "recordings") {
+            RecordingsView(library: coordinator.library)
+        }
     }
 }
