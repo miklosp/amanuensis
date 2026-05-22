@@ -21,10 +21,13 @@ final class AppCoordinator {
     private(set) var lastFolderURL: URL?
 
     let settings: AppSettings
+    let library: RecordingsLibrary
     private var session: RecordingSession?
 
     init() {
-        self.settings = AppSettings()
+        let settings = AppSettings()
+        self.settings = settings
+        self.library = RecordingsLibrary(settings: settings)
     }
 
     var isRecording: Bool {
