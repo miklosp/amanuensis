@@ -383,14 +383,14 @@ Manual checklist, to be run on a Mac with a microphone before any release:
 - Performance, fuzz, and concurrency-stress testing.
 - Any behaviour change to the recording pipeline.
 
-## 10. Prerequisite — open item
+## 10. Prerequisite — test target creation
 
 The test target does not exist, and the project's CLAUDE.md forbids
-hand-editing `project.pbxproj`. Creating it requires one of:
-
-- **(a)** Miklos creates it in Xcode: *File → New → Target → Unit Testing
-  Bundle*, Swift Testing, name `audio-pipelineTests`; or
-- **(b)** Claude creates it programmatically via the `xcodeproj` Ruby gem
-  (supported tooling, not hand-editing).
-
-This choice is left to spec review before the implementation plan is written.
+hand-editing `project.pbxproj`. **Decision: Claude creates it programmatically
+via the `xcodeproj` Ruby gem** — supported tooling, not hand-editing. The
+implementation plan's first step adds an `audio-pipelineTests` Swift Testing
+unit-test target via a committed `xcodeproj` script, configured to `@testable
+import audio_pipeline` and to match the app target's
+`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`. New test files land in a
+synchronized group so they are auto-discovered, consistent with the app's
+existing `PBXFileSystemSynchronizedRootGroup` setup.
