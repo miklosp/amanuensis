@@ -14,5 +14,9 @@ struct AudioPipelineApp: App {
                 .symbolRenderingMode(.hierarchical)
         }
         .menuBarExtraStyle(.menu)
+
+        Settings {
+            SettingsView(settings: coordinator.settings)
+        }
     }
 }
