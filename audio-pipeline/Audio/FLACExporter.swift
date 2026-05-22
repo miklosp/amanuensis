@@ -6,7 +6,6 @@ import Foundation
 // 48 kHz->16 kHz resample and the stereo->mono down-mix in one pass.
 enum FLACExporter {
     enum ExportError: Error {
-        case targetFormatUnavailable
         case converterUnavailable
         case bufferAllocationFailed
     }
@@ -15,22 +14,24 @@ enum FLACExporter {
         let inputFile = try AVAudioFile(forReading: source)
         let inputFormat = inputFile.processingFormat
 
-        guard let outputFormat = AVAudioFormat(
-            commonFormat: .pcmFormatInt16,
-            sampleRate: 16_000,
-            channels: 1,
-            interleaved: true
-        ) else {
-            throw ExportError.targetFormatUnavailable
-        }
-
         let flacSettings: [String: Any] = [
             AVFormatIDKey: kAudioFormatFLAC,
             AVSampleRateKey: 16_000,
             AVNumberOfChannelsKey: 1,
             AVLinearPCMBitDepthKey: 16,
         ]
-        let outputFile = try AVAudioFile(forWriting: destination, settings: flacSettings)
+        // The converter target and the written buffers must equal the file's
+        // processingFormat exactly — AVAudioFile.write traps hard (CAVerboseAbort,
+        // uncatchable) otherwise. Forcing an Int16 processing format also makes
+        // the FLAC encode at 16-bit; the 2-arg initializer would pick Float32
+        // and produce a 24-bit FLAC.
+        let outputFile = try AVAudioFile(
+            forWriting: destination,
+            settings: flacSettings,
+            commonFormat: .pcmFormatInt16,
+            interleaved: false
+        )
+        let outputFormat = outputFile.processingFormat
 
         guard let converter = AVAudioConverter(from: inputFormat, to: outputFormat) else {
             throw ExportError.converterUnavailable
