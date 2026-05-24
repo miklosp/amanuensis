@@ -85,8 +85,10 @@ modules for unbuilt features.
 - `RecordingCore`: `AudioCapturePermission.swift`, `AudioFileWriter.swift`,
   `FLACExporter.swift`, `MicRecorder.swift`, `ProcessTapRecorder.swift`,
   `RecordingSession.swift`. The `RecorderStateMachine` and
-  `OutputConversionPlanner` planned by the test-coverage spec are new files
-  created in this module during migration.
+  `OutputConversionPlanner` types planned by the test-coverage spec are
+  NOT created during migration — they're extracted later as part of the
+  test-coverage plan execution. The migration only ensures `RecordingCore`
+  exists as their future home.
 
 **Dependency graph:** `RecordingCore` → `RecordingStorage`; `AppSettings` is a
 leaf. No cycles.
@@ -101,10 +103,12 @@ need):
 - `AppSettings`: the `AppSettings` `@Observable` class, `OutputFormat` enum.
 - `RecordingStorage`: `RecordingStore`, `RecordingFolder`,
   `RecordingsLibrary`, `RecordingMetadata`.
-- `RecordingCore`: `RecordingSession`, `RecorderStateMachine` (once
-  extracted), `MicRecorder.requestPermissionIfNeeded`,
-  `AudioCapturePermission.requestIfNeeded`, `FLACExporter.export`,
-  `OutputConversionPlanner`.
+- `RecordingCore`: `RecordingSession` (with its `start()`, `stop()`,
+  `folder`, and `StopResult` types), `RecordingTrackResult`,
+  `MicRecorder.requestPermissionIfNeeded`,
+  `AudioCapturePermission.requestIfNeeded`, `FLACExporter.export`. The
+  `RecorderStateMachine` and `OutputConversionPlanner` types are added
+  later by the test-coverage plan.
 
 Everything else stays `internal`. No `@_exported import` re-exports.
 
