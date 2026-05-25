@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		23DE86D1C4D9CA175B3005B0 /* OutputConversionPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15FDFDA08260569C3550A579 /* OutputConversionPlannerTests.swift */; };
 		64674FEC558B1BB721E3281B /* RecordingCore in Frameworks */ = {isa = PBXBuildFile; productRef = B237FACF51794DAD4B8B30A6 /* RecordingCore */; };
+		8EFBD6CE8086F36CED3D45FA /* RecordingFormattersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 530554F5DA0383ED728291F5 /* RecordingFormattersTests.swift */; };
 		99CCF7B733C62F224FFE1249 /* Fixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13D041542C1B170236E88B4D /* Fixtures.swift */; };
 		B41F3CA7F935963EBA8FC7E6 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F83379B555813CEE20BE895F /* Cocoa.framework */; };
 		BB7779D276DB5101C1E916C8 /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0475E3E8DFEC1AE131F9B629 /* SmokeTests.swift */; };
@@ -33,6 +34,7 @@
 		15CF6A5696D76A63A88920B3 /* audio-pipelineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "audio-pipelineTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		15FDFDA08260569C3550A579 /* OutputConversionPlannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OutputConversionPlannerTests.swift; sourceTree = "<group>"; };
 		1C88758C76F16EB3763431A4 /* TempDirectory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TempDirectory.swift; path = Support/TempDirectory.swift; sourceTree = "<group>"; };
+		530554F5DA0383ED728291F5 /* RecordingFormattersTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordingFormattersTests.swift; sourceTree = "<group>"; };
 		64F04E712FBDBC4A00B58BE7 /* audio-pipeline.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "audio-pipeline.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F83379B555813CEE20BE895F /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
@@ -84,6 +86,7 @@
 				13D041542C1B170236E88B4D /* Fixtures.swift */,
 				1C88758C76F16EB3763431A4 /* TempDirectory.swift */,
 				15FDFDA08260569C3550A579 /* OutputConversionPlannerTests.swift */,
+				530554F5DA0383ED728291F5 /* RecordingFormattersTests.swift */,
 			);
 			name = "audio-pipelineTests";
 			path = "audio-pipelineTests";
@@ -226,6 +229,7 @@
 				99CCF7B733C62F224FFE1249 /* Fixtures.swift in Sources */,
 				EB24BE5EC65A9170949C1A9B /* TempDirectory.swift in Sources */,
 				23DE86D1C4D9CA175B3005B0 /* OutputConversionPlannerTests.swift in Sources */,
+				8EFBD6CE8086F36CED3D45FA /* RecordingFormattersTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
