@@ -11,8 +11,8 @@ struct RecordingsView: View {
         Table(library.recordings, selection: $selection) {
             TableColumn("Name", value: \.name)
             TableColumn("Date") { Text($0.startedAt, format: .dateTime) }
-            TableColumn("Duration") { Text(Self.durationText($0.duration)) }
-            TableColumn("Size") { Text(Self.sizeText($0.sizeBytes)) }
+            TableColumn("Duration") { Text(RecordingFormatters.durationText($0.duration)) }
+            TableColumn("Size") { Text(RecordingFormatters.sizeText($0.sizeBytes)) }
             TableColumn("Format", value: \.formatSummary)
         }
         .frame(minWidth: 620, minHeight: 320)
@@ -66,13 +66,4 @@ struct RecordingsView: View {
         NSWorkspace.shared.activateFileViewerSelecting([item.folderURL])
     }
 
-    private static func durationText(_ seconds: Double?) -> String {
-        guard let seconds else { return "—" }
-        let total = Int(seconds.rounded())
-        return String(format: "%d:%02d", total / 60, total % 60)
-    }
-
-    private static func sizeText(_ bytes: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
-    }
 }
