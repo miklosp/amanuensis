@@ -60,7 +60,7 @@ final class AppCoordinator {
         status = .starting
         lastError = nil
 
-        let granted = await MicRecorder.requestPermissionIfNeeded()
+        let granted = await MicrophonePermission.requestIfNeeded()
         guard granted else {
             lastError = "Microphone permission denied. Grant it in System Settings → Privacy & Security → Microphone."
             status = .idle

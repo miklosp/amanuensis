@@ -57,11 +57,13 @@ final class AudioFileWriter: @unchecked Sendable {
     // frames written. Safe to call only once; subsequent calls are no-ops.
     @discardableResult
     nonisolated func close() -> Int64 {
+        var count: Int64 = 0
         queue.sync {
             closed = true
             file = nil   // AVAudioFile finalizes the container on dealloc.
+            count = framesWritten
         }
-        return framesWritten
+        return count
     }
 
     private struct BufferHandoff: @unchecked Sendable {

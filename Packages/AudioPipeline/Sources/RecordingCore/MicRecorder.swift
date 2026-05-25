@@ -6,7 +6,7 @@ import os
 // to a dedicated AudioFileWriter. The engine is created and torn down once
 // per recording — no state lingers between runs.
 @MainActor
-public final class MicRecorder {
+final class MicRecorder {
     private let engine: AVAudioEngine
     private let writer: AudioFileWriter
 
@@ -49,29 +49,21 @@ public final class MicRecorder {
         )
     }
 
-    static func currentPermissionStatus() -> AVAuthorizationStatus {
-        AVCaptureDevice.authorizationStatus(for: .audio)
-    }
-
-    public static func requestPermissionIfNeeded() async -> Bool {
-        switch currentPermissionStatus() {
-        case .authorized:
-            return true
-        case .notDetermined:
-            return await AVCaptureDevice.requestAccess(for: .audio)
-        case .denied, .restricted:
-            return false
-        @unknown default:
-            return false
-        }
-    }
-
     private static let log = Logger(subsystem: "work.miklos.audio-pipeline", category: "mic")
 }
 
-enum MicRecorderError: Error {
+public enum MicRecorderError: Error, LocalizedError {
     case invalidInputFormat
     case permissionDenied
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidInputFormat:
+            return "The selected microphone input format isn't usable."
+        case .permissionDenied:
+            return "Microphone permission was denied."
+        }
+    }
 }
 
 public struct RecordingTrackResult: Sendable {

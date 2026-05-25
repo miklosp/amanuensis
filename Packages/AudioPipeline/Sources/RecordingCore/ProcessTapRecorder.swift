@@ -243,7 +243,7 @@ private struct SendableFormat: @unchecked Sendable {
     let value: AVAudioFormat
 }
 
-enum ProcessTapError: Error {
+public enum ProcessTapError: Error, LocalizedError {
     case createTapFailed(OSStatus)
     case readTapFormatFailed(OSStatus)
     case unsupportedTapFormat
@@ -252,4 +252,25 @@ enum ProcessTapError: Error {
     case deviceStartFailed(OSStatus)
     case noDefaultOutputDevice
     case readDeviceUIDFailed(OSStatus)
+
+    public var errorDescription: String? {
+        switch self {
+        case .createTapFailed(let status):
+            return "Couldn't create the system audio tap (Core Audio status \(status))."
+        case .readTapFormatFailed(let status):
+            return "Couldn't read the system audio format (Core Audio status \(status))."
+        case .unsupportedTapFormat:
+            return "The system audio format isn't supported."
+        case .createAggregateFailed(let status):
+            return "Couldn't create the aggregate audio device (Core Audio status \(status))."
+        case .createIOProcFailed(let status):
+            return "Couldn't install the audio callback (Core Audio status \(status))."
+        case .deviceStartFailed(let status):
+            return "Couldn't start the system audio device (Core Audio status \(status))."
+        case .noDefaultOutputDevice:
+            return "No default output device available — connect speakers or headphones and try again."
+        case .readDeviceUIDFailed(let status):
+            return "Couldn't identify the default output device (Core Audio status \(status))."
+        }
+    }
 }
