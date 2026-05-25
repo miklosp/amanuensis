@@ -39,17 +39,25 @@ enum SyntheticAudio {
     }
 
     // Write a synthetic `.caf` at `url` containing `frameCount` frames of the
-    // given format. Uses AVAudioFile with ALAC settings (matches the writer).
+    // given format. Uses linear PCM rather than ALAC: ALAC has minimum-packet
+    // alignment requirements that make 0-frame or very-short writes produce
+    // CAFs that ExtAudioFile can't re-open, which would break the empty /
+    // very-short FLACExporter test cases. PCM has no such constraint and is
+    // equally valid input for AVAudioFile/AVAudioConverter.
     @discardableResult
     static func writeCAF(
         to url: URL,
         format: AVAudioFormat,
         frameCount: AVAudioFrameCount
     ) throws -> AVAudioFile {
+        // AVAudioFile only supports interleaved PCM on disk regardless of the
+        // in-memory format, so don't set AVLinearPCMIsNonInterleaved.
         let settings: [String: Any] = [
-            AVFormatIDKey: kAudioFormatAppleLossless,
+            AVFormatIDKey: kAudioFormatLinearPCM,
             AVSampleRateKey: format.sampleRate,
             AVNumberOfChannelsKey: Int(format.channelCount),
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
         ]
         let file = try AVAudioFile(
             forWriting: url,
