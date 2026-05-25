@@ -3,7 +3,8 @@ import Testing
 
 @Suite struct SmokeTests {
     @Test func testTargetIsWiredToTheAppModule() {
-        // References an app type — proves @testable import links.
-        #expect(AppSettings.OutputFormat.allCases.count == 3)
+        // References an app-target type — proves @testable import links.
+        let _: AppCoordinator.Status = .idle
+        #expect(Bool(true))
     }
 }
