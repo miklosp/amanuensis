@@ -8,3 +8,6 @@ xcuserdata/
 # Build output
 build/
 DerivedData/
+
+# Git worktrees
+.worktrees/
