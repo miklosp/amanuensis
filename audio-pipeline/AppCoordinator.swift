@@ -120,30 +120,20 @@ final class AppCoordinator {
 
     // Runs after a recording stops. Converts mic/system tracks to FLAC per the
     // output-format setting. Returns one Result — on any track failure, the
-    // first error is surfaced (spec §7 'Faithful simplification'). Phase D
-    // will extract the per-track planning into OutputConversionPlanner.
+    // first error is surfaced (spec §7 'Faithful simplification').
     private func runConversion(for folder: RecordingFolder) async -> Result<Void, Error> {
-        let format = settings.outputFormat
-        guard format != .caf else { return .success(()) }
-
-        let tracks: [(caf: URL, flac: URL)] = [
-            (folder.micURL,
-             folder.url.appending(path: "mic.flac", directoryHint: .notDirectory)),
-            (folder.systemURL,
-             folder.url.appending(path: "system.flac", directoryHint: .notDirectory)),
-        ]
+        let tasks = OutputConversionPlanner.plan(folder: folder, format: settings.outputFormat)
 
         var firstFailure: Error?
-        for track in tracks {
-            guard FileManager.default.fileExists(atPath: track.caf.path) else { continue }
+        for task in tasks {
             do {
-                try await FLACExporter.export(from: track.caf, to: track.flac)
-                if format == .flac {
-                    try? FileManager.default.removeItem(at: track.caf)
+                try await FLACExporter.export(from: task.source, to: task.destination)
+                if task.deleteSourceAfterExport {
+                    try? FileManager.default.removeItem(at: task.source)
                 }
             } catch {
                 if firstFailure == nil { firstFailure = error }
-                Self.log.error("FLAC export failed for \(track.caf.lastPathComponent, privacy: .public): \(String(describing: error), privacy: .public)")
+                Self.log.error("FLAC export failed for \(task.source.lastPathComponent, privacy: .public): \(String(describing: error), privacy: .public)")
             }
         }
 
