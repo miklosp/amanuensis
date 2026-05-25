@@ -13,7 +13,7 @@ import os
 //
 // Trade-off: depends on a private framework. Acceptable for Developer ID
 // distribution; a hard blocker for Mac App Store review — a known M1 deferral.
-enum AudioCapturePermission {
+public enum AudioCapturePermission {
     nonisolated private static let log = Logger(
         subsystem: "work.miklos.audio-pipeline",
         category: "permission"
@@ -54,7 +54,7 @@ enum AudioCapturePermission {
 
     // Ensures system audio capture is authorized, presenting the system prompt
     // once when the status is undetermined. Returns the final authorization.
-    nonisolated static func requestIfNeeded() async -> Bool {
+    public nonisolated static func requestIfNeeded() async -> Bool {
         if isAuthorized() { return true }
         guard let requestSPI else {
             log.fault("TCCAccessRequest SPI unavailable — cannot request system audio access")

@@ -6,7 +6,7 @@ import os
 // to a dedicated AudioFileWriter. The engine is created and torn down once
 // per recording — no state lingers between runs.
 @MainActor
-final class MicRecorder {
+public final class MicRecorder {
     private let engine: AVAudioEngine
     private let writer: AudioFileWriter
 
@@ -53,7 +53,7 @@ final class MicRecorder {
         AVCaptureDevice.authorizationStatus(for: .audio)
     }
 
-    static func requestPermissionIfNeeded() async -> Bool {
+    public static func requestPermissionIfNeeded() async -> Bool {
         switch currentPermissionStatus() {
         case .authorized:
             return true
@@ -74,8 +74,8 @@ enum MicRecorderError: Error {
     case permissionDenied
 }
 
-struct RecordingTrackResult: Sendable {
-    let url: URL
-    let format: AVAudioFormat
-    let framesWritten: Int64
+public struct RecordingTrackResult: Sendable {
+    public let url: URL
+    public let format: AVAudioFormat
+    public let framesWritten: Int64
 }

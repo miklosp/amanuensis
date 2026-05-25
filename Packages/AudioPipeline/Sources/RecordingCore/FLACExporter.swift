@@ -4,13 +4,13 @@ import Foundation
 // Converts one recorded CAF track to a 16 kHz mono 16-bit FLAC. Runs off the
 // main actor; used after a recording stops. AVAudioConverter handles the
 // 48 kHz->16 kHz resample and the stereo->mono down-mix in one pass.
-enum FLACExporter {
+public enum FLACExporter {
     enum ExportError: Error {
         case converterUnavailable
         case bufferAllocationFailed
     }
 
-    nonisolated static func export(from source: URL, to destination: URL) async throws {
+    public nonisolated static func export(from source: URL, to destination: URL) async throws {
         let inputFile = try AVAudioFile(forReading: source)
         let inputFormat = inputFile.processingFormat
 

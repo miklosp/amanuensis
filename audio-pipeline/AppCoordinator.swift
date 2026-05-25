@@ -3,6 +3,7 @@ import AppSettings
 import Foundation
 import Observation
 import os
+import RecordingCore
 import RecordingStorage
 
 // Top-level app state. Holds the active recording session (if any), surfaces

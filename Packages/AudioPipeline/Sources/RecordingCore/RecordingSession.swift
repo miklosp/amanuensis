@@ -7,19 +7,19 @@ import RecordingStorage
 // folder. Lifecycle is strictly create → start → stop; sessions are not
 // reused.
 @MainActor
-final class RecordingSession {
-    let folder: RecordingFolder
+public final class RecordingSession {
+    public let folder: RecordingFolder
     private let mic: MicRecorder
     private let system: ProcessTapRecorder
     private var startedAt: Date?
 
-    init(folder: RecordingFolder) throws {
+    public init(folder: RecordingFolder) throws {
         self.folder = folder
         self.mic = try MicRecorder(url: folder.micURL)
         self.system = ProcessTapRecorder(url: folder.systemURL)
     }
 
-    func start() throws {
+    public func start() throws {
         let now = Date()
         startedAt = now
         // Start the system tap first; if it fails we haven't touched the mic
@@ -36,12 +36,12 @@ final class RecordingSession {
         writeMetadata(stoppedAt: nil, mic: nil, system: nil)
     }
 
-    struct StopResult: Sendable {
-        let mic: RecordingTrackResult
-        let system: RecordingTrackResult?
+    public struct StopResult: Sendable {
+        public let mic: RecordingTrackResult
+        public let system: RecordingTrackResult?
     }
 
-    func stop() -> StopResult {
+    public func stop() -> StopResult {
         let stoppedAt = Date()
         let micResult = mic.stop()
         let systemResult = system.stop()
