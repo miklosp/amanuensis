@@ -27,7 +27,7 @@ To launch the built app: `open <BUILT_PRODUCTS_DIR>/audio-pipeline.app`. For int
 
 Two test surfaces:
 
-- **SPM tests** (autonomous, run via `swift test --disable-sandbox --package-path Packages/AudioPipeline`): deterministic logic in `AppSettingsTests`, `RecordingStorageTests`, `RecordingCoreTests`. These run inside the Claude Code sandbox without flags. (The `--disable-sandbox` flag is needed because SwiftPM's manifest compilation would otherwise call `sandbox_apply` and hit the nested-sandbox blocker.)
+- **SPM tests** (autonomous, run via `swift test --disable-sandbox --package-path Packages/AudioPipeline`): deterministic logic in `AppSettingsTests`, `RecordingStorageTests`, `RecordingCoreTests`. The `--disable-sandbox` flag is required because SwiftPM's manifest compilation would otherwise call `sandbox_apply` and hit the nested-sandbox blocker; with the flag the suite runs inside the Claude Code sandbox without further workarounds.
 - **App-hosted XCTest** (`audio-pipelineTests` target, Xcode-scoped): integration smoke for code that needs a real audio device, the TCC private SPI, or a running `NSApp`. Run from Xcode (⌘U) or `xcodebuild test`. The latter currently hits the codesign-in-nested-sandbox blocker described in `~/.claude/projects/-Users-miklos-Code-audio-pipeline/memory/project_xcodebuild_test_sandbox.md`.
 
 The SPM scaffolding script for adding new library products is `scripts/run-setup-spm-package.sh <ProductName>`.
