@@ -2,17 +2,17 @@ import Foundation
 import Observation
 
 // User preferences, persisted to UserDefaults. MainActor-isolated by the
-// project's default actor isolation; observed by the Settings UI.
+// module's default actor isolation; observed by the Settings UI.
 @Observable
-final class AppSettings {
-    enum OutputFormat: String, CaseIterable, Identifiable {
+public final class AppSettings {
+    public enum OutputFormat: String, CaseIterable, Identifiable {
         case caf
         case flac
         case both
 
-        var id: String { rawValue }
+        public var id: String { rawValue }
 
-        var title: String {
+        public var title: String {
             switch self {
             case .caf:  return "Keep raw (.caf)"
             case .flac: return "Convert to FLAC"
@@ -21,23 +21,23 @@ final class AppSettings {
         }
     }
 
-    var recordingsDirectory: URL {
+    public var recordingsDirectory: URL {
         didSet {
             defaults.set(recordingsDirectory.path(percentEncoded: false),
                          forKey: Keys.recordingsDirectory)
         }
     }
 
-    var outputFormat: OutputFormat {
+    public var outputFormat: OutputFormat {
         didSet { defaults.set(outputFormat.rawValue, forKey: Keys.outputFormat) }
     }
 
     @ObservationIgnored private let defaults: UserDefaults
 
-    static let defaultRecordingsDirectory: URL = URL.musicDirectory
+    public static let defaultRecordingsDirectory: URL = URL.musicDirectory
         .appending(path: "audio-pipeline", directoryHint: .isDirectory)
 
-    init(defaults: UserDefaults = .standard) {
+    public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
 
         if let path = defaults.string(forKey: Keys.recordingsDirectory) {

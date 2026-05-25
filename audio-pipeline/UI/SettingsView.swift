@@ -1,4 +1,5 @@
 import AppKit
+import AppSettings
 import SwiftUI
 
 struct SettingsView: View {

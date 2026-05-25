@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		B41F3CA7F935963EBA8FC7E6 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F83379B555813CEE20BE895F /* Cocoa.framework */; };
 		BB7779D276DB5101C1E916C8 /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0475E3E8DFEC1AE131F9B629 /* SmokeTests.swift */; };
+		E74C324A87BEC59AA8FBC2A1 /* AppSettings in Frameworks */ = {isa = PBXBuildFile; productRef = DDADBEADF4CFB28174A18CD6 /* AppSettings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,6 +44,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E74C324A87BEC59AA8FBC2A1 /* AppSettings in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -120,6 +122,9 @@
 				64F04E732FBDBC4A00B58BE7 /* audio-pipeline */,
 			);
 			name = "audio-pipeline";
+			packageProductDependencies = (
+				DDADBEADF4CFB28174A18CD6 /* AppSettings */,
+			);
 			productName = "audio-pipeline";
 			productReference = 64F04E712FBDBC4A00B58BE7 /* audio-pipeline.app */;
 			productType = "com.apple.product-type.application";
@@ -166,6 +171,9 @@
 			);
 			mainGroup = 64F04E682FBDBC4A00B58BE7;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0301059DB260F61893F0428E /* XCLocalSwiftPackageReference "AudioPipeline" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 64F04E722FBDBC4A00B58BE7 /* Products */;
 			projectDirPath = "";
@@ -475,6 +483,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		0301059DB260F61893F0428E /* XCLocalSwiftPackageReference "AudioPipeline" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/AudioPipeline;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		DDADBEADF4CFB28174A18CD6 /* AppSettings */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AppSettings;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 64F04E692FBDBC4A00B58BE7 /* Project object */;
 }

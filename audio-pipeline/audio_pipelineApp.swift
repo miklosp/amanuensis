@@ -1,3 +1,4 @@
+import AppSettings
 import SwiftUI
 
 @main

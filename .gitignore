@@ -8,6 +8,7 @@ xcuserdata/
 # Build output
 build/
 DerivedData/
+Packages/**/.build/
 
 # Git worktrees
 .worktrees/
