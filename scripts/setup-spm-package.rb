@@ -36,21 +36,26 @@ else
   puts "local package #{PACKAGE_PATH} already registered"
 end
 
-# --- (2) Ensure the product is a package_product_dependency of the app ---
-# target AND has a PBXBuildFile entry in its Frameworks phase.
-existing = app.package_product_dependencies.find { |d| d.product_name == product }
-if existing.nil?
+# --- (2a) Ensure the product dependency exists on the target ---
+product_dep = app.package_product_dependencies.find { |d| d.product_name == product }
+if product_dep.nil?
   product_dep = project.new(Xcodeproj::Project::Object::XCSwiftPackageProductDependency)
   product_dep.product_name = product
   app.package_product_dependencies << product_dep
+  puts "added product dependency #{product} to #{APP_TARGET}"
+else
+  puts "product dependency #{product} already present on #{APP_TARGET}"
+end
 
+# --- (2b) Ensure the Frameworks build phase links the product ---
+linked = app.frameworks_build_phase.files.any? { |bf| bf.product_ref == product_dep }
+if !linked
   build_file = project.new(Xcodeproj::Project::Object::PBXBuildFile)
   build_file.product_ref = product_dep
   app.frameworks_build_phase.files << build_file
-
-  puts "linked #{product} to #{APP_TARGET}"
+  puts "linked #{product} in #{APP_TARGET} Frameworks phase"
 else
-  puts "#{product} already linked to #{APP_TARGET}"
+  puts "#{product} already linked in #{APP_TARGET} Frameworks phase"
 end
 
 project.save
