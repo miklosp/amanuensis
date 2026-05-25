@@ -7,13 +7,14 @@ import Observation
 public final class RecordingsLibrary {
     public private(set) var recordings: [RecordingItem] = []
 
-    @ObservationIgnored private let baseURL: URL
+    @ObservationIgnored private let baseURLProvider: @MainActor () -> URL
 
-    public init(baseURL: URL) {
-        self.baseURL = baseURL
+    public init(baseURLProvider: @MainActor @escaping () -> URL) {
+        self.baseURLProvider = baseURLProvider
     }
 
     public func refresh() {
+        let baseURL = baseURLProvider()
         let fileManager = FileManager.default
         guard let entries = try? fileManager.contentsOfDirectory(
             at: baseURL,

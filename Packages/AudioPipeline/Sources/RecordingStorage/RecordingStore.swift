@@ -1,6 +1,4 @@
-import AppKit
 import Foundation
-import os
 
 public struct RecordingStore {
     public let baseURL: URL
@@ -17,14 +15,6 @@ public struct RecordingStore {
             withIntermediateDirectories: true
         )
         return RecordingFolder(url: folder, name: name, startedAt: date)
-    }
-
-    public func revealInFinder() {
-        try? FileManager.default.createDirectory(
-            at: baseURL,
-            withIntermediateDirectories: true
-        )
-        NSWorkspace.shared.open(baseURL)
     }
 
     // ISO-8601 with `:` stripped to keep folder names shell-friendly.

@@ -29,7 +29,7 @@ final class AppCoordinator {
     init() {
         let settings = AppSettings()
         self.settings = settings
-        self.library = RecordingsLibrary(baseURL: settings.recordingsDirectory)
+        self.library = RecordingsLibrary { settings.recordingsDirectory }
     }
 
     var isRecording: Bool {
@@ -142,7 +142,9 @@ final class AppCoordinator {
     }
 
     func openRecordingsFolder() {
-        RecordingStore(baseURL: settings.recordingsDirectory).revealInFinder()
+        let url = settings.recordingsDirectory
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(url)
     }
 
     func openLastRecordingFolder() {
