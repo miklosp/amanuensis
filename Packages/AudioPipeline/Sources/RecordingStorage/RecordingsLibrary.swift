@@ -1,23 +1,22 @@
-import AppSettings
 import Foundation
 import Observation
 
 // The model behind the Recordings window. Scans the recordings directory and
 // parses each recording's meta.json into a list sorted newest-first.
 @Observable
-final class RecordingsLibrary {
-    private(set) var recordings: [RecordingItem] = []
+public final class RecordingsLibrary {
+    public private(set) var recordings: [RecordingItem] = []
 
-    @ObservationIgnored private let settings: AppSettings
+    @ObservationIgnored private let baseURL: URL
 
-    init(settings: AppSettings) {
-        self.settings = settings
+    public init(baseURL: URL) {
+        self.baseURL = baseURL
     }
 
-    func refresh() {
+    public func refresh() {
         let fileManager = FileManager.default
         guard let entries = try? fileManager.contentsOfDirectory(
-            at: settings.recordingsDirectory,
+            at: baseURL,
             includingPropertiesForKeys: [.isDirectoryKey],
             options: [.skipsHiddenFiles]
         ) else {
@@ -32,22 +31,22 @@ final class RecordingsLibrary {
     }
 
     // Deletes a recording by moving its whole folder to the Trash (recoverable).
-    func delete(_ item: RecordingItem) {
+    public func delete(_ item: RecordingItem) {
         try? FileManager.default.trashItem(at: item.folderURL, resultingItemURL: nil)
         refresh()
     }
 }
 
-struct RecordingItem: Identifiable {
-    let id: String
-    let name: String
-    let folderURL: URL
-    let startedAt: Date
-    let duration: Double?
-    let sizeBytes: Int64
-    let formatSummary: String
+public struct RecordingItem: Identifiable {
+    public let id: String
+    public let name: String
+    public let folderURL: URL
+    public let startedAt: Date
+    public let duration: Double?
+    public let sizeBytes: Int64
+    public let formatSummary: String
 
-    init?(folderURL: URL) {
+    public init?(folderURL: URL) {
         let metadataURL = folderURL.appending(path: "meta.json", directoryHint: .notDirectory)
         guard let data = try? Data(contentsOf: metadataURL),
               let meta = try? Self.decoder.decode(RecordingMetadata.self, from: data) else {

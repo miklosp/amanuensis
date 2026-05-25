@@ -3,6 +3,7 @@ import AppSettings
 import Foundation
 import Observation
 import os
+import RecordingStorage
 
 // Top-level app state. Holds the active recording session (if any), surfaces
 // status to the menu bar, and routes start/stop/open-folder actions through
@@ -28,7 +29,7 @@ final class AppCoordinator {
     init() {
         let settings = AppSettings()
         self.settings = settings
-        self.library = RecordingsLibrary(settings: settings)
+        self.library = RecordingsLibrary(baseURL: settings.recordingsDirectory)
     }
 
     var isRecording: Bool {

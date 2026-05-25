@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		B41F3CA7F935963EBA8FC7E6 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F83379B555813CEE20BE895F /* Cocoa.framework */; };
 		BB7779D276DB5101C1E916C8 /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0475E3E8DFEC1AE131F9B629 /* SmokeTests.swift */; };
+		C30715B2C425CA0BDDF2BC88 /* RecordingStorage in Frameworks */ = {isa = PBXBuildFile; productRef = C81DE0068215EFA9C64A00DA /* RecordingStorage */; };
 		E74C324A87BEC59AA8FBC2A1 /* AppSettings in Frameworks */ = {isa = PBXBuildFile; productRef = DDADBEADF4CFB28174A18CD6 /* AppSettings */; };
 /* End PBXBuildFile section */
 
@@ -45,6 +46,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E74C324A87BEC59AA8FBC2A1 /* AppSettings in Frameworks */,
+				C30715B2C425CA0BDDF2BC88 /* RecordingStorage in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -124,6 +126,7 @@
 			name = "audio-pipeline";
 			packageProductDependencies = (
 				DDADBEADF4CFB28174A18CD6 /* AppSettings */,
+				C81DE0068215EFA9C64A00DA /* RecordingStorage */,
 			);
 			productName = "audio-pipeline";
 			productReference = 64F04E712FBDBC4A00B58BE7 /* audio-pipeline.app */;
@@ -492,6 +495,10 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		C81DE0068215EFA9C64A00DA /* RecordingStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = RecordingStorage;
+		};
 		DDADBEADF4CFB28174A18CD6 /* AppSettings */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AppSettings;

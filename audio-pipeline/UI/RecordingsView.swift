@@ -1,4 +1,5 @@
 import AppKit
+import RecordingStorage
 import SwiftUI
 
 struct RecordingsView: View {

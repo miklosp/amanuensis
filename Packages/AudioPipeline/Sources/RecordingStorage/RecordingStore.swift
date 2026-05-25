@@ -2,14 +2,14 @@ import AppKit
 import Foundation
 import os
 
-struct RecordingStore {
-    let baseURL: URL
+public struct RecordingStore {
+    public let baseURL: URL
 
-    init(baseURL: URL) {
+    public init(baseURL: URL) {
         self.baseURL = baseURL
     }
 
-    func makeRecordingFolder(label: String?, date: Date = Date()) throws -> RecordingFolder {
+    public func makeRecordingFolder(label: String?, date: Date = Date()) throws -> RecordingFolder {
         let name = Self.folderName(date: date, label: label)
         let folder = baseURL.appending(path: name, directoryHint: .isDirectory)
         try FileManager.default.createDirectory(
@@ -19,7 +19,7 @@ struct RecordingStore {
         return RecordingFolder(url: folder, name: name, startedAt: date)
     }
 
-    func revealInFinder() {
+    public func revealInFinder() {
         try? FileManager.default.createDirectory(
             at: baseURL,
             withIntermediateDirectories: true
@@ -41,12 +41,18 @@ struct RecordingStore {
     }
 }
 
-struct RecordingFolder: Sendable {
-    let url: URL
-    let name: String
-    let startedAt: Date
+public struct RecordingFolder: Sendable {
+    public let url: URL
+    public let name: String
+    public let startedAt: Date
 
-    var micURL: URL { url.appending(path: "mic.caf", directoryHint: .notDirectory) }
-    var systemURL: URL { url.appending(path: "system.caf", directoryHint: .notDirectory) }
-    var metadataURL: URL { url.appending(path: "meta.json", directoryHint: .notDirectory) }
+    public init(url: URL, name: String, startedAt: Date) {
+        self.url = url
+        self.name = name
+        self.startedAt = startedAt
+    }
+
+    public var micURL: URL { url.appending(path: "mic.caf", directoryHint: .notDirectory) }
+    public var systemURL: URL { url.appending(path: "system.caf", directoryHint: .notDirectory) }
+    public var metadataURL: URL { url.appending(path: "meta.json", directoryHint: .notDirectory) }
 }

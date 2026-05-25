@@ -1,4 +1,5 @@
 import AppSettings
+import RecordingStorage
 import SwiftUI
 
 @main
