@@ -21,6 +21,8 @@ xcodebuild -project audio-pipeline.xcodeproj -scheme audio-pipeline clean
 xcodebuild -project audio-pipeline.xcodeproj -scheme audio-pipeline -configuration Debug -showBuildSettings | rg '^\s+BUILT_PRODUCTS_DIR'
 ```
 
+From inside the Claude Code sandbox, add `-derivedDataPath /tmp/audio-pipeline-build OTHER_SWIFT_FLAGS=-disable-sandbox` — see [[build-location-icloud]] for why.
+
 To launch the built app: `open <BUILT_PRODUCTS_DIR>/audio-pipeline.app`. For interactive development, opening the `.xcodeproj` in Xcode and using ⌘R is faster.
 
 ## Tests
@@ -64,11 +66,31 @@ Add `--json` for scripted/parseable output.
 
 ### Skills & plugins (Claude Code, project scope)
 
-Scoped to this repo, not installed globally. `xcodebuildmcp-cli` lives in `.claude/skills/`; the three plugins are enabled in `.claude/settings.json`, which also declares the two AvdLee marketplaces so a fresh clone can resolve them. A Claude Code restart is needed after cloning for the plugins to load.
+Project-scoped — declared in this repo, not in your global Claude Code setup. Two delivery mechanisms:
 
-- **`xcodebuildmcp-cli` skill** — wraps `xcodebuild` build/test/run, simulator/device control, log streaming, and UI automation. Use this for build artefacts and test runs instead of hand-assembling `xcodebuild` invocations. The build snippets in the "Build & run" section above are for human use.
+- **Local skills** are folders in `.claude/skills/`. Vendored skills travel with the repo on `git clone` and need no restart. The six `swift*`/`swiftui*` skills below are *not* vendored (gitignored) — clone them from [Dimillian/Skills](https://github.com/Dimillian/Skills) into `.claude/skills/` yourself.
+- **Plugins** are enabled in `.claude/settings.json`, which also declares the `swiftui-expert-skill` marketplace so a fresh clone can resolve it. Plugin code is fetched from the marketplace on clone; a Claude Code restart is then needed for plugins to load.
+
+**Local skills (`.claude/skills/`)**
+
+- **`swift-state-machine`** — build type-safe Swift state machines with enum states and action-based transitions. Use for lifecycle/protocol flows, reentrancy-sensitive operations, or async/concurrent workflows.
+- **`swift-concurrency-expert`** — Swift 6.2+ concurrency review and remediation: Sendable conformance, `@MainActor` annotations, actor-isolation warnings, data-race diagnostics, completion-handler → async/await migration.
+- **`swiftui-liquid-glass`** — implement, review, or improve SwiftUI features using the iOS 26+ Liquid Glass API.
+- **`swiftui-performance-audit`** — diagnose slow rendering, janky scrolling, excessive view updates, and layout thrash from code review; guides user-run Instruments profiling when needed.
+- **`swiftui-ui-patterns`** — example-driven SwiftUI view/component patterns (navigation, view modifiers, stacks/grids); ships 30+ topic docs under `references/`.
+- **`swiftui-view-refactor`** — refactor SwiftUI view files toward small dedicated subviews, MV-over-MVVM data flow, stable view trees, and correct Observation usage.
+
+The five `swift*`/`swiftui*` skills above are from [Dimillian/Skills](https://github.com/Dimillian/Skills). The four `swiftui-*` ones overlap the `swiftui-expert` plugin below — both are available; pick whichever fits the task.
+
+**Plugins (`.claude/settings.json`)**
+
 - **`swiftui-expert@swiftui-expert-skill`** — SwiftUI best-practice guidance: state management, view composition, performance (lists, scrolling, navigation), Swift Charts, animation, macOS-specific patterns, accessibility, Instruments trace analysis. Reach for it whenever you're laying out new SwiftUI views or troubleshooting view performance.
-- **`swift-concurrency@swift-concurrency-agent-skill`** — Swift 6 concurrency guidance: actors, async/await, AsyncSequence, Sendable conformance, task lifecycle, testing concurrent code, Swift 6 migration. This project's strict concurrency settings make it the right reference for every audio-thread, actor-isolation, or `@Sendable` question — pair it with `[[swift-modules-and-gotchas.md]]` for the project-specific traps.
 - **`swift-lsp@claude-plugins-official`** — SourceKit-LSP wrapper for Swift code intelligence (jump-to-def, diagnostics, hover) inside Claude Code. Attaches to `.swift` files automatically once Claude Code is restarted after install.
+
+`enabledPlugins` also carries `false` overrides for `frontend-design` and `ui-ux-pro-max` — global (user-scoped) plugins switched off for this repo as irrelevant to a native macOS app.
+
+**Disabled skills (`skillOverrides` in `.claude/settings.json`)**
+
+`agent-browser`, `firecrawl-scrape`, `tui-design-skill`, and `writing-for-humans` are set to `off` — globally-available skills with no bearing on a macOS SwiftUI app.
 
 Manage with `claude plugin list`, `claude plugin enable/disable <name>`, `claude plugin update <name>`. Add new sources repo-locally with `claude plugin marketplace add <owner/repo> --scope project` and `claude plugin install <plugin> --scope project` (both default to user scope otherwise).

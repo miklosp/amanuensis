@@ -12,3 +12,9 @@ Packages/**/.build/
 
 # Git worktrees
 .worktrees/
+
+# Local Claude Code state — user-installed skills (from Dimillian/Skills)
+# and XcodeBuildMCP per-machine session config. Not vendored.
+.claude/skills/swift-*/
+.claude/skills/swiftui-*/
+.xcodebuildmcp/

@@ -1,8 +1,14 @@
 {
+  "skillOverrides": {
+    "agent-browser": "off",
+    "firecrawl-scrape": "off",
+    "tui-design-skill": "off",
+    "writing-for-humans": "off"
+  },
   "enabledPlugins": {
     "swift-lsp@claude-plugins-official": true,
-    "swiftui-expert@swiftui-expert-skill": true,
-    "swift-concurrency@swift-concurrency-agent-skill": true
+    "frontend-design@claude-plugins-official": false,
+    "ui-ux-pro-max@ui-ux-pro-max-skill": false
   },
   "extraKnownMarketplaces": {
     "swiftui-expert-skill": {
