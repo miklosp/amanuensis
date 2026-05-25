@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import os
+import RecordingStorage
 
 // One in-progress recording. Owns both capture paths and the destination
 // folder. Lifecycle is strictly create → start → stop; sessions are not
