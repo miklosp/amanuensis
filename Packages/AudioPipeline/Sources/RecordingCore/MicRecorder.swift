@@ -25,11 +25,18 @@ final class MicRecorder {
     func start() throws {
         let writer = self.writer
         let format = writer.processingFormat
+        // The tap fires on AVAudioEngine's render thread. Without the explicit
+        // @Sendable marker the closure inherits MainActor isolation (because
+        // MicRecorder is @MainActor and the RecordingCore module enables the
+        // NonisolatedNonsendingByDefault upcoming feature), which makes the
+        // Swift runtime assert "current executor is MainActor" on every fire
+        // and SIGTRAP on the audio thread. @Sendable opts out of that
+        // inheritance — matches ProcessTapRecorder's IOProc block.
         engine.inputNode.installTap(
             onBus: 0,
             bufferSize: 4096,
             format: format
-        ) { buffer, _ in
+        ) { @Sendable [writer] buffer, _ in
             writer.enqueue(buffer)
         }
         engine.prepare()
