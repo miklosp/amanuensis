@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-macOS SwiftUI app, freshly scaffolded by Xcode 26.5. Bundle identifier `work.miklos.audio-pipeline`, deployment target macOS 26.3, Swift 5.0. The current source (`audio_pipelineApp.swift`, `ContentView.swift`) is the default Xcode "Hello, world!" template — no audio-pipeline functionality has been implemented yet.
+macOS SwiftUI app. Bundle identifier `work.miklos.audio-pipeline`, deployment target macOS 26.3, Swift 6.2. M1 (menu-bar recorder, mic + system audio capture via Core Audio process tap, FLAC conversion) is complete. Source for the audio + storage + settings layers lives in a local SPM umbrella package at `Packages/AudioPipeline/`; the app target keeps UI, the app entry point, and `AppCoordinator` as the composition root.
 
 ## Build & run
 
@@ -25,11 +25,16 @@ To launch the built app: `open <BUILT_PRODUCTS_DIR>/audio-pipeline.app`. For int
 
 ## Tests
 
-No test target is configured. If you need to add tests, create a new unit/UI test target in Xcode — do not hand-edit `project.pbxproj` to add one.
+Two test surfaces:
+
+- **SPM tests** (autonomous, run via `swift test --disable-sandbox --package-path Packages/AudioPipeline`): deterministic logic in `AppSettingsTests`, `RecordingStorageTests`, `RecordingCoreTests`. These run inside the Claude Code sandbox without flags. (The `--disable-sandbox` flag is needed because SwiftPM's manifest compilation would otherwise call `sandbox_apply` and hit the nested-sandbox blocker.)
+- **App-hosted XCTest** (`audio-pipelineTests` target, Xcode-scoped): integration smoke for code that needs a real audio device, the TCC private SPI, or a running `NSApp`. Run from Xcode (⌘U) or `xcodebuild test`. The latter currently hits the codesign-in-nested-sandbox blocker described in `~/.claude/projects/-Users-miklos-Code-audio-pipeline/memory/project_xcodebuild_test_sandbox.md`.
+
+The SPM scaffolding script for adding new library products is `scripts/run-setup-spm-package.sh <ProductName>`.
 
 ## Project structure quirks
 
-- **`PBXFileSystemSynchronizedRootGroup`**: the `audio-pipeline/` source folder is declared as a synchronized group in `project.pbxproj`. New `.swift` files dropped into `audio-pipeline/` (or its subfolders) are automatically picked up by Xcode — no need to edit the pbxproj to register them. Subfolders become groups automatically.
+- **`PBXFileSystemSynchronizedRootGroup`**: the `audio-pipeline/` source folder is declared as a synchronized group in `project.pbxproj`. New `.swift` files dropped into `audio-pipeline/` (or its subfolders) are automatically picked up by Xcode — no need to edit the pbxproj to register them. Subfolders become groups automatically. The synchronized group's folder (`audio-pipeline/`) and the package source folders (`Packages/AudioPipeline/Sources/`) deliberately do not overlap — see `docs/superpowers/specs/2026-05-24-spm-module-architecture-design.md` §4.
 - **Default actor isolation is `MainActor`** (`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`). Types and functions are implicitly `@MainActor` unless explicitly annotated otherwise (e.g. `nonisolated`, `@globalActor`-typed, or moved to a background actor). Keep this in mind when adding audio code, which typically needs to run off the main thread — explicitly opt out with `nonisolated` or a dedicated actor.
 - **App Sandbox is on** (`ENABLE_APP_SANDBOX = YES`) with `ENABLE_USER_SELECTED_FILES = readonly`. Any audio file I/O beyond user-selected reads will require adding entitlements (microphone, audio input, file read/write scopes) — the entitlements file does not yet exist and will need to be created and wired into `INFOPLIST` / build settings when needed.
 - `SWIFT_APPROACHABLE_CONCURRENCY = YES` and `SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES` are enabled — concurrency diagnostics are strict.
