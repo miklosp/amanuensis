@@ -68,5 +68,5 @@ public struct RecordingMetadata: Sendable {
 
 // Conformances in a nonisolated extension so the synthesized encode/decode
 // witnesses are not MainActor-isolated (module default is MainActor).
-nonisolated extension RecordingMetadata: Codable {}
-nonisolated extension RecordingMetadata.TrackMetadata: Codable {}
+nonisolated extension RecordingMetadata: Codable, Equatable {}
+nonisolated extension RecordingMetadata.TrackMetadata: Codable, Equatable {}
