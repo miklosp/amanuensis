@@ -6,9 +6,15 @@ import os
 import RecordingCore
 import RecordingStorage
 
-// Top-level app state. Holds the active recording session (if any), surfaces
-// status to the menu bar, and routes start/stop/open-folder actions through
-// to the audio + storage layers.
+// Top-level app state. Drives a pure RecorderStateMachine; performs side
+// effects (permissions, file system, audio capture, FLAC conversion) outside
+// the machine and feeds the results back via the machine's event methods.
+//
+// Public surface (status / lastError / lastFolderURL / isRecording / isBusy)
+// is preserved exactly so MenuBarContent, RecordingsView, and the app entry
+// point do not need edits. Those properties are computed from the machine;
+// @Observable tracks reads of the `machine` storage and notifies on any
+// mutation triggered by an event method.
 @MainActor
 @Observable
 final class AppCoordinator {
@@ -19,30 +25,30 @@ final class AppCoordinator {
         case stopping
     }
 
-    private(set) var status: Status = .idle
-    private(set) var lastError: String?
-    private(set) var lastFolderURL: URL?
+    var status: Status {
+        switch machine.phase {
+        case .idle: return .idle
+        case .starting: return .starting
+        case .recording(let name, _): return .recording(folderName: name)
+        case .stopping: return .stopping
+        }
+    }
+
+    var lastError: String? { machine.lastError }
+    var lastFolderURL: URL? { machine.lastFolderURL }
+    var isRecording: Bool { machine.isRecording }
+    var isBusy: Bool { machine.isBusy }
 
     let settings: AppSettings
     let library: RecordingsLibrary
+
+    private var machine = RecorderStateMachine()
     private var session: RecordingSession?
 
     init() {
         let settings = AppSettings()
         self.settings = settings
         self.library = RecordingsLibrary { settings.recordingsDirectory }
-    }
-
-    var isRecording: Bool {
-        if case .recording = status { return true }
-        return false
-    }
-
-    var isBusy: Bool {
-        switch status {
-        case .starting, .stopping: return true
-        default: return false
-        }
     }
 
     func toggleRecording() {
@@ -56,16 +62,11 @@ final class AppCoordinator {
     }
 
     func startRecording() async {
-        guard case .idle = status else { return }
-        status = .starting
-        lastError = nil
+        guard machine.start() == .requestPermissionsAndStart else { return }
 
-        let granted = await MicrophonePermission.requestIfNeeded()
-        guard granted else {
-            lastError = "Microphone permission denied. Grant it in System Settings → Privacy & Security → Microphone."
-            status = .idle
-            return
-        }
+        let micGranted = await MicrophonePermission.requestIfNeeded()
+        _ = machine.permissionsResolved(micGranted: micGranted)
+        guard micGranted else { return }
 
         // System audio capture is a separate TCC grant. Without it the Core
         // Audio process tap delivers silence with no error, so request it
@@ -80,44 +81,50 @@ final class AppCoordinator {
             let store = RecordingStore(baseURL: settings.recordingsDirectory)
             folder = try store.makeRecordingFolder(label: nil)
         } catch {
-            lastError = "Couldn't create recording folder: \(error.localizedDescription)"
-            status = .idle
+            _ = machine.sessionFailed("Couldn't create recording folder: \(error.localizedDescription)")
             return
         }
+
+        guard machine.folderReady(name: folder.name, url: folder.url) == .startSession else { return }
 
         do {
             let newSession = try RecordingSession(folder: folder)
             try newSession.start()
             session = newSession
-            lastFolderURL = folder.url
-            status = .recording(folderName: folder.name)
+            _ = machine.sessionStarted()
             Self.log.info("recording started in \(folder.name, privacy: .public)")
         } catch {
-            lastError = "Couldn't start recording: \(error.localizedDescription)"
-            status = .idle
+            _ = machine.sessionFailed("Couldn't start recording: \(error.localizedDescription)")
             Self.log.error("start failed: \(String(describing: error), privacy: .public)")
         }
     }
 
     func stopRecording() async {
-        guard case .recording = status, let active = session else { return }
-        status = .stopping
+        guard machine.stop() == .stopSession, let active = session else { return }
+
         let folder = active.folder
         let result = active.stop()
         session = nil
-        status = .idle
+
         Self.log.info("recording stopped — mic frames \(result.mic.framesWritten, privacy: .public), system frames \(result.system?.framesWritten ?? -1, privacy: .public)")
-        Task { await runOutputConversion(for: folder) }
+
+        let stoppedAction = machine.sessionStopped(folderURL: folder.url)
+        if case .convertOutput = stoppedAction {
+            Task { @MainActor in
+                let conversionResult = await self.runConversion(for: folder)
+                _ = self.machine.conversionFinished(conversionResult)
+                self.library.refresh()
+            }
+        }
     }
 
     // Runs after a recording stops. Converts mic/system tracks to FLAC per the
-    // output-format setting, then refreshes the recordings list.
-    private func runOutputConversion(for folder: RecordingFolder) async {
+    // output-format setting. Returns one Result — on any track failure, the
+    // first error is surfaced (spec §7 'Faithful simplification'). Phase D
+    // will extract the per-track planning into OutputConversionPlanner.
+    private func runConversion(for folder: RecordingFolder) async -> Result<Void, Error> {
         let format = settings.outputFormat
-        guard format != .caf else {
-            library.refresh()
-            return
-        }
+        guard format != .caf else { return .success(()) }
 
         let tracks: [(caf: URL, flac: URL)] = [
             (folder.micURL,
@@ -126,6 +133,7 @@ final class AppCoordinator {
              folder.url.appending(path: "system.flac", directoryHint: .notDirectory)),
         ]
 
+        var firstFailure: Error?
         for track in tracks {
             guard FileManager.default.fileExists(atPath: track.caf.path) else { continue }
             do {
@@ -134,12 +142,13 @@ final class AppCoordinator {
                     try? FileManager.default.removeItem(at: track.caf)
                 }
             } catch {
-                lastError = "FLAC conversion failed: \(error.localizedDescription)"
+                if firstFailure == nil { firstFailure = error }
                 Self.log.error("FLAC export failed for \(track.caf.lastPathComponent, privacy: .public): \(String(describing: error), privacy: .public)")
             }
         }
 
-        library.refresh()
+        if let firstFailure { return .failure(firstFailure) }
+        return .success(())
     }
 
     func openRecordingsFolder() {
