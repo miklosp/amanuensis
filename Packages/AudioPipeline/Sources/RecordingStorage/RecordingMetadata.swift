@@ -1,6 +1,8 @@
 import Foundation
 
-public struct RecordingMetadata: Codable, Sendable {
+// Declared without Codable here; conformance is in the nonisolated extension
+// below so the synthesized encode/decode witnesses aren't MainActor-isolated.
+public struct RecordingMetadata: Sendable {
     public var schemaVersion: Int = 1
     public var folderName: String
     public var startedAt: Date
@@ -33,7 +35,7 @@ public struct RecordingMetadata: Codable, Sendable {
         self.notes = notes
     }
 
-    public struct TrackMetadata: Codable, Sendable {
+    public struct TrackMetadata: Sendable {
         public var fileName: String
         public var sampleRate: Double
         public var channelCount: Int
@@ -55,7 +57,7 @@ public struct RecordingMetadata: Codable, Sendable {
         }
     }
 
-    public func write(to url: URL) throws {
+    public nonisolated func write(to url: URL) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
@@ -63,3 +65,8 @@ public struct RecordingMetadata: Codable, Sendable {
         try data.write(to: url, options: .atomic)
     }
 }
+
+// Conformances in a nonisolated extension so the synthesized encode/decode
+// witnesses are not MainActor-isolated (module default is MainActor).
+nonisolated extension RecordingMetadata: Codable {}
+nonisolated extension RecordingMetadata.TrackMetadata: Codable {}

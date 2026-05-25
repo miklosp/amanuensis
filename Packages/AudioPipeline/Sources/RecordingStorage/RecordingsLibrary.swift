@@ -3,6 +3,7 @@ import Observation
 
 // The model behind the Recordings window. Scans the recordings directory and
 // parses each recording's meta.json into a list sorted newest-first.
+@MainActor
 @Observable
 public final class RecordingsLibrary {
     public private(set) var recordings: [RecordingItem] = []
@@ -47,7 +48,7 @@ public struct RecordingItem: Identifiable {
     public let sizeBytes: Int64
     public let formatSummary: String
 
-    public init?(folderURL: URL) {
+    public nonisolated init?(folderURL: URL) {
         let metadataURL = folderURL.appending(path: "meta.json", directoryHint: .notDirectory)
         guard let data = try? Data(contentsOf: metadataURL),
               let meta = try? Self.decoder.decode(RecordingMetadata.self, from: data) else {
@@ -83,7 +84,7 @@ public struct RecordingItem: Identifiable {
             .joined(separator: " + ")
     }
 
-    private static let decoder: JSONDecoder = {
+    private nonisolated static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return decoder

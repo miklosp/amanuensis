@@ -66,10 +66,13 @@ final class RecordingSession {
             hostAppVersion: Self.hostAppVersion,
             notes: nil
         )
-        do {
-            try metadata.write(to: folder.metadataURL)
-        } catch {
-            Self.log.error("metadata write failed: \(String(describing: error), privacy: .public)")
+        let url = folder.metadataURL
+        Task.detached {
+            do {
+                try metadata.write(to: url)
+            } catch {
+                Self.log.error("metadata write failed: \(String(describing: error), privacy: .public)")
+            }
         }
     }
 
@@ -89,5 +92,5 @@ final class RecordingSession {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
     }
 
-    private static let log = Logger(subsystem: "work.miklos.audio-pipeline", category: "session")
+    nonisolated private static let log = Logger(subsystem: "work.miklos.audio-pipeline", category: "session")
 }
