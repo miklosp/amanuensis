@@ -18,3 +18,33 @@ import Testing
         }
     }
 }
+
+@Suite struct JobShapeFields {
+    @Test func chatCompletionsAudio_hasPromptAndTemperature() {
+        let keys = JobShape.chatCompletionsAudio.fields.map(\.key)
+        #expect(keys.contains("prompt"))
+        #expect(keys.contains("temperature"))
+    }
+
+    @Test func transcriptionMultipart_hasLanguageAndResponseFormat() {
+        let keys = JobShape.transcriptionMultipart.fields.map(\.key)
+        #expect(keys.contains("language"))
+        #expect(keys.contains("response_format"))
+    }
+
+    @Test func elevenLabsScribe_usesItsOwnFieldNames() {
+        let keys = JobShape.elevenLabsScribe.fields.map(\.key)
+        #expect(keys.contains("language_code"))
+        #expect(keys.contains("diarize"))
+    }
+
+    @Test func gemini_hasThinkingBudget() {
+        let keys = JobShape.geminiGenerateContent.fields.map(\.key)
+        #expect(keys.contains("thinkingBudget"))
+    }
+
+    @Test(arguments: JobShape.allCases)
+    func allShapes_haveAtLeastOneField(shape: JobShape) {
+        #expect(!shape.fields.isEmpty)
+    }
+}
