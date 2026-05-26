@@ -22,19 +22,39 @@ struct JobsSettingsPanel: View {
 
             Divider()
 
-            HStack(spacing: 8) {
-                Button { creating = true } label: { Image(systemName: "plus") }
-                Button {
-                    if let id = selectedJobID, let job = jobs.jobs.first(where: { $0.id == id }) {
-                        editing = job
+            GlassEffectContainer(spacing: 8) {
+                HStack(spacing: 8) {
+                    Button {
+                        creating = true
+                    } label: {
+                        Image(systemName: "plus")
                     }
-                } label: { Image(systemName: "pencil") }
-                .disabled(selectedJobID == nil)
-                Button {
-                    if let id = selectedJobID { jobs.delete(id: id); selectedJobID = nil }
-                } label: { Image(systemName: "minus") }
-                .disabled(selectedJobID == nil)
-                Spacer()
+                    .buttonStyle(.glass)
+
+                    Button {
+                        if let id = selectedJobID,
+                           let job = jobs.jobs.first(where: { $0.id == id }) {
+                            editing = job
+                        }
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .buttonStyle(.glass)
+                    .disabled(selectedJobID == nil)
+
+                    Button {
+                        if let id = selectedJobID {
+                            jobs.delete(id: id)
+                            selectedJobID = nil
+                        }
+                    } label: {
+                        Image(systemName: "minus")
+                    }
+                    .buttonStyle(.glass)
+                    .disabled(selectedJobID == nil)
+
+                    Spacer()
+                }
             }
             .padding(8)
         }

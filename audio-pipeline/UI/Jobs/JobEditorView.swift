@@ -114,6 +114,7 @@ struct JobEditorView: View {
                 Button("Save") { save() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canSave)
+                    .buttonStyle(.glassProminent)
             }
             .padding(12)
         }
