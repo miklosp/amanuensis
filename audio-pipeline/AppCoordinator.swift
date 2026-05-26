@@ -1,5 +1,6 @@
 import AppKit
 import AppSettings
+import AudioPipelineJobs
 import Foundation
 import Observation
 import os
@@ -41,6 +42,9 @@ final class AppCoordinator {
 
     let settings: AppSettings
     let library: RecordingsLibrary
+    let keychain: KeychainStore
+    let presets: PresetsStore
+    let jobs: JobsStore
 
     private var machine = RecorderStateMachine()
     private var session: RecordingSession?
@@ -49,6 +53,24 @@ final class AppCoordinator {
         let settings = AppSettings()
         self.settings = settings
         self.library = RecordingsLibrary { settings.recordingsDirectory }
+        self.keychain = KeychainStore()
+        do {
+            self.presets = try PresetsStore.loadBundled()
+        } catch {
+            Self.log.error("failed to load presets: \(String(describing: error), privacy: .public)")
+            self.presets = PresetsStore(presets: [])
+        }
+        do {
+            self.jobs = try JobsStore.standard(bundleID: "work.miklos.audio-pipeline")
+        } catch {
+            Self.log.error("failed to load jobs: \(String(describing: error), privacy: .public)")
+            // Last-resort in-memory store at a throwaway temp path.
+            let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("jobs-fallback.json")
+            self.jobs = (try? JobsStore(fileURL: tmp)) ?? {
+                preconditionFailure("could not initialise JobsStore even at temp path")
+            }()
+        }
     }
 
     func toggleRecording() {
