@@ -46,6 +46,8 @@ final class AppCoordinator {
     let presets: PresetsStore
     let jobs: JobsStore
 
+    var jobActivity: String?
+
     private var machine = RecorderStateMachine()
     private var session: RecordingSession?
 
@@ -176,20 +178,41 @@ final class AppCoordinator {
         NSWorkspace.shared.open(url)
     }
 
+    @discardableResult
     func runJob(_ job: Job, on recordingFolder: URL) async -> Result<URL, Error> {
+        let recordingName = recordingFolder.lastPathComponent
+        jobActivity = "Running '\(job.name)' on '\(recordingName)'…"
+
         // combined.flac is the canonical input — guaranteed to exist after a
         // successful recording (mic + optional system mixed at stop).
         let target = recordingFolder.appendingPathComponent("combined.flac")
         guard FileManager.default.fileExists(atPath: target.path) else {
+            await self.flashActivity("Failed: '\(job.name)' — combined.flac missing")
             return .failure(JobRunError.combinedFlacMissing)
         }
         let runner = JobRunner(keychain: keychain)
         do {
             let out = try await runner.run(job: job, audioURL: target)
+            await self.flashActivity("Done: '\(job.name)' → \(out.lastPathComponent)")
             return .success(out)
         } catch {
             Self.log.error("job '\(job.name, privacy: .public)' failed: \(String(describing: error), privacy: .public)")
+            await self.flashActivity("Failed: '\(job.name)' — \(error.localizedDescription)")
             return .failure(error)
+        }
+    }
+
+    // Shows a transient activity message that auto-clears after ~3 seconds.
+    // A subsequent runJob call replaces this immediately (no queue).
+    private func flashActivity(_ message: String) async {
+        jobActivity = message
+        let snapshot = message
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            // Only clear if our message is still the current one — a new run may
+            // have replaced it.
+            guard self?.jobActivity == snapshot else { return }
+            self?.jobActivity = nil
         }
     }
 
