@@ -1,9 +1,11 @@
 import AppKit
+import AudioPipelineJobs
 import RecordingStorage
 import SwiftUI
 
 struct RecordingsView: View {
     @Bindable var library: RecordingsLibrary
+    let coordinator: AppCoordinator
     @State private var selection: Set<RecordingItem.ID> = []
     @State private var pendingDelete: RecordingItem?
 
@@ -21,6 +23,25 @@ struct RecordingsView: View {
             if let item = ids.first.flatMap(item(for:)) {
                 Button("Play") { play(item) }
                 Button("Reveal in Finder") { reveal(item) }
+
+                if coordinator.jobs.jobs.isEmpty {
+                    Text("No Jobs defined")
+                } else {
+                    Menu("Run Job") {
+                        ForEach(coordinator.jobs.jobs) { job in
+                            Button(job.name) {
+                                Task {
+                                    let result = await coordinator.runJob(job, on: item.folderURL)
+                                    if case .success(let out) = result {
+                                        NSWorkspace.shared.activateFileViewerSelecting([out])
+                                    }
+                                    // Failure case logged in AppCoordinator.runJob; UI surfacing deferred to post-MVP.
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Button("Delete…", role: .destructive) { pendingDelete = item }
             }
         }

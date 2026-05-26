@@ -26,7 +26,7 @@ struct AudioPipelineApp: App {
         }
 
         Window("Recordings", id: "recordings") {
-            RecordingsView(library: coordinator.library)
+            RecordingsView(library: coordinator.library, coordinator: coordinator)
         }
     }
 }
