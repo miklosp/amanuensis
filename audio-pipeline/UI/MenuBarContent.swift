@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct MenuBarContent: View {
@@ -29,6 +30,14 @@ struct MenuBarContent: View {
 
             Button("Recordings…") {
                 openWindow(id: "recordings")
+                NSApp.activate()
+                // Raise the recordings window above other windows of this app.
+                // Defer one runloop tick so openWindow has time to surface the window.
+                DispatchQueue.main.async {
+                    if let win = NSApp.windows.first(where: { $0.identifier?.rawValue == "recordings" }) {
+                        win.makeKeyAndOrderFront(nil)
+                    }
+                }
             }
 
             if let error = coordinator.lastError {
@@ -40,8 +49,14 @@ struct MenuBarContent: View {
 
             Divider()
 
-            SettingsLink {
-                Text("Settings…")
+            Button("Settings…") {
+                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                NSApp.activate()
+                DispatchQueue.main.async {
+                    if let win = NSApp.windows.first(where: { $0.title.contains("Settings") || $0.identifier?.rawValue.contains("com_apple_SwiftUI_Settings") == true }) {
+                        win.makeKeyAndOrderFront(nil)
+                    }
+                }
             }
 
             Button("Quit") {
