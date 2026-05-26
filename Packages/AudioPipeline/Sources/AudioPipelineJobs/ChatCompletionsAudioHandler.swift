@@ -76,3 +76,46 @@ public enum ChatCompletionsAudioHandler {
         return ext.isEmpty ? "flac" : ext
     }
 }
+
+extension ChatCompletionsAudioHandler {
+    public enum SendError: Error {
+        case httpError(status: Int, body: Data)
+        case malformedResponse
+    }
+
+    public static func send(
+        job: Job,
+        audioURL: URL,
+        apiKey: String,
+        session: URLSession = .shared
+    ) async throws -> String {
+        let request = try buildRequest(job: job, audioURL: audioURL, apiKey: apiKey)
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw SendError.malformedResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw SendError.httpError(status: http.statusCode, body: data)
+        }
+        return try parseContent(data: data)
+    }
+
+    static func parseContent(data: Data) throws -> String {
+        struct Envelope: Decodable {
+            struct Choice: Decodable {
+                struct Message: Decodable { let content: String }
+                let message: Message
+            }
+            let choices: [Choice]
+        }
+        do {
+            let env = try JSONDecoder().decode(Envelope.self, from: data)
+            guard let first = env.choices.first else { throw SendError.malformedResponse }
+            return first.message.content
+        } catch is SendError {
+            throw SendError.malformedResponse
+        } catch {
+            throw SendError.malformedResponse
+        }
+    }
+}

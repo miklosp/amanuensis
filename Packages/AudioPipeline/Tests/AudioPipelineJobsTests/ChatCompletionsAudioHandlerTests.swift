@@ -118,3 +118,73 @@ private func writeAudio(_ bytes: [UInt8], ext: String) throws -> URL {
         }
     }
 }
+
+// URLProtocol stub that returns a fixed (Data, HTTPURLResponse) pair for
+// every request and records the last URLRequest seen.
+final class StubProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var response: (Int, Data)?
+    nonisolated(unsafe) static var lastRequest: URLRequest?
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        Self.lastRequest = request
+        guard let (status, body) = Self.response else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+        let resp = HTTPURLResponse(url: request.url!, statusCode: status,
+                                   httpVersion: "HTTP/1.1", headerFields: nil)!
+        client?.urlProtocol(self, didReceive: resp, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+private func stubSession(status: Int, body: Data) -> URLSession {
+    StubProtocol.response = (status, body)
+    StubProtocol.lastRequest = nil
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [StubProtocol.self]
+    return URLSession(configuration: config)
+}
+
+@Suite(.serialized) struct ChatCompletionsAudioResponse {
+    @Test func send_returnsContent_onSuccess() async throws {
+        let json = #"{"choices":[{"message":{"content":"Hello world"}}]}"#
+        let session = stubSession(status: 200, body: Data(json.utf8))
+        let job = makeJob(prompt: "p")
+        let audio = try writeAudio([0x01], ext: "flac")
+        let text = try await ChatCompletionsAudioHandler.send(job: job, audioURL: audio,
+                                                              apiKey: "k", session: session)
+        #expect(text == "Hello world")
+    }
+
+    @Test func send_throws_onNon200() async throws {
+        let session = stubSession(status: 401, body: Data(#"{"error":"unauthorized"}"#.utf8))
+        let job = makeJob(prompt: "p")
+        let audio = try writeAudio([0x01], ext: "flac")
+        do {
+            _ = try await ChatCompletionsAudioHandler.send(job: job, audioURL: audio,
+                                                          apiKey: "k", session: session)
+            Issue.record("expected throw")
+        } catch ChatCompletionsAudioHandler.SendError.httpError(let code, _) {
+            #expect(code == 401)
+        }
+    }
+
+    @Test func send_throws_whenChoicesMissing() async throws {
+        let session = stubSession(status: 200, body: Data(#"{"unexpected":true}"#.utf8))
+        let job = makeJob(prompt: "p")
+        let audio = try writeAudio([0x01], ext: "flac")
+        do {
+            _ = try await ChatCompletionsAudioHandler.send(job: job, audioURL: audio,
+                                                          apiKey: "k", session: session)
+            Issue.record("expected throw")
+        } catch ChatCompletionsAudioHandler.SendError.malformedResponse {
+            // expected
+        }
+    }
+}
