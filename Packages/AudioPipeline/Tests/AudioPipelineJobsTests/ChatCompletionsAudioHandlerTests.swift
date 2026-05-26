@@ -93,4 +93,28 @@ private func writeAudio(_ bytes: [UInt8], ext: String) throws -> URL {
         let req = try ChatCompletionsAudioHandler.buildRequest(job: job, audioURL: audio, apiKey: "k")
         #expect(req.url?.absoluteString == "http://example.com/v1/chat/completions")
     }
+
+    @Test func buildRequest_throws_missingPrompt_whenPromptEmpty() throws {
+        var job = makeJob(prompt: "Hello")
+        job.fields["prompt"] = ""
+        let audio = try writeAudio([0x01], ext: "flac")
+        do {
+            _ = try ChatCompletionsAudioHandler.buildRequest(job: job, audioURL: audio, apiKey: "k")
+            Issue.record("expected missingPrompt")
+        } catch ChatCompletionsAudioHandler.BuildError.missingPrompt {
+            // expected
+        }
+    }
+
+    @Test func buildRequest_throws_audioReadFailed_whenFileMissing() throws {
+        let job = makeJob(prompt: "p")
+        let missing = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("nonexistent-\(UUID().uuidString).flac")
+        do {
+            _ = try ChatCompletionsAudioHandler.buildRequest(job: job, audioURL: missing, apiKey: "k")
+            Issue.record("expected audioReadFailed")
+        } catch ChatCompletionsAudioHandler.BuildError.audioReadFailed {
+            // expected
+        }
+    }
 }

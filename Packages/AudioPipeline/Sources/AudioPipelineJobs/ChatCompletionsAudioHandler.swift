@@ -41,7 +41,7 @@ public enum ChatCompletionsAudioHandler {
 
         let format = resolveFormat(declared: job.fields["audio_format"], audioURL: audioURL)
 
-        var contentBlocks: [[String: Any]] = [
+        let contentBlocks: [[String: Any]] = [
             ["type": "input_audio",
              "input_audio": [
                 "data": audioData.base64EncodedString(),
@@ -49,7 +49,6 @@ public enum ChatCompletionsAudioHandler {
              ]],
             ["type": "text", "text": prompt],
         ]
-        _ = contentBlocks  // silence "may be unused" if ever reordered
 
         var body: [String: Any] = [
             "model": job.model,
