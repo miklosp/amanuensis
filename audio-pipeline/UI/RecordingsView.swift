@@ -44,6 +44,10 @@ struct RecordingsView: View {
 
                 Button("Delete…", role: .destructive) { pendingDelete = item }
             }
+        } primaryAction: { ids in
+            if let item = ids.first.flatMap(item(for:)) {
+                NSWorkspace.shared.open(item.folderURL)
+            }
         }
         .alert(
             "Delete “\(pendingDelete?.name ?? "")”?",
