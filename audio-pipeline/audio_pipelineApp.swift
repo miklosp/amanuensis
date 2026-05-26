@@ -5,6 +5,7 @@ import SwiftUI
 
 @main
 struct AudioPipelineApp: App {
+    @NSApplicationDelegateAdaptor(AudioPipelineAppDelegate.self) private var appDelegate
     @State private var coordinator = AppCoordinator()
 
     var body: some Scene {

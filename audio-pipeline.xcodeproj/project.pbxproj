@@ -384,7 +384,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_LSUIElement = NO;
 				INFOPLIST_KEY_NSAudioCaptureUsageDescription = "audio-pipeline captures system audio output to your local recordings folder.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "audio-pipeline records microphone audio to your local recordings folder.";
@@ -420,7 +420,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_LSUIElement = NO;
 				INFOPLIST_KEY_NSAudioCaptureUsageDescription = "audio-pipeline captures system audio output to your local recordings folder.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "audio-pipeline records microphone audio to your local recordings folder.";
