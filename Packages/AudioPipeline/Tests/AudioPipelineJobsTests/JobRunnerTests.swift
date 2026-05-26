@@ -106,4 +106,30 @@ private func makeAudio() throws -> URL {
             // expected
         }
     }
+
+    @Test func run_writesToCustomFolder_whenOutputFolderPathSet() async throws {
+        let audio = try makeAudio()
+        let customFolder = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("custom-\(UUID().uuidString)", isDirectory: true)
+        // Don't pre-create; runner should create it.
+        let runner = JobRunner(
+            keychain: FakeKeychain(key: "k"),
+            handler: FakeHandler(result: .success("hello"))
+        )
+        var job = makeJob()
+        job.outputFolderPath = customFolder.path
+        let outURL = try await runner.run(job: job, audioURL: audio)
+        #expect(outURL.deletingLastPathComponent().path == customFolder.path)
+        #expect(outURL.lastPathComponent == "combined-demo.txt")
+    }
+
+    @Test func run_writesNextToAudio_whenOutputFolderPathNil() async throws {
+        let audio = try makeAudio()
+        let runner = JobRunner(
+            keychain: FakeKeychain(key: "k"),
+            handler: FakeHandler(result: .success("hi"))
+        )
+        let outURL = try await runner.run(job: makeJob(), audioURL: audio)
+        #expect(outURL.deletingLastPathComponent() == audio.deletingLastPathComponent())
+    }
 }

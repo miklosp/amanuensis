@@ -19,8 +19,17 @@ public struct JobRunner: Sendable {
     public func run(job: Job, audioURL: URL) async throws -> URL {
         let key = try await keychain.get(account: job.apiKeyRef.account)
         let text = try await handler.send(job: job, audioURL: audioURL, apiKey: key)
-        let folder = audioURL.deletingLastPathComponent()
+        let folder: URL
+        if let path = job.outputFolderPath, !path.isEmpty {
+            folder = URL(fileURLWithPath: path, isDirectory: true)
+        } else {
+            folder = audioURL.deletingLastPathComponent()
+        }
         let outURL = Self.uniqueOutputURL(in: folder, jobName: job.name, ext: job.outputExt)
+        // Ensure the target folder exists (custom folder might not). Failure here
+        // bubbles via the .write() call below, which is correct: better to throw
+        // than silently produce no file.
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try Data(text.utf8).write(to: outURL, options: .atomic)
         return outURL
     }

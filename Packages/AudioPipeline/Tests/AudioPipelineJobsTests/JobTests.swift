@@ -13,11 +13,13 @@ import Testing
             model: "gemini-flash",
             apiKeyRef: KeychainRef(account: "bifrost-local"),
             fields: ["prompt": "Transcribe...", "temperature": "0.2"],
-            outputExt: "txt"
+            outputExt: "txt",
+            outputFolderPath: "/Users/x/Documents/transcripts"
         )
         let data = try JSONEncoder().encode(job)
         let decoded = try JSONDecoder().decode(Job.self, from: data)
         #expect(decoded == job)
+        #expect(decoded.outputFolderPath == "/Users/x/Documents/transcripts")
     }
 
     @Test func id_isStable_acrossEdits() {
@@ -27,5 +29,12 @@ import Testing
                       fields: [:], outputExt: "txt")
         job.name = "b"
         #expect(job.id == id)
+    }
+
+    @Test func outputFolderPath_defaultsToNil() {
+        let job = Job(name: "n", presetID: "p", baseURL: "", model: "",
+                      apiKeyRef: KeychainRef(account: "k"),
+                      fields: [:], outputExt: "txt")
+        #expect(job.outputFolderPath == nil)
     }
 }

@@ -11,10 +11,12 @@ public struct Job: Identifiable, Codable, Hashable, Sendable {
     public var apiKeyRef: KeychainRef
     public var fields: [String: String]     // shape-specific values
     public var outputExt: String            // "txt", "json", "srt"
+    public var outputFolderPath: String?    // nil = next to recording; set = absolute path to folder
 
     public init(id: UUID = UUID(), name: String, presetID: String,
                 baseURL: String, model: String, apiKeyRef: KeychainRef,
-                fields: [String: String], outputExt: String) {
+                fields: [String: String], outputExt: String,
+                outputFolderPath: String? = nil) {
         self.id = id
         self.name = name
         self.presetID = presetID
@@ -23,5 +25,6 @@ public struct Job: Identifiable, Codable, Hashable, Sendable {
         self.apiKeyRef = apiKeyRef
         self.fields = fields
         self.outputExt = outputExt
+        self.outputFolderPath = outputFolderPath
     }
 }
