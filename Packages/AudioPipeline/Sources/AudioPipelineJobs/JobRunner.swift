@@ -20,7 +20,7 @@ public struct JobRunner: Sendable {
         let key = try await keychain.get(account: job.apiKeyRef.account)
         let text = try await handler.send(job: job, audioURL: audioURL, apiKey: key)
         let outURL = audioURL.deletingPathExtension().appendingPathExtension(job.outputExt)
-        try text.data(using: .utf8)?.write(to: outURL, options: .atomic)
+        try Data(text.utf8).write(to: outURL, options: .atomic)
         return outURL
     }
 }
