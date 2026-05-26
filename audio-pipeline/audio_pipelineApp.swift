@@ -1,4 +1,5 @@
 import AppSettings
+import AudioPipelineJobs
 import RecordingStorage
 import SwiftUI
 
@@ -18,7 +19,10 @@ struct AudioPipelineApp: App {
         .menuBarExtraStyle(.menu)
 
         Settings {
-            SettingsView(settings: coordinator.settings)
+            SettingsView(settings: coordinator.settings,
+                         presets: coordinator.presets,
+                         jobs: coordinator.jobs,
+                         keychain: coordinator.keychain)
         }
 
         Window("Recordings", id: "recordings") {
