@@ -94,3 +94,10 @@ public actor KeychainStore {
         throw Error.osStatus(status)
     }
 }
+
+// Minimal protocol so JobRunner can be tested with a fake.
+public protocol KeychainProviding: Sendable {
+    func get(account: String) async throws -> String
+}
+
+extension KeychainStore: KeychainProviding {}

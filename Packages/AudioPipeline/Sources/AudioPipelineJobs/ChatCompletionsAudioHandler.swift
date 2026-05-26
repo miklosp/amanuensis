@@ -119,3 +119,16 @@ extension ChatCompletionsAudioHandler {
         }
     }
 }
+
+// Mirror of the static `send` as a protocol, so JobRunner can be tested
+// without making real network calls.
+public protocol ChatCompletionsAudioSending: Sendable {
+    func send(job: Job, audioURL: URL, apiKey: String) async throws -> String
+}
+
+public struct DefaultChatCompletionsAudioSender: ChatCompletionsAudioSending {
+    public init() {}
+    public func send(job: Job, audioURL: URL, apiKey: String) async throws -> String {
+        try await ChatCompletionsAudioHandler.send(job: job, audioURL: audioURL, apiKey: apiKey)
+    }
+}
