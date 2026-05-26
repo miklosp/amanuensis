@@ -29,8 +29,13 @@ private func makeJob(outputExt: String = "txt") -> Job {
 }
 
 private func makeAudio() throws -> URL {
-    let url = URL(fileURLWithPath: NSTemporaryDirectory())
-        .appendingPathComponent("rec-\(UUID().uuidString).flac")
+    // Each call gets its own subfolder so output-file naming is deterministic
+    // across parallel-test runs (the runner writes "combined-<name>.<ext>"
+    // into the audio's parent folder).
+    let folder = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent("rec-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let url = folder.appendingPathComponent("combined.flac")
     try Data([0x01, 0x02]).write(to: url)
     return url
 }
@@ -44,9 +49,37 @@ private func makeAudio() throws -> URL {
         let outURL = try await runner.run(job: makeJob(), audioURL: audio)
         let written = try String(contentsOf: outURL, encoding: .utf8)
         #expect(written == "transcribed text")
-        #expect(outURL.pathExtension == "txt")
-        #expect(outURL.deletingPathExtension().lastPathComponent
-                == audio.deletingPathExtension().lastPathComponent)
+        #expect(outURL.lastPathComponent == "combined-demo.txt")
+        #expect(outURL.deletingLastPathComponent() == audio.deletingLastPathComponent())
+    }
+
+    @Test func run_appendsConflictSuffix_whenOutputFileExists() async throws {
+        let audio = try makeAudio()
+        let folder = audio.deletingLastPathComponent()
+        // Pre-create the canonical output to force conflict resolution.
+        let existing = folder.appendingPathComponent("combined-demo.txt")
+        try Data("prior".utf8).write(to: existing)
+
+        let runner = JobRunner(
+            keychain: FakeKeychain(key: "k"),
+            handler: FakeHandler(result: .success("new"))
+        )
+        let outURL = try await runner.run(job: makeJob(), audioURL: audio)
+        #expect(outURL.lastPathComponent == "combined-demo (1).txt")
+        let written = try String(contentsOf: outURL, encoding: .utf8)
+        #expect(written == "new")
+    }
+
+    @Test func run_sanitisesSlashesAndColonsInJobName() async throws {
+        let audio = try makeAudio()
+        let runner = JobRunner(
+            keychain: FakeKeychain(key: "k"),
+            handler: FakeHandler(result: .success("x"))
+        )
+        var job = makeJob()
+        job.name = "Folder/With:Bad chars"
+        let outURL = try await runner.run(job: job, audioURL: audio)
+        #expect(outURL.lastPathComponent == "combined-Folder-With-Bad chars.txt")
     }
 
     @Test func run_passesKeyAndJob_toHandler() async throws {

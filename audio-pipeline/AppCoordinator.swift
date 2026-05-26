@@ -177,16 +177,11 @@ final class AppCoordinator {
     }
 
     func runJob(_ job: Job, on recordingFolder: URL) async -> Result<URL, Error> {
-        // Prefer the mixed combined.flac produced at stop; fall back to the
-        // raw .caf files if the combined export was skipped or failed.
-        let candidates = ["combined.flac", "mic.caf", "system.caf"]
-        var chosen: URL?
-        for name in candidates {
-            let url = recordingFolder.appendingPathComponent(name)
-            if FileManager.default.fileExists(atPath: url.path) { chosen = url; break }
-        }
-        guard let target = chosen else {
-            return .failure(JobRunError.noAudioFileFound)
+        // combined.flac is the canonical input — guaranteed to exist after a
+        // successful recording (mic + optional system mixed at stop).
+        let target = recordingFolder.appendingPathComponent("combined.flac")
+        guard FileManager.default.fileExists(atPath: target.path) else {
+            return .failure(JobRunError.combinedFlacMissing)
         }
         let runner = JobRunner(keychain: keychain)
         do {
@@ -199,7 +194,7 @@ final class AppCoordinator {
     }
 
     enum JobRunError: Error {
-        case noAudioFileFound
+        case combinedFlacMissing
     }
 
     private static let log = Logger(subsystem: "work.miklos.audio-pipeline", category: "coordinator")
