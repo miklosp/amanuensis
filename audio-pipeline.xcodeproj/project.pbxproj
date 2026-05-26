@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		23DE86D1C4D9CA175B3005B0 /* OutputConversionPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15FDFDA08260569C3550A579 /* OutputConversionPlannerTests.swift */; };
 		64674FEC558B1BB721E3281B /* RecordingCore in Frameworks */ = {isa = PBXBuildFile; productRef = B237FACF51794DAD4B8B30A6 /* RecordingCore */; };
+		651FA23B038E85E0704E3342 /* AudioPipelineJobs in Frameworks */ = {isa = PBXBuildFile; productRef = 234879DAEC2256F37E40EEBC /* AudioPipelineJobs */; };
 		8EFBD6CE8086F36CED3D45FA /* RecordingFormattersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 530554F5DA0383ED728291F5 /* RecordingFormattersTests.swift */; };
 		99CCF7B733C62F224FFE1249 /* Fixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13D041542C1B170236E88B4D /* Fixtures.swift */; };
 		B41F3CA7F935963EBA8FC7E6 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F83379B555813CEE20BE895F /* Cocoa.framework */; };
@@ -55,6 +56,7 @@
 				E74C324A87BEC59AA8FBC2A1 /* AppSettings in Frameworks */,
 				C30715B2C425CA0BDDF2BC88 /* RecordingStorage in Frameworks */,
 				64674FEC558B1BB721E3281B /* RecordingCore in Frameworks */,
+				651FA23B038E85E0704E3342 /* AudioPipelineJobs in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -139,6 +141,7 @@
 				DDADBEADF4CFB28174A18CD6 /* AppSettings */,
 				C81DE0068215EFA9C64A00DA /* RecordingStorage */,
 				B237FACF51794DAD4B8B30A6 /* RecordingCore */,
+				234879DAEC2256F37E40EEBC /* AudioPipelineJobs */,
 			);
 			productName = "audio-pipeline";
 			productReference = 64F04E712FBDBC4A00B58BE7 /* audio-pipeline.app */;
@@ -510,6 +513,10 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		234879DAEC2256F37E40EEBC /* AudioPipelineJobs */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AudioPipelineJobs;
+		};
 		B237FACF51794DAD4B8B30A6 /* RecordingCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = RecordingCore;
