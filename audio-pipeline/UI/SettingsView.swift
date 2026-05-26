@@ -36,13 +36,15 @@ private struct RecordingSettingsTab: View {
                     }
                 }
             }
-            Section("Output format") {
-                Picker("When a recording stops", selection: $settings.outputFormat) {
-                    ForEach(AppSettings.OutputFormat.allCases) { format in
-                        Text(format.title).tag(format)
+            Section("After recording stops") {
+                Toggle(isOn: $settings.keepOriginalCAF) {
+                    VStack(alignment: .leading) {
+                        Text("Keep original .caf recordings")
+                        Text("Combined .flac is always produced. Disable this to delete the raw mic/system .caf files after combining.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
-                .pickerStyle(.radioGroup)
             }
         }
         .formStyle(.grouped)

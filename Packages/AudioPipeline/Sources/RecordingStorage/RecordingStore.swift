@@ -44,5 +44,6 @@ public struct RecordingFolder: Sendable {
 
     public var micURL: URL { url.appending(path: "mic.caf", directoryHint: .notDirectory) }
     public var systemURL: URL { url.appending(path: "system.caf", directoryHint: .notDirectory) }
+    public var combinedURL: URL { url.appending(path: "combined.flac", directoryHint: .notDirectory) }
     public var metadataURL: URL { url.appending(path: "meta.json", directoryHint: .notDirectory) }
 }

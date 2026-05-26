@@ -8,7 +8,7 @@ import AppSettings
 // loudly if the source key strings drift.
 private enum PersistedKey {
     static let recordingsDirectory = "recordingsDirectory"
-    static let outputFormat = "outputFormat"
+    static let keepOriginalCAF = "keepOriginalCAF"
 }
 
 // Runs `body` with a fresh `UserDefaults` suite that's removed on exit, so no
@@ -26,7 +26,7 @@ private func withIsolatedDefaults(_ body: (UserDefaults) -> Void) {
             let settings = AppSettings(defaults: defaults)
 
             #expect(settings.recordingsDirectory == AppSettings.defaultRecordingsDirectory)
-            #expect(settings.outputFormat == .caf)
+            #expect(settings.keepOriginalCAF == true)
         }
     }
 
@@ -45,39 +45,22 @@ private func withIsolatedDefaults(_ body: (UserDefaults) -> Void) {
         }
     }
 
-    @Test func outputFormat_persistsAcrossInstances() {
+    @Test func keepOriginalCAF_persistsAcrossInstances() {
         withIsolatedDefaults { defaults in
             let first = AppSettings(defaults: defaults)
-            first.outputFormat = .both
+            first.keepOriginalCAF = false
 
             let second = AppSettings(defaults: defaults)
-            #expect(second.outputFormat == .both)
+            #expect(second.keepOriginalCAF == false)
         }
     }
 
-    @Test func outputFormat_invalidPersistedRaw_fallsBackToCAF() {
+    @Test func keepOriginalCAF_persistedFalse_loadsAsFalse() {
         withIsolatedDefaults { defaults in
-            defaults.set("not-a-valid-format", forKey: PersistedKey.outputFormat)
+            defaults.set(false, forKey: PersistedKey.keepOriginalCAF)
 
             let settings = AppSettings(defaults: defaults)
-            #expect(settings.outputFormat == .caf)
+            #expect(settings.keepOriginalCAF == false)
         }
-    }
-}
-
-@Suite struct OutputFormatInvariants {
-    @Test(arguments: AppSettings.OutputFormat.allCases)
-    func id_equalsRawValue(format: AppSettings.OutputFormat) {
-        #expect(format.id == format.rawValue)
-    }
-
-    @Test(arguments: AppSettings.OutputFormat.allCases)
-    func title_isNonEmpty(format: AppSettings.OutputFormat) {
-        #expect(!format.title.isEmpty)
-    }
-
-    @Test func allCases_coversExpectedRawValues() {
-        let rawValues = Set(AppSettings.OutputFormat.allCases.map(\.rawValue))
-        #expect(rawValues == ["caf", "flac", "both"])
     }
 }

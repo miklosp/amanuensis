@@ -133,33 +133,32 @@ final class AppCoordinator {
         let stoppedAction = machine.sessionStopped(folderURL: folder.url)
         if case .convertOutput = stoppedAction {
             Task { @MainActor in
-                let conversionResult = await self.runConversion(for: folder)
+                let conversionResult = await self.runCombinedExport(for: folder)
                 _ = self.machine.conversionFinished(conversionResult)
                 self.library.refresh()
             }
         }
     }
 
-    // Runs after a recording stops. Converts mic/system tracks to FLAC per the
-    // output-format setting. Returns one Result — on any track failure, the
-    // first error is surfaced (spec §7 'Faithful simplification').
-    private func runConversion(for folder: RecordingFolder) async -> Result<Void, Error> {
-        let tasks = OutputConversionPlanner.plan(folder: folder, format: settings.outputFormat)
+    // Runs after a recording stops. Mixes mic+system into a single combined.flac;
+    // optionally deletes the source .caf files per the user's setting.
+    private func runCombinedExport(for folder: RecordingFolder) async -> Result<Void, Error> {
+        let mic = folder.micURL
+        let system = FileManager.default.fileExists(atPath: folder.systemURL.path)
+            ? folder.systemURL : nil
+        let dest = folder.combinedURL
 
-        var firstFailure: Error?
-        for task in tasks {
-            do {
-                try await FLACExporter.export(from: task.source, to: task.destination)
-                if task.deleteSourceAfterExport {
-                    try? FileManager.default.removeItem(at: task.source)
-                }
-            } catch {
-                if firstFailure == nil { firstFailure = error }
-                Self.log.error("FLAC export failed for \(task.source.lastPathComponent, privacy: .public): \(String(describing: error), privacy: .public)")
-            }
+        do {
+            try await CombinedFLACExporter.combine(mic: mic, system: system, to: dest)
+        } catch {
+            Self.log.error("combined export failed: \(String(describing: error), privacy: .public)")
+            return .failure(error)
         }
 
-        if let firstFailure { return .failure(firstFailure) }
+        if !settings.keepOriginalCAF {
+            try? FileManager.default.removeItem(at: folder.micURL)
+            if let system { try? FileManager.default.removeItem(at: system) }
+        }
         return .success(())
     }
 
@@ -178,9 +177,9 @@ final class AppCoordinator {
     }
 
     func runJob(_ job: Job, on recordingFolder: URL) async -> Result<URL, Error> {
-        // Fall back to system.flac or original .caf if mic.flac is absent. Keep
-        // the slice simple — use whatever the conversion settled on.
-        let candidates = ["mic.flac", "system.flac", "mic.caf", "system.caf"]
+        // Prefer the mixed combined.flac produced at stop; fall back to the
+        // raw .caf files if the combined export was skipped or failed.
+        let candidates = ["combined.flac", "mic.caf", "system.caf"]
         var chosen: URL?
         for name in candidates {
             let url = recordingFolder.appendingPathComponent(name)
