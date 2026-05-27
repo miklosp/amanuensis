@@ -205,6 +205,15 @@ final class AppCoordinator {
     @discardableResult
     func runJob(_ job: Job, on recordingFolder: URL) async -> Result<URL, Error> {
         let recordingName = recordingFolder.lastPathComponent
+
+        // If conversion for this recording is still in flight, wait for it
+        // before checking combined.flac. Failure is fine here — the existence
+        // check below will return the canonical .combinedFlacMissing.
+        if let pending = pendingConversion, pending.folderName == recordingName {
+            jobActivity = "Waiting for '\(recordingName)' to finish converting…"
+            _ = try? await pending.task.value
+        }
+
         jobActivity = "Running '\(job.name)' on '\(recordingName)'…"
 
         // combined.flac is the canonical input — guaranteed to exist after a
