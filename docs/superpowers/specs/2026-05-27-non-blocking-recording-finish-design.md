@@ -106,3 +106,18 @@ If `runJob` is invoked on the converting folder before step `await task.value` r
 - Per-row spinner / disabled state during conversion.
 - Parallel conversions (state machine already serializes).
 - Restructuring the existing `flashActivity` helpers into a shared queue.
+
+## Amendment 2026-05-27: async writer drain
+
+Manual verification surfaced a second main-thread blocker not addressed by the original design: the audio file writer drain. `AudioFileWriter.close()` calls `queue.sync { ... }` on the writer's serial dispatch queue to finalize the `AVAudioFile`. Both `MicRecorder.stop()` and `ProcessTapRecorder.stop()` invoke it synchronously, and `RecordingSession.stop()` is `@MainActor` — so for long recordings (e.g. 4 minutes) where the ALAC encoder hasn't fully caught up to real-time, the drain blocks main for the catch-up duration. The off-main *conversion* fix above made the post-stop phase responsive, but the stop itself still freezes the UI proportional to the writer-queue backlog.
+
+**Decision:** make the close path async end-to-end.
+
+- `AudioFileWriter.close()` becomes `async`. The body wraps the queue work in `withCheckedContinuation` + `queue.async` — semantically equivalent to `queue.sync` (FIFO ordering preserved, prior enqueued writes drain before the close block runs) but the calling thread (main) is not blocked.
+- `MicRecorder.stop()` and `ProcessTapRecorder.stop()` become `async` and `await writer.close()`.
+- `RecordingSession.stop()` becomes `async` and awaits both child stops sequentially.
+- `AppCoordinator.stopRecording()` (already `async`) awaits `active.stop()`.
+
+The four `writer.close()` call sites in `AudioFileWriterTests` migrate to `await writer.close()` and the tests become async.
+
+The double-close semantic is preserved: a second `await close()` returns the same `framesWritten` value as the first (the queue still drains, but `closed`/`file` are already set; `framesWritten` is unchanged by close).

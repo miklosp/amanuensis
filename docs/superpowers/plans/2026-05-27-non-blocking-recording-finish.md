@@ -645,6 +645,234 @@ git push origin <current-branch>
 
 ---
 
+### Task 8: Async writer drain (spec amendment)
+
+Added after manual verification revealed that `AudioFileWriter.close()`'s `queue.sync { ... }` still blocks main on `session.stop()` for long recordings. Makes the entire close chain async so the writer queue drains off-main.
+
+**Files:**
+- Modify: `Packages/AudioPipeline/Sources/RecordingCore/AudioFileWriter.swift`
+- Modify: `Packages/AudioPipeline/Sources/RecordingCore/MicRecorder.swift`
+- Modify: `Packages/AudioPipeline/Sources/RecordingCore/ProcessTapRecorder.swift`
+- Modify: `Packages/AudioPipeline/Sources/RecordingCore/RecordingSession.swift`
+- Modify: `audio-pipeline/AppCoordinator.swift`
+- Modify: `Packages/AudioPipeline/Tests/RecordingCoreTests/AudioFileWriterTests.swift`
+
+- [ ] **Step 1: Convert `AudioFileWriter.close()` to async**
+
+In `Packages/AudioPipeline/Sources/RecordingCore/AudioFileWriter.swift`, replace the existing `close()` method (currently around lines 58-67):
+
+```swift
+    // Drains pending writes and releases the file handle. Returns the total
+    // frames written. Safe to call only once; subsequent calls are no-ops.
+    @discardableResult
+    nonisolated func close() -> Int64 {
+        var count: Int64 = 0
+        queue.sync {
+            closed = true
+            file = nil   // AVAudioFile finalizes the container on dealloc.
+            count = framesWritten
+        }
+        return count
+    }
+```
+
+with:
+
+```swift
+    // Drains pending writes and releases the file handle. Returns the total
+    // frames written. Calling twice returns the same count both times — the
+    // queue still drains, but `closed`/`file` are idempotent and
+    // `framesWritten` is unchanged by close.
+    //
+    // Async because the drain may take a non-trivial amount of time for long
+    // recordings (the writer queue catches up on backlog), and callers from
+    // the main actor must not block.
+    @discardableResult
+    nonisolated func close() async -> Int64 {
+        await withCheckedContinuation { (cont: CheckedContinuation<Int64, Never>) in
+            queue.async { [self] in
+                closed = true
+                file = nil   // AVAudioFile finalizes the container on dealloc.
+                cont.resume(returning: framesWritten)
+            }
+        }
+    }
+```
+
+- [ ] **Step 2: Update `AudioFileWriterTests` to await close**
+
+In `Packages/AudioPipeline/Tests/RecordingCoreTests/AudioFileWriterTests.swift`, change each `@Test func` declaration that calls `writer.close()` to be `async throws`, and prepend `await` to each `writer.close()` call.
+
+Specifically:
+
+- `@Test func enqueue_thenClose_writesAllFramesAndOutputReadable() throws {` → `@Test func enqueue_thenClose_writesAllFramesAndOutputReadable() async throws {`
+- `let total = writer.close()` → `let total = await writer.close()`
+- `@Test func enqueueAfterClose_isNoOp() throws {` → `@Test func enqueueAfterClose_isNoOp() async throws {`
+- `let firstClose = writer.close()` → `let firstClose = await writer.close()`
+- `@Test func doubleClose_isSafeAndReturnsStableCount() throws {` → `@Test func doubleClose_isSafeAndReturnsStableCount() async throws {`
+- `let first = writer.close()` → `let first = await writer.close()`
+- `let second = writer.close()` → `let second = await writer.close()`
+
+Each test's `withTempDirectory` invocation also needs to switch to the async variant — `try withTempDirectory { tempURL in ... }` → `try await withTempDirectory { tempURL in ... }`. (The async overload of `withTempDirectory` already exists in `Tests/RecordingCoreTests/Support/TempDirectory.swift`.)
+
+- [ ] **Step 3: Convert `MicRecorder.stop()` to async**
+
+In `Packages/AudioPipeline/Sources/RecordingCore/MicRecorder.swift`, replace the existing `stop()` method (currently around lines 47-58):
+
+```swift
+    func stop() -> RecordingTrackResult {
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
+        let frames = writer.close()
+        Self.log.info("mic recording stopped — \(frames, privacy: .public) frames written")
+        return RecordingTrackResult(
+            url: writer.url,
+            format: writer.processingFormat,
+            framesWritten: frames
+        )
+    }
+```
+
+with:
+
+```swift
+    func stop() async -> RecordingTrackResult {
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
+        let frames = await writer.close()
+        Self.log.info("mic recording stopped — \(frames, privacy: .public) frames written")
+        return RecordingTrackResult(
+            url: writer.url,
+            format: writer.processingFormat,
+            framesWritten: frames
+        )
+    }
+```
+
+- [ ] **Step 4: Convert `ProcessTapRecorder.stop()` to async**
+
+In `Packages/AudioPipeline/Sources/RecordingCore/ProcessTapRecorder.swift`, change the signature of `stop()` from `func stop() -> RecordingTrackResult?` to `func stop() async -> RecordingTrackResult?` and prepend `await` to `writer.close()`.
+
+The full new method body (replacing lines 139-163):
+
+```swift
+    func stop() async -> RecordingTrackResult? {
+        if aggregateDeviceID != kAudioObjectUnknown, let ioProcID {
+            AudioDeviceStop(aggregateDeviceID, ioProcID)
+            AudioDeviceDestroyIOProcID(aggregateDeviceID, ioProcID)
+        }
+        ioProcID = nil
+
+        if aggregateDeviceID != kAudioObjectUnknown {
+            AudioHardwareDestroyAggregateDevice(aggregateDeviceID)
+            aggregateDeviceID = AudioObjectID(kAudioObjectUnknown)
+        }
+        if tapID != kAudioObjectUnknown {
+            AudioHardwareDestroyProcessTap(tapID)
+            tapID = AudioObjectID(kAudioObjectUnknown)
+        }
+
+        guard let writer else { return nil }
+        let frames = await writer.close()
+        Self.log.info("system tap stopped — \(frames, privacy: .public) frames written")
+        return RecordingTrackResult(
+            url: writer.url,
+            format: writer.processingFormat,
+            framesWritten: frames
+        )
+    }
+```
+
+- [ ] **Step 5: Convert `RecordingSession.stop()` to async**
+
+In `Packages/AudioPipeline/Sources/RecordingCore/RecordingSession.swift`, change `public func stop() -> StopResult {` to `public func stop() async -> StopResult {` and prepend `await` to both `mic.stop()` and `system.stop()` calls:
+
+```swift
+    public func stop() async -> StopResult {
+        let stoppedAt = Date()
+        let micResult = await mic.stop()
+        let systemResult = await system.stop()
+        writeMetadata(stoppedAt: stoppedAt, mic: micResult, system: systemResult)
+        return StopResult(mic: micResult, system: systemResult)
+    }
+```
+
+(No change to `writeMetadata` — that was already made synchronous in Task 1.)
+
+- [ ] **Step 6: Await `active.stop()` in `AppCoordinator.stopRecording`**
+
+In `audio-pipeline/AppCoordinator.swift`, find the line that calls `active.stop()` inside `stopRecording()`:
+
+```swift
+        let result = active.stop()
+```
+
+and change it to:
+
+```swift
+        let result = await active.stop()
+```
+
+(No other changes in `stopRecording`. The outer method is already `async`.)
+
+- [ ] **Step 7: Run SPM tests**
+
+Run: `swift test --disable-sandbox --package-path Packages/AudioPipeline`
+Expected: all tests pass. The 3 tests in `AudioFileWriterTests` should now run as async tests; the total count is unchanged at 102.
+
+- [ ] **Step 8: Build the app**
+
+Run: `./scripts/xcode-build-helper.sh -project audio-pipeline.xcodeproj -scheme audio-pipeline -configuration Debug build`
+Expected: build succeeds.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add Packages/AudioPipeline/Sources/RecordingCore/AudioFileWriter.swift \
+        Packages/AudioPipeline/Sources/RecordingCore/MicRecorder.swift \
+        Packages/AudioPipeline/Sources/RecordingCore/ProcessTapRecorder.swift \
+        Packages/AudioPipeline/Sources/RecordingCore/RecordingSession.swift \
+        audio-pipeline/AppCoordinator.swift \
+        Packages/AudioPipeline/Tests/RecordingCoreTests/AudioFileWriterTests.swift
+git commit -m "$(cat <<'EOF'
+fix(core): drain audio writer queue off the main actor
+
+session.stop() previously blocked main while AudioFileWriter.close() drained
+its serial dispatch queue via queue.sync. For long recordings the ALAC
+encoder backlog could take several seconds to flush, producing the
+remaining beach ball seen after the conversion fix landed. Making the close
+path async — via withCheckedContinuation + queue.async — preserves the
+"writes drain before close completes" semantic while letting the main
+actor suspend instead of block. Cascades through MicRecorder.stop,
+ProcessTapRecorder.stop, RecordingSession.stop, and AppCoordinator's await.
+
+Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+EOF
+)"
+```
+
+- [ ] **Step 10: Update the spec amendment + plan as committed (already done by controller, but include them in the commit if the writes are still local):**
+
+```bash
+git status -s docs/superpowers/specs/2026-05-27-non-blocking-recording-finish-design.md \
+              docs/superpowers/plans/2026-05-27-non-blocking-recording-finish.md
+```
+
+If either file is shown as modified, add it to a separate commit:
+
+```bash
+git add docs/superpowers/specs/2026-05-27-non-blocking-recording-finish-design.md \
+        docs/superpowers/plans/2026-05-27-non-blocking-recording-finish.md
+git commit -m "$(cat <<'EOF'
+docs: record async writer drain amendment
+
+Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
 ## Self-review notes
 
 - **Spec coverage:**
