@@ -47,6 +47,7 @@ final class AppCoordinator {
     let jobs: JobsStore
 
     var jobActivity: String?
+    var recordingActivity: String?
 
     private var machine = RecorderStateMachine()
     private var session: RecordingSession?
@@ -213,6 +214,18 @@ final class AppCoordinator {
             // have replaced it.
             guard self?.jobActivity == snapshot else { return }
             self?.jobActivity = nil
+        }
+    }
+
+    // Same auto-clear pattern as flashActivity, but for the recording-conversion
+    // footer line.
+    private func flashRecordingActivity(_ message: String) async {
+        recordingActivity = message
+        let snapshot = message
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard self?.recordingActivity == snapshot else { return }
+            self?.recordingActivity = nil
         }
     }
 
