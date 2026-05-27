@@ -66,13 +66,10 @@ public final class RecordingSession {
             hostAppVersion: Self.hostAppVersion,
             notes: nil
         )
-        let url = folder.metadataURL
-        Task.detached {
-            do {
-                try metadata.write(to: url)
-            } catch {
-                Self.log.error("metadata write failed: \(String(describing: error), privacy: .public)")
-            }
+        do {
+            try metadata.write(to: folder.metadataURL)
+        } catch {
+            Self.log.error("metadata write failed: \(String(describing: error), privacy: .public)")
         }
     }
 
