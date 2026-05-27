@@ -4,6 +4,7 @@ import SwiftUI
 struct MenuBarContent: View {
     @Bindable var coordinator: AppCoordinator
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Group {
@@ -50,13 +51,8 @@ struct MenuBarContent: View {
             Divider()
 
             Button("Settings…") {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
                 NSApp.activate()
-                DispatchQueue.main.async {
-                    if let win = NSApp.windows.first(where: { $0.title.contains("Settings") || $0.identifier?.rawValue.contains("com_apple_SwiftUI_Settings") == true }) {
-                        win.makeKeyAndOrderFront(nil)
-                    }
-                }
+                openSettings()
             }
 
             Button("Quit") {
