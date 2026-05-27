@@ -29,7 +29,8 @@ public final class RecordingSession {
         do {
             try mic.start()
         } catch {
-            _ = system.stop()
+            // start() is synchronous; fire-and-forget the async teardown.
+            Task { await system.stop() }
             throw error
         }
 
@@ -41,10 +42,10 @@ public final class RecordingSession {
         public let system: RecordingTrackResult?
     }
 
-    public func stop() -> StopResult {
+    public func stop() async -> StopResult {
         let stoppedAt = Date()
-        let micResult = mic.stop()
-        let systemResult = system.stop()
+        let micResult = await mic.stop()
+        let systemResult = await system.stop()
         writeMetadata(stoppedAt: stoppedAt, mic: micResult, system: systemResult)
         return StopResult(mic: micResult, system: systemResult)
     }

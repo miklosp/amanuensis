@@ -44,10 +44,10 @@ final class MicRecorder {
         Self.log.info("mic recording started at \(format.sampleRate, privacy: .public)Hz \(format.channelCount, privacy: .public)ch")
     }
 
-    func stop() -> RecordingTrackResult {
+    func stop() async -> RecordingTrackResult {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
-        let frames = writer.close()
+        let frames = await writer.close()
         Self.log.info("mic recording stopped — \(frames, privacy: .public) frames written")
         return RecordingTrackResult(
             url: writer.url,

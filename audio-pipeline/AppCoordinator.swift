@@ -134,7 +134,7 @@ final class AppCoordinator {
         guard machine.stop() == .stopSession, let active = session else { return }
 
         let folder = active.folder
-        let result = active.stop()
+        let result = await active.stop()
         session = nil
 
         Self.log.info("recording stopped — mic frames \(result.mic.framesWritten, privacy: .public), system frames \(result.system?.framesWritten ?? -1, privacy: .public)")
