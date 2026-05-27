@@ -51,6 +51,12 @@ final class AppCoordinator {
 
     private var machine = RecorderStateMachine()
     private var session: RecordingSession?
+    private var pendingConversion: PendingConversion?
+
+    private struct PendingConversion {
+        let folderName: String
+        let task: Task<Void, Error>
+    }
 
     init() {
         let settings = AppSettings()
@@ -134,35 +140,52 @@ final class AppCoordinator {
         Self.log.info("recording stopped — mic frames \(result.mic.framesWritten, privacy: .public), system frames \(result.system?.framesWritten ?? -1, privacy: .public)")
 
         let stoppedAction = machine.sessionStopped(folderURL: folder.url)
-        if case .convertOutput = stoppedAction {
-            Task { @MainActor in
-                let conversionResult = await self.runCombinedExport(for: folder)
-                _ = self.machine.conversionFinished(conversionResult)
-                self.library.refresh()
+        guard case .convertOutput = stoppedAction else { return }
+
+        // meta.json was written synchronously inside active.stop(); the row is
+        // now visible to library.refresh().
+        library.refresh()
+        recordingActivity = "Converting recording…"
+
+        let keepCAF = settings.keepOriginalCAF
+        // Extract actor-isolated URLs on the main actor before entering the
+        // detached task, which has no actor context.
+        let micURL = folder.micURL
+        let systemURL: URL? = FileManager.default.fileExists(atPath: folder.systemURL.path)
+            ? folder.systemURL : nil
+        let combinedURL = folder.combinedURL
+        let conversionTask: Task<Void, Error> = Task.detached(priority: .utility) {
+            try await CombinedFLACExporter.combine(
+                mic: micURL,
+                system: systemURL,
+                to: combinedURL
+            )
+            if !keepCAF {
+                try? FileManager.default.removeItem(at: micURL)
+                if let systemURL { try? FileManager.default.removeItem(at: systemURL) }
             }
         }
-    }
+        pendingConversion = PendingConversion(folderName: folder.name, task: conversionTask)
 
-    // Runs after a recording stops. Mixes mic+system into a single combined.flac;
-    // optionally deletes the source .caf files per the user's setting.
-    private func runCombinedExport(for folder: RecordingFolder) async -> Result<Void, Error> {
-        let mic = folder.micURL
-        let system = FileManager.default.fileExists(atPath: folder.systemURL.path)
-            ? folder.systemURL : nil
-        let dest = folder.combinedURL
-
-        do {
-            try await CombinedFLACExporter.combine(mic: mic, system: system, to: dest)
-        } catch {
-            Self.log.error("combined export failed: \(String(describing: error), privacy: .public)")
-            return .failure(error)
+        Task { @MainActor in
+            let conversionResult: Result<Void, Error>
+            do {
+                try await conversionTask.value
+                conversionResult = .success(())
+            } catch {
+                Self.log.error("combined export failed: \(String(describing: error), privacy: .public)")
+                conversionResult = .failure(error)
+            }
+            _ = self.machine.conversionFinished(conversionResult)
+            self.library.refresh()
+            self.pendingConversion = nil
+            switch conversionResult {
+            case .success:
+                await self.flashRecordingActivity("Recording ready")
+            case .failure(let error):
+                await self.flashRecordingActivity("Conversion failed: \(error.localizedDescription)")
+            }
         }
-
-        if !settings.keepOriginalCAF {
-            try? FileManager.default.removeItem(at: folder.micURL)
-            if let system { try? FileManager.default.removeItem(at: system) }
-        }
-        return .success(())
     }
 
     func openRecordingsFolder() {
