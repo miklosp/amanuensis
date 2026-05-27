@@ -70,25 +70,20 @@ struct RecordingsView: View {
                 }
             }
 
+            // Recording-conversion footer is closer-in-time to a stop, so it
+            // renders above the job footer when both are visible.
+            if let activity = coordinator.recordingActivity {
+                Divider()
+                StatusFooterRow(text: activity)
+            }
             if let activity = coordinator.jobActivity {
                 Divider()
-                HStack {
-                    ProgressView()
-                        .controlSize(.small)
-                    Text(activity)
-                        .font(.callout)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Spacer()
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(.bar)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                StatusFooterRow(text: activity)
             }
         }
         .frame(minWidth: 620, minHeight: 320)
         .animation(.easeInOut(duration: 0.18), value: coordinator.jobActivity)
+        .animation(.easeInOut(duration: 0.18), value: coordinator.recordingActivity)
     }
 
     private func item(for id: RecordingItem.ID) -> RecordingItem? {
@@ -111,4 +106,24 @@ struct RecordingsView: View {
         NSWorkspace.shared.activateFileViewerSelecting([item.folderURL])
     }
 
+}
+
+private struct StatusFooterRow: View {
+    let text: String
+
+    var body: some View {
+        HStack {
+            ProgressView()
+                .controlSize(.small)
+            Text(text)
+                .font(.callout)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.bar)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
 }
