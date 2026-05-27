@@ -3,7 +3,8 @@
     "agent-browser": "off",
     "firecrawl-scrape": "off",
     "tui-design-skill": "off",
-    "writing-for-humans": "off"
+    "writing-for-humans": "off",
+    "xcodebuildmcp-cli": "off"
   },
   "enabledPlugins": {
     "swift-lsp@claude-plugins-official": true,
