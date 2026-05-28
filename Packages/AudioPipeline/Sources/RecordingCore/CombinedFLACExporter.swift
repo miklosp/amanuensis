@@ -1,11 +1,15 @@
 import AVFoundation
 import Foundation
 
-// Mixes mic + system tracks into a single 16 kHz mono FLAC by mono-summing in
-// Float32 PCM, then encoding the mixed buffer to FLAC. Mic is required;
+// Mixes mic + system tracks into a single 16 kHz mono FLAC by mono-summing
+// in Float32 PCM, then encoding the mixed buffer to FLAC. Mic is required;
 // system is optional (mic-only recordings happen when the system tap is
-// denied or unavailable). Runs off the main actor; used after a recording
-// stops.
+// denied or unavailable). Used after a recording stops.
+//
+// Note: this is `nonisolated async`, but under `NonisolatedNonsendingByDefault`
+// (enabled for this target) it inherits the caller's actor. Callers that need
+// it off the main actor must dispatch via `Task.detached` or an equivalent
+// background executor.
 public enum CombinedFLACExporter {
     enum ExportError: Error {
         case mixFormatUnavailable

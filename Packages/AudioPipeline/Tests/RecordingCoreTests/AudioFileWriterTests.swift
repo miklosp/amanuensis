@@ -4,8 +4,8 @@ import Testing
 @testable import RecordingCore
 
 @Suite struct AudioFileWriterTests {
-    @Test func enqueue_thenClose_writesAllFramesAndOutputReadable() throws {
-        try withTempDirectory { tempURL in
+    @Test func enqueue_thenClose_writesAllFramesAndOutputReadable() async throws {
+        try await withTempDirectory { tempURL in
             let url = tempURL.appending(path: "writer.caf", directoryHint: .notDirectory)
             let format = SyntheticAudio.stereo48kHz
             let writer = try AudioFileWriter(url: url, format: format, label: "test")
@@ -15,7 +15,7 @@ import Testing
                 writer.enqueue(SyntheticAudio.makeBuffer(format: format, frameCount: count))
             }
 
-            let total = writer.close()
+            let total = await writer.close()
             let expected = Int64(frameCounts.reduce(0, +))
             #expect(total == expected)
 
@@ -24,14 +24,14 @@ import Testing
         }
     }
 
-    @Test func enqueueAfterClose_isNoOp() throws {
-        try withTempDirectory { tempURL in
+    @Test func enqueueAfterClose_isNoOp() async throws {
+        try await withTempDirectory { tempURL in
             let url = tempURL.appending(path: "writer.caf", directoryHint: .notDirectory)
             let format = SyntheticAudio.mono44kHz
             let writer = try AudioFileWriter(url: url, format: format, label: "test")
 
             writer.enqueue(SyntheticAudio.makeBuffer(format: format, frameCount: 2048))
-            let firstClose = writer.close()
+            let firstClose = await writer.close()
             #expect(firstClose == 2048)
 
             // Post-close enqueue is silently dropped.
@@ -44,16 +44,16 @@ import Testing
         }
     }
 
-    @Test func doubleClose_isSafeAndReturnsStableCount() throws {
-        try withTempDirectory { tempURL in
+    @Test func doubleClose_isSafeAndReturnsStableCount() async throws {
+        try await withTempDirectory { tempURL in
             let url = tempURL.appending(path: "writer.caf", directoryHint: .notDirectory)
             let format = SyntheticAudio.stereo48kHz
             let writer = try AudioFileWriter(url: url, format: format, label: "test")
 
             writer.enqueue(SyntheticAudio.makeBuffer(format: format, frameCount: 1024))
 
-            let first = writer.close()
-            let second = writer.close()
+            let first = await writer.close()
+            let second = await writer.close()
             #expect(first == second)
             #expect(first == 1024)
         }

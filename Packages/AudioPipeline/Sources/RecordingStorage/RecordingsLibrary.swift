@@ -3,6 +3,11 @@ import Observation
 
 // The model behind the Recordings window. Scans the recordings directory and
 // parses each recording's meta.json into a list sorted newest-first.
+//
+// `refresh()` dispatches the scan to a background task so a library with many
+// recordings doesn't stall the main thread on `Data(contentsOf:)` +
+// JSONDecoder() per folder. The final assignment to `recordings` is back on
+// `@MainActor`.
 @MainActor
 @Observable
 public final class RecordingsLibrary {
@@ -14,32 +19,37 @@ public final class RecordingsLibrary {
         self.baseURLProvider = baseURLProvider
     }
 
-    public func refresh() {
+    public func refresh() async {
         let baseURL = baseURLProvider()
+        let scanned = await Task.detached(priority: .userInitiated) {
+            Self.scan(baseURL: baseURL)
+        }.value
+        recordings = scanned
+    }
+
+    // Deletes a recording by moving its whole folder to the Trash (recoverable).
+    public func delete(_ item: RecordingItem) async {
+        try? FileManager.default.trashItem(at: item.folderURL, resultingItemURL: nil)
+        await refresh()
+    }
+
+    private nonisolated static func scan(baseURL: URL) -> [RecordingItem] {
         let fileManager = FileManager.default
         guard let entries = try? fileManager.contentsOfDirectory(
             at: baseURL,
             includingPropertiesForKeys: [.isDirectoryKey],
             options: [.skipsHiddenFiles]
         ) else {
-            recordings = []
-            return
+            return []
         }
-
-        recordings = entries
+        return entries
             .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
             .compactMap { RecordingItem(folderURL: $0) }
             .sorted { $0.startedAt > $1.startedAt }
     }
-
-    // Deletes a recording by moving its whole folder to the Trash (recoverable).
-    public func delete(_ item: RecordingItem) {
-        try? FileManager.default.trashItem(at: item.folderURL, resultingItemURL: nil)
-        refresh()
-    }
 }
 
-public struct RecordingItem: Identifiable {
+public struct RecordingItem: Identifiable, Sendable {
     public let id: String
     public let name: String
     public let folderURL: URL

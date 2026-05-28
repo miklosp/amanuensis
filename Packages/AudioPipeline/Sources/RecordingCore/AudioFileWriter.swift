@@ -54,16 +54,22 @@ final class AudioFileWriter: @unchecked Sendable {
     }
 
     // Drains pending writes and releases the file handle. Returns the total
-    // frames written. Safe to call only once; subsequent calls are no-ops.
+    // frames written. Calling twice returns the same count both times — the
+    // queue still drains, but `closed`/`file` are idempotent and
+    // `framesWritten` is unchanged by close.
+    //
+    // Async because the drain may take a non-trivial amount of time for long
+    // recordings (the writer queue catches up on backlog), and callers from
+    // the main actor must not block.
     @discardableResult
-    nonisolated func close() -> Int64 {
-        var count: Int64 = 0
-        queue.sync {
-            closed = true
-            file = nil   // AVAudioFile finalizes the container on dealloc.
-            count = framesWritten
+    nonisolated func close() async -> Int64 {
+        await withCheckedContinuation { (cont: CheckedContinuation<Int64, Never>) in
+            queue.async { [self] in
+                closed = true
+                file = nil   // AVAudioFile finalizes the container on dealloc.
+                cont.resume(returning: framesWritten)
+            }
         }
-        return count
     }
 
     private struct BufferHandoff: @unchecked Sendable {

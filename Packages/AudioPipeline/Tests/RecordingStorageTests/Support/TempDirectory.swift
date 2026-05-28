@@ -12,3 +12,14 @@ func withTempDirectory(_ body: (URL) throws -> Void) throws {
     defer { try? FileManager.default.removeItem(at: url) }
     try body(url)
 }
+
+// Async variant for tests exercising async code.
+func withTempDirectory(_ body: (URL) async throws -> Void) async throws {
+    let url = FileManager.default.temporaryDirectory.appending(
+        path: "audio-pipeline-tests-\(UUID().uuidString)",
+        directoryHint: .isDirectory
+    )
+    try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: url) }
+    try await body(url)
+}

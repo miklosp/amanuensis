@@ -136,7 +136,7 @@ final class ProcessTapRecorder {
         Self.log.info("system tap started at \(avFormat.sampleRate, privacy: .public)Hz \(avFormat.channelCount, privacy: .public)ch")
     }
 
-    func stop() -> RecordingTrackResult? {
+    func stop() async -> RecordingTrackResult? {
         if aggregateDeviceID != kAudioObjectUnknown, let ioProcID {
             AudioDeviceStop(aggregateDeviceID, ioProcID)
             AudioDeviceDestroyIOProcID(aggregateDeviceID, ioProcID)
@@ -153,7 +153,7 @@ final class ProcessTapRecorder {
         }
 
         guard let writer else { return nil }
-        let frames = writer.close()
+        let frames = await writer.close()
         Self.log.info("system tap stopped — \(frames, privacy: .public) frames written")
         return RecordingTrackResult(
             url: writer.url,

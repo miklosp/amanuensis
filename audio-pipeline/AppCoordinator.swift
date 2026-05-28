@@ -47,9 +47,11 @@ final class AppCoordinator {
     let jobs: JobsStore
 
     var jobActivity: String?
+    var recordingActivity: String?
 
     private var machine = RecorderStateMachine()
     private var session: RecordingSession?
+    private let conversionService = RecordingConversionService()
 
     init() {
         let settings = AppSettings()
@@ -127,41 +129,50 @@ final class AppCoordinator {
         guard machine.stop() == .stopSession, let active = session else { return }
 
         let folder = active.folder
-        let result = active.stop()
+        let result = await active.stop()
         session = nil
 
         Self.log.info("recording stopped — mic frames \(result.mic.framesWritten, privacy: .public), system frames \(result.system?.framesWritten ?? -1, privacy: .public)")
 
         let stoppedAction = machine.sessionStopped(folderURL: folder.url)
-        if case .convertOutput = stoppedAction {
-            Task { @MainActor in
-                let conversionResult = await self.runCombinedExport(for: folder)
-                _ = self.machine.conversionFinished(conversionResult)
-                self.library.refresh()
-            }
-        }
-    }
+        guard case .convertOutput = stoppedAction else { return }
 
-    // Runs after a recording stops. Mixes mic+system into a single combined.flac;
-    // optionally deletes the source .caf files per the user's setting.
-    private func runCombinedExport(for folder: RecordingFolder) async -> Result<Void, Error> {
-        let mic = folder.micURL
-        let system = FileManager.default.fileExists(atPath: folder.systemURL.path)
+        // meta.json was written synchronously inside active.stop(); the row is
+        // now visible to library.refresh().
+        await library.refresh()
+        recordingActivity = "Converting recording…"
+
+        let keepCAF = settings.keepOriginalCAF
+        let micURL = folder.micURL
+        let systemURL: URL? = FileManager.default.fileExists(atPath: folder.systemURL.path)
             ? folder.systemURL : nil
-        let dest = folder.combinedURL
+        let combinedURL = folder.combinedURL
+        let folderName = folder.name
 
-        do {
-            try await CombinedFLACExporter.combine(mic: mic, system: system, to: dest)
-        } catch {
-            Self.log.error("combined export failed: \(String(describing: error), privacy: .public)")
-            return .failure(error)
-        }
+        let conversionTask = await conversionService.startConversion(
+            folderName: folderName,
+            mic: micURL,
+            system: systemURL,
+            destination: combinedURL,
+            keepSourcesOnSuccess: keepCAF
+        )
 
-        if !settings.keepOriginalCAF {
-            try? FileManager.default.removeItem(at: folder.micURL)
-            if let system { try? FileManager.default.removeItem(at: system) }
+        Task { @MainActor in
+            let outcome = await conversionTask.value
+            let result: Result<Void, Error>
+            let flashMessage: String
+            switch outcome.result {
+            case .success:
+                result = .success(())
+                flashMessage = "Recording ready"
+            case .failure(let failure):
+                result = .failure(failure)
+                flashMessage = "Conversion failed: \(failure.message)"
+            }
+            _ = self.machine.conversionFinished(result)
+            await self.library.refresh()
+            await self.flashRecordingActivity(flashMessage)
         }
-        return .success(())
     }
 
     func openRecordingsFolder() {
@@ -181,6 +192,15 @@ final class AppCoordinator {
     @discardableResult
     func runJob(_ job: Job, on recordingFolder: URL) async -> Result<URL, Error> {
         let recordingName = recordingFolder.lastPathComponent
+
+        // If conversion for this recording is still in flight, wait for it
+        // before checking combined.flac. Failure is fine here — the existence
+        // check below will return the canonical .combinedFlacMissing.
+        if await conversionService.isConverting(folderName: recordingName) {
+            jobActivity = "Waiting for '\(recordingName)' to finish converting…"
+            await conversionService.waitForConversion(folderName: recordingName)
+        }
+
         jobActivity = "Running '\(job.name)' on '\(recordingName)'…"
 
         // combined.flac is the canonical input — guaranteed to exist after a
@@ -213,6 +233,18 @@ final class AppCoordinator {
             // have replaced it.
             guard self?.jobActivity == snapshot else { return }
             self?.jobActivity = nil
+        }
+    }
+
+    // Same auto-clear pattern as flashActivity, but for the recording-conversion
+    // footer line.
+    private func flashRecordingActivity(_ message: String) async {
+        recordingActivity = message
+        let snapshot = message
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard self?.recordingActivity == snapshot else { return }
+            self?.recordingActivity = nil
         }
     }
 
