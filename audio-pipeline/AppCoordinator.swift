@@ -51,12 +51,7 @@ final class AppCoordinator {
 
     private var machine = RecorderStateMachine()
     private var session: RecordingSession?
-    private var pendingConversion: PendingConversion?
-
-    private struct PendingConversion {
-        let folderName: String
-        let task: Task<Void, Error>
-    }
+    private let conversionService = RecordingConversionService()
 
     init() {
         let settings = AppSettings()
@@ -144,46 +139,40 @@ final class AppCoordinator {
 
         // meta.json was written synchronously inside active.stop(); the row is
         // now visible to library.refresh().
-        library.refresh()
+        await library.refresh()
         recordingActivity = "Converting recording…"
 
         let keepCAF = settings.keepOriginalCAF
-        // Extract actor-isolated URLs on the main actor before entering the
-        // detached task, which has no actor context.
         let micURL = folder.micURL
         let systemURL: URL? = FileManager.default.fileExists(atPath: folder.systemURL.path)
             ? folder.systemURL : nil
         let combinedURL = folder.combinedURL
-        let conversionTask: Task<Void, Error> = Task.detached(priority: .utility) {
-            try await CombinedFLACExporter.combine(
-                mic: micURL,
-                system: systemURL,
-                to: combinedURL
-            )
-            if !keepCAF {
-                try? FileManager.default.removeItem(at: micURL)
-                if let systemURL { try? FileManager.default.removeItem(at: systemURL) }
-            }
-        }
-        pendingConversion = PendingConversion(folderName: folder.name, task: conversionTask)
+        let folderName = folder.name
+
+        let conversionTask = await conversionService.startConversion(
+            folderName: folderName,
+            mic: micURL,
+            system: systemURL,
+            destination: combinedURL,
+            keepSourcesOnSuccess: keepCAF
+        )
 
         Task { @MainActor in
-            let conversionResult: Result<Void, Error>
-            do {
-                try await conversionTask.value
-                conversionResult = .success(())
-            } catch {
-                Self.log.error("combined export failed: \(String(describing: error), privacy: .public)")
-                conversionResult = .failure(error)
+            let outcome = await conversionTask.value
+            let result: Result<Void, Error>
+            switch outcome.result {
+            case .success:
+                result = .success(())
+            case .failure(let failure):
+                result = .failure(failure)
             }
-            _ = self.machine.conversionFinished(conversionResult)
-            self.library.refresh()
-            self.pendingConversion = nil
-            switch conversionResult {
+            _ = self.machine.conversionFinished(result)
+            await self.library.refresh()
+            switch outcome.result {
             case .success:
                 await self.flashRecordingActivity("Recording ready")
-            case .failure(let error):
-                await self.flashRecordingActivity("Conversion failed: \(error.localizedDescription)")
+            case .failure(let failure):
+                await self.flashRecordingActivity("Conversion failed: \(failure.message)")
             }
         }
     }
@@ -209,9 +198,9 @@ final class AppCoordinator {
         // If conversion for this recording is still in flight, wait for it
         // before checking combined.flac. Failure is fine here — the existence
         // check below will return the canonical .combinedFlacMissing.
-        if let pending = pendingConversion, pending.folderName == recordingName {
+        if await conversionService.isConverting(folderName: recordingName) {
             jobActivity = "Waiting for '\(recordingName)' to finish converting…"
-            _ = try? await pending.task.value
+            await conversionService.waitForConversion(folderName: recordingName)
         }
 
         jobActivity = "Running '\(job.name)' on '\(recordingName)'…"
