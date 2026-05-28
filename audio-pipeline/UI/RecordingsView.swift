@@ -18,7 +18,7 @@ struct RecordingsView: View {
                 TableColumn("Size") { Text(RecordingFormatters.sizeText($0.sizeBytes)) }
                 TableColumn("Format", value: \.formatSummary)
             }
-            .onAppear { library.refresh() }
+            .task { await library.refresh() }
             .contextMenu(forSelectionType: RecordingItem.ID.self) { ids in
                 if let item = ids.first.flatMap(item(for:)) {
                     Button("Play") { play(item) }
@@ -57,14 +57,16 @@ struct RecordingsView: View {
                 ),
                 presenting: pendingDelete
             ) { item in
-                Button("Move to Trash", role: .destructive) { library.delete(item) }
+                Button("Move to Trash", role: .destructive) {
+                    Task { await library.delete(item) }
+                }
                 Button("Cancel", role: .cancel) {}
             } message: { _ in
                 Text("The recording folder will be moved to the Trash.")
             }
             .toolbar {
                 Button {
-                    library.refresh()
+                    Task { await library.refresh() }
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
