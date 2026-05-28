@@ -42,15 +42,24 @@ public actor RecordingConversionService {
         destination: URL,
         keepSourcesOnSuccess: Bool
     ) -> Task<Outcome, Never> {
+        if let existing = inflight[folderName] { return existing }
         let combine = self.combine
-        let task = Task<Outcome, Never> { [weak self] in
+        let task = Task.detached(priority: .utility) { [weak self] in
             let outcome: Outcome
             do {
                 try await combine(mic, system, destination)
                 if !keepSourcesOnSuccess {
-                    try? FileManager.default.removeItem(at: mic)
+                    do {
+                        try FileManager.default.removeItem(at: mic)
+                    } catch {
+                        Self.log.error("failed to remove mic CAF after conversion: \(String(describing: error), privacy: .public)")
+                    }
                     if let system {
-                        try? FileManager.default.removeItem(at: system)
+                        do {
+                            try FileManager.default.removeItem(at: system)
+                        } catch {
+                            Self.log.error("failed to remove system CAF after conversion: \(String(describing: error), privacy: .public)")
+                        }
                     }
                 }
                 outcome = Outcome(folderName: folderName, result: .success(()))
@@ -81,7 +90,7 @@ public actor RecordingConversionService {
         inflight[folderName] = nil
     }
 
-    private static let log = Logger(
+    nonisolated private static let log = Logger(
         subsystem: "work.miklos.audio-pipeline",
         category: "conversion-service"
     )

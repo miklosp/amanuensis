@@ -140,6 +140,41 @@ import Testing
         }
     }
 
+    @Test func sameFolderDoubleStart_returnsSameInflightTask() async throws {
+        try await withTempDirectory { tmp in
+            let signal = SignalActor()
+            let counter = Counter()
+            let service = RecordingConversionService { _, _, destination in
+                await counter.increment()
+                await signal.wait()
+                try Data().write(to: destination)
+            }
+            let mic = tmp.appending(path: "mic.caf")
+            try Data().write(to: mic)
+            let dest = tmp.appending(path: "combined.flac")
+
+            let task1 = await service.startConversion(
+                folderName: "x", mic: mic, system: nil,
+                destination: dest, keepSourcesOnSuccess: true
+            )
+            let task2 = await service.startConversion(
+                folderName: "x", mic: mic, system: nil,
+                destination: dest, keepSourcesOnSuccess: true
+            )
+
+            await signal.fire()
+            let out1 = await task1.value
+            let out2 = await task2.value
+
+            // The guard means the second start returned the first task — combine
+            // was invoked exactly once, both callers see the same outcome folder.
+            #expect(await counter.value == 1)
+            #expect(out1.folderName == "x")
+            #expect(out2.folderName == "x")
+            #expect(await service.isConverting(folderName: "x") == false)
+        }
+    }
+
     @Test func failedConversion_keepsSources_andSurfacesError() async throws {
         struct Boom: LocalizedError {
             var errorDescription: String? { "boom" }
@@ -171,4 +206,9 @@ import Testing
             #expect(await service.isConverting(folderName: "rec") == false)
         }
     }
+}
+
+private actor Counter {
+    private(set) var value: Int = 0
+    func increment() { value += 1 }
 }
