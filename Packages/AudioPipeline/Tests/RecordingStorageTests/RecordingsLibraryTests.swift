@@ -26,6 +26,7 @@ import RecordingStorage
     @Test func refresh_skipsNonDirectoryEntries() async throws {
         try await withTempDirectory { baseURL in
             try makeRecordingFolderOnDisk(in: baseURL, name: "valid", metadata: makeMetadata(folderName: "valid"))
+            // A loose file at the top level should not appear as a recording.
             try Data("stray".utf8).write(
                 to: baseURL.appending(path: "stray.txt", directoryHint: .notDirectory)
             )
@@ -57,6 +58,15 @@ import RecordingStorage
         #expect(library.recordings.isEmpty)
     }
 
+    // `delete(_:)` calls FileManager.trashItem and then refresh(). trashItem
+    // requires access to the user Trash, which the Claude Code sandbox denies
+    // for files under /tmp. We assert two things:
+    //   (a) the always-true invariant: after delete()+refresh(), library state
+    //       is consistent with disk state.
+    //   (b) when the runtime *can* trash (probed once below), the folder is
+    //       actually gone. This second assertion runs from a normal terminal
+    //       and is skipped under the sandbox — leaves one recoverable item in
+    //       the user Trash per run, acceptable for a temp folder.
     @Test func delete_keepsLibraryConsistentWithDisk() async throws {
         try await withTempDirectory { baseURL in
             try makeRecordingFolderOnDisk(in: baseURL, name: "doomed", metadata: makeMetadata(folderName: "doomed"))
@@ -87,6 +97,9 @@ import RecordingStorage
         }
     }
 
+    // Probe once whether FileManager.trashItem works in this runtime. Inside
+    // the Claude Code sandbox the user Trash is unreachable and trashItem
+    // throws; from a normal shell it succeeds.
     nonisolated(unsafe) static let trashAvailable: Bool = {
         let probe = FileManager.default.temporaryDirectory.appending(
             path: "trash-probe-\(UUID().uuidString)",
