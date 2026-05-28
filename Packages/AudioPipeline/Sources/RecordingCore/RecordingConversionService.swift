@@ -44,7 +44,7 @@ public actor RecordingConversionService {
     ) -> Task<Outcome, Never> {
         if let existing = inflight[folderName] { return existing }
         let combine = self.combine
-        let task = Task.detached(priority: .utility) { [weak self] in
+        let task = Task.detached(priority: .utility) {
             let outcome: Outcome
             do {
                 try await combine(mic, system, destination)
@@ -70,7 +70,7 @@ public actor RecordingConversionService {
                     result: .failure(ConversionFailure(message: error.localizedDescription))
                 )
             }
-            await self?.clear(folderName: folderName)
+            await self.clear(folderName: folderName)
             return outcome
         }
         inflight[folderName] = task

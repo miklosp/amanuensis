@@ -160,20 +160,18 @@ final class AppCoordinator {
         Task { @MainActor in
             let outcome = await conversionTask.value
             let result: Result<Void, Error>
+            let flashMessage: String
             switch outcome.result {
             case .success:
                 result = .success(())
+                flashMessage = "Recording ready"
             case .failure(let failure):
                 result = .failure(failure)
+                flashMessage = "Conversion failed: \(failure.message)"
             }
             _ = self.machine.conversionFinished(result)
             await self.library.refresh()
-            switch outcome.result {
-            case .success:
-                await self.flashRecordingActivity("Recording ready")
-            case .failure(let failure):
-                await self.flashRecordingActivity("Conversion failed: \(failure.message)")
-            }
+            await self.flashRecordingActivity(flashMessage)
         }
     }
 
