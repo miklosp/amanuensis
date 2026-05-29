@@ -7,7 +7,7 @@ struct RecordingsView: View {
     @Bindable var library: RecordingsLibrary
     let coordinator: AppCoordinator
     @State private var selection: Set<RecordingItem.ID> = []
-    @State private var pendingDelete: RecordingItem?
+    @State private var pendingDelete: [RecordingItem] = []
 
     var body: some View {
         Table(library.recordings, selection: $selection) {
@@ -19,9 +19,12 @@ struct RecordingsView: View {
         }
         .task { await library.refresh() }
         .contextMenu(forSelectionType: RecordingItem.ID.self) { ids in
-            if let item = ids.first.flatMap(item(for:)) {
-                Button("Play") { play(item) }
-                Button("Reveal in Finder") { reveal(item) }
+            let items = items(for: ids)
+            if let first = items.first {
+                // Play / Reveal / Run Job are single-item actions; they
+                // operate on the first selected row.
+                Button("Play") { play(first) }
+                Button("Reveal in Finder") { reveal(first) }
 
                 if coordinator.jobs.jobs.isEmpty {
                     Text("No Jobs defined")
@@ -30,7 +33,7 @@ struct RecordingsView: View {
                         ForEach(coordinator.jobs.jobs) { job in
                             Button(job.name) {
                                 Task {
-                                    let result = await coordinator.runJob(job, on: item.folderURL)
+                                    let result = await coordinator.runJob(job, on: first.folderURL)
                                     if case .success(let out) = result {
                                         NSWorkspace.shared.activateFileViewerSelecting([out])
                                     }
@@ -40,7 +43,9 @@ struct RecordingsView: View {
                     }
                 }
 
-                Button("Delete…", role: .destructive) { pendingDelete = item }
+                Button(deleteLabel(for: items.count), role: .destructive) {
+                    pendingDelete = items
+                }
             }
         } primaryAction: { ids in
             if let item = ids.first.flatMap(item(for:)) {
@@ -48,19 +53,24 @@ struct RecordingsView: View {
             }
         }
         .alert(
-            "Delete “\(pendingDelete?.name ?? "")”?",
+            deleteAlertTitle(for: pendingDelete),
             isPresented: Binding(
-                get: { pendingDelete != nil },
-                set: { if !$0 { pendingDelete = nil } }
-            ),
-            presenting: pendingDelete
-        ) { item in
+                get: { !pendingDelete.isEmpty },
+                set: { if !$0 { pendingDelete = [] } }
+            )
+        ) {
             Button("Move to Trash", role: .destructive) {
-                Task { await library.delete(item) }
+                let toDelete = pendingDelete
+                pendingDelete = []
+                Task {
+                    for item in toDelete {
+                        await library.delete(item)
+                    }
+                }
             }
             Button("Cancel", role: .cancel) {}
-        } message: { _ in
-            Text("The recording folder will be moved to the Trash.")
+        } message: {
+            Text(deleteAlertMessage(for: pendingDelete.count))
         }
         .toolbar {
             Button {
@@ -73,6 +83,29 @@ struct RecordingsView: View {
 
     private func item(for id: RecordingItem.ID) -> RecordingItem? {
         library.recordings.first { $0.id == id }
+    }
+
+    private func items(for ids: Set<RecordingItem.ID>) -> [RecordingItem] {
+        // Preserve table order so the alert / actions are deterministic.
+        library.recordings.filter { ids.contains($0.id) }
+    }
+
+    private func deleteLabel(for count: Int) -> String {
+        count > 1 ? "Delete \(count) Recordings…" : "Delete…"
+    }
+
+    private func deleteAlertTitle(for items: [RecordingItem]) -> String {
+        switch items.count {
+        case 0: return ""
+        case 1: return "Delete “\(items[0].name)”?"
+        default: return "Delete \(items.count) recordings?"
+        }
+    }
+
+    private func deleteAlertMessage(for count: Int) -> String {
+        count > 1
+            ? "All \(count) selected recording folders will be moved to the Trash."
+            : "The recording folder will be moved to the Trash."
     }
 
     private func play(_ item: RecordingItem) {
