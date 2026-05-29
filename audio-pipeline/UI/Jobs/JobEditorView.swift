@@ -3,8 +3,6 @@ import AudioPipelineJobs
 import SwiftUI
 
 struct JobEditorView: View {
-    @Environment(\.dismiss) private var dismiss
-
     @State private var name: String
     @State private var presetID: String
     @State private var baseURL: String
@@ -20,31 +18,21 @@ struct JobEditorView: View {
     private let keychain: KeychainStore
     private let onSave: (Job) -> Void
 
-    init(initial: Job?, presets: PresetsStore, keychain: KeychainStore,
+    init(initial: Job, presets: PresetsStore, keychain: KeychainStore,
          onSave: @escaping (Job) -> Void) {
         self.presets = presets
         self.keychain = keychain
         self.onSave = onSave
 
-        let firstPreset = presets.all.first
-        let starting = initial ?? Job(
-            name: "Untitled",
-            presetID: firstPreset?.id ?? "",
-            baseURL: firstPreset?.baseURL ?? "",
-            model: firstPreset?.suggestedModels.first ?? "",
-            apiKeyRef: KeychainRef(account: ""),
-            fields: firstPreset?.defaults ?? [:],
-            outputExt: "txt"
-        )
-        self.initialID = starting.id
-        _name = State(initialValue: starting.name)
-        _presetID = State(initialValue: starting.presetID)
-        _baseURL = State(initialValue: starting.baseURL)
-        _model = State(initialValue: starting.model)
-        _apiKeyAccount = State(initialValue: starting.apiKeyRef.account)
-        _fields = State(initialValue: starting.fields)
-        _outputExt = State(initialValue: starting.outputExt)
-        let startingFolder = initial?.outputFolderPath ?? ""
+        self.initialID = initial.id
+        _name = State(initialValue: initial.name)
+        _presetID = State(initialValue: initial.presetID)
+        _baseURL = State(initialValue: initial.baseURL)
+        _model = State(initialValue: initial.model)
+        _apiKeyAccount = State(initialValue: initial.apiKeyRef.account)
+        _fields = State(initialValue: initial.fields)
+        _outputExt = State(initialValue: initial.outputExt)
+        let startingFolder = initial.outputFolderPath ?? ""
         _customOutputFolder = State(initialValue: !startingFolder.isEmpty)
         _outputFolderPath = State(initialValue: startingFolder)
     }
@@ -110,7 +98,6 @@ struct JobEditorView: View {
             Divider()
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }
                 Button("Save") { save() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canSave)
@@ -118,7 +105,6 @@ struct JobEditorView: View {
             }
             .padding(12)
         }
-        .frame(width: 540, height: 560)
     }
 
     private var canSave: Bool {
@@ -135,7 +121,6 @@ struct JobEditorView: View {
                       outputFolderPath: customOutputFolder && !outputFolderPath.isEmpty
                           ? outputFolderPath : nil)
         onSave(job)
-        dismiss()
     }
 
     private func chooseOutputFolder() {
