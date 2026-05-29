@@ -16,6 +16,14 @@ struct KeychainAccountPicker: View {
             Picker("API key", selection: $account) {
                 Text("Select…").tag("")
                 ForEach(accounts, id: \.self) { Text($0).tag($0) }
+                // Cover the gap before .task loads `accounts` (or before a
+                // freshly-added account propagates through SwiftUI's render
+                // batching). Without this, the Picker logs "invalid selection
+                // ... no associated tag" whenever `account` references a value
+                // that is not yet in the loaded list.
+                if !account.isEmpty && !accounts.contains(account) {
+                    Text(account).tag(account)
+                }
             }
             Button("New…") { creating = true }
         }
