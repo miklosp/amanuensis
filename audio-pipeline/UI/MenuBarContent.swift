@@ -29,13 +29,11 @@ struct MenuBarContent: View {
                 coordinator.openRecordingsFolder()
             }
 
-            Button("Recordings…") {
-                openWindow(id: "recordings")
+            Button("Open Window") {
+                openWindow(id: "main")
                 NSApp.activate()
-                // Raise the recordings window above other windows of this app.
-                // Defer one runloop tick so openWindow has time to surface the window.
                 DispatchQueue.main.async {
-                    if let win = NSApp.windows.first(where: { $0.identifier?.rawValue == "recordings" }) {
+                    if let win = NSApp.windows.first(where: { $0.identifier?.rawValue == "main" }) {
                         win.makeKeyAndOrderFront(nil)
                     }
                 }
