@@ -20,10 +20,7 @@ struct AudioPipelineApp: App {
         .menuBarExtraStyle(.menu)
 
         Settings {
-            SettingsView(settings: coordinator.settings,
-                         presets: coordinator.presets,
-                         jobs: coordinator.jobs,
-                         keychain: coordinator.keychain)
+            SettingsView(settings: coordinator.settings)
         }
 
         Window("Recordings", id: "recordings") {

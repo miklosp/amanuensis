@@ -1,26 +1,8 @@
 import AppKit
 import AppSettings
-import AudioPipelineJobs
 import SwiftUI
 
 struct SettingsView: View {
-    @Bindable var settings: AppSettings
-    let presets: PresetsStore
-    let jobs: JobsStore
-    let keychain: KeychainStore
-
-    var body: some View {
-        TabView {
-            RecordingSettingsTab(settings: settings)
-                .tabItem { Label("Recording", systemImage: "mic") }
-            JobsSettingsPanel(presets: presets, jobs: jobs, keychain: keychain)
-                .tabItem { Label("Jobs", systemImage: "wand.and.stars") }
-        }
-        .frame(width: 520, height: 420)
-    }
-}
-
-private struct RecordingSettingsTab: View {
     @Bindable var settings: AppSettings
 
     var body: some View {
@@ -48,6 +30,7 @@ private struct RecordingSettingsTab: View {
             }
         }
         .formStyle(.grouped)
+        .frame(width: 480, height: 260)
     }
 
     private func chooseLocation() {
