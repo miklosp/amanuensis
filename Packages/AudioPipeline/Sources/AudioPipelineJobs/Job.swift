@@ -27,4 +27,17 @@ public struct Job: Identifiable, Codable, Hashable, Sendable {
         self.outputExt = outputExt
         self.outputFolderPath = outputFolderPath
     }
+
+    public static func makeDraft(presets: PresetsStore) -> Job {
+        let firstPreset = presets.all.first
+        return Job(
+            name: "Untitled",
+            presetID: firstPreset?.id ?? "",
+            baseURL: firstPreset?.baseURL ?? "",
+            model: firstPreset?.suggestedModels.first ?? "",
+            apiKeyRef: KeychainRef(account: ""),
+            fields: firstPreset?.defaults ?? [:],
+            outputExt: "txt"
+        )
+    }
 }
