@@ -42,8 +42,6 @@ struct JobEditorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Job").font(.title2).padding([.top, .horizontal])
-
             Form {
                 Section("General") {
                     TextField("Name", text: $name)
