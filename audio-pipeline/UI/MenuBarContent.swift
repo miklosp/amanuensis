@@ -29,7 +29,11 @@ struct MenuBarContent: View {
                 coordinator.openRecordingsFolder()
             }
 
-            Button("Open Window") {
+            Button("Open Audio Pipeline") {
+                // Flip activation policy first so NSApp.activate() actually
+                // brings the window to the front — .activate is a no-op
+                // when the app is .accessory.
+                NSApp.setActivationPolicy(.regular)
                 openWindow(id: "main")
                 NSApp.activate()
                 DispatchQueue.main.async {
