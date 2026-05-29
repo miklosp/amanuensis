@@ -11,6 +11,7 @@
 		651FA23B038E85E0704E3342 /* AudioPipelineJobs in Frameworks */ = {isa = PBXBuildFile; productRef = 234879DAEC2256F37E40EEBC /* AudioPipelineJobs */; };
 		8EFBD6CE8086F36CED3D45FA /* RecordingFormattersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 530554F5DA0383ED728291F5 /* RecordingFormattersTests.swift */; };
 		B41F3CA7F935963EBA8FC7E6 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F83379B555813CEE20BE895F /* Cocoa.framework */; };
+		B613BAFD1C592783FC3934C9 /* MainWindowViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2869FCC8825AFD91DAD850C7 /* MainWindowViewTests.swift */; };
 		C30715B2C425CA0BDDF2BC88 /* RecordingStorage in Frameworks */ = {isa = PBXBuildFile; productRef = C81DE0068215EFA9C64A00DA /* RecordingStorage */; };
 		E74C324A87BEC59AA8FBC2A1 /* AppSettings in Frameworks */ = {isa = PBXBuildFile; productRef = DDADBEADF4CFB28174A18CD6 /* AppSettings */; };
 /* End PBXBuildFile section */
@@ -27,6 +28,7 @@
 
 /* Begin PBXFileReference section */
 		15CF6A5696D76A63A88920B3 /* audio-pipelineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "audio-pipelineTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2869FCC8825AFD91DAD850C7 /* MainWindowViewTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainWindowViewTests.swift; sourceTree = "<group>"; };
 		530554F5DA0383ED728291F5 /* RecordingFormattersTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordingFormattersTests.swift; sourceTree = "<group>"; };
 		64F04E712FBDBC4A00B58BE7 /* audio-pipeline.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "audio-pipeline.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F83379B555813CEE20BE895F /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
@@ -77,6 +79,7 @@
 			isa = PBXGroup;
 			children = (
 				530554F5DA0383ED728291F5 /* RecordingFormattersTests.swift */,
+				2869FCC8825AFD91DAD850C7 /* MainWindowViewTests.swift */,
 			);
 			name = "audio-pipelineTests";
 			path = "audio-pipelineTests";
@@ -217,6 +220,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8EFBD6CE8086F36CED3D45FA /* RecordingFormattersTests.swift in Sources */,
+				B613BAFD1C592783FC3934C9 /* MainWindowViewTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
