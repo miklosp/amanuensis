@@ -1,6 +1,4 @@
 import AppSettings
-import AudioPipelineJobs
-import RecordingStorage
 import SwiftUI
 
 @main
@@ -19,12 +17,29 @@ struct AudioPipelineApp: App {
         }
         .menuBarExtraStyle(.menu)
 
+        Window("Audio Pipeline", id: "main") {
+            MainWindowView(coordinator: coordinator)
+        }
+        .defaultSize(width: 880, height: 540)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                OpenMainWindowCommand()
+            }
+        }
+
         Settings {
             SettingsView(settings: coordinator.settings)
         }
+    }
+}
 
-        Window("Recordings", id: "recordings") {
-            RecordingsView(library: coordinator.library, coordinator: coordinator)
+private struct OpenMainWindowCommand: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("New Window") {
+            openWindow(id: "main")
         }
+        .keyboardShortcut("n")
     }
 }
