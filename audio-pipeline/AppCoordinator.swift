@@ -6,6 +6,7 @@ import Observation
 import os
 import RecordingCore
 import RecordingStorage
+import SwiftUI
 
 // Top-level app state. Drives a pure RecorderStateMachine; performs side
 // effects (permissions, file system, audio capture, FLAC conversion) outside
@@ -140,7 +141,7 @@ final class AppCoordinator {
         // meta.json was written synchronously inside active.stop(); the row is
         // now visible to library.refresh().
         await library.refresh()
-        recordingActivity = "Converting recording…"
+        withAnimation { recordingActivity = "Converting recording…" }
 
         let keepCAF = settings.keepOriginalCAF
         let micURL = folder.micURL
@@ -197,11 +198,11 @@ final class AppCoordinator {
         // before checking combined.flac. Failure is fine here — the existence
         // check below will return the canonical .combinedFlacMissing.
         if await conversionService.isConverting(folderName: recordingName) {
-            jobActivity = "Waiting for '\(recordingName)' to finish converting…"
+            withAnimation { jobActivity = "Waiting for '\(recordingName)' to finish converting…" }
             await conversionService.waitForConversion(folderName: recordingName)
         }
 
-        jobActivity = "Running '\(job.name)' on '\(recordingName)'…"
+        withAnimation { jobActivity = "Running '\(job.name)' on '\(recordingName)'…" }
 
         // combined.flac is the canonical input — guaranteed to exist after a
         // successful recording (mic + optional system mixed at stop).
@@ -225,26 +226,26 @@ final class AppCoordinator {
     // Shows a transient activity message that auto-clears after ~3 seconds.
     // A subsequent runJob call replaces this immediately (no queue).
     private func flashActivity(_ message: String) async {
-        jobActivity = message
+        withAnimation { jobActivity = message }
         let snapshot = message
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             // Only clear if our message is still the current one — a new run may
             // have replaced it.
             guard self?.jobActivity == snapshot else { return }
-            self?.jobActivity = nil
+            withAnimation { self?.jobActivity = nil }
         }
     }
 
     // Same auto-clear pattern as flashActivity, but for the recording-conversion
     // footer line.
     private func flashRecordingActivity(_ message: String) async {
-        recordingActivity = message
+        withAnimation { recordingActivity = message }
         let snapshot = message
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             guard self?.recordingActivity == snapshot else { return }
-            self?.recordingActivity = nil
+            withAnimation { self?.recordingActivity = nil }
         }
     }
 
