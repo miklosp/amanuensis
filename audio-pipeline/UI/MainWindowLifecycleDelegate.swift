@@ -2,7 +2,7 @@ import AppKit
 
 @MainActor
 final class MainWindowLifecycleDelegate: NSObject, NSWindowDelegate {
-    private weak var previousDelegate: NSWindowDelegate?
+    private var previousDelegate: NSWindowDelegate?
     private var installed = false
 
     func install(on window: NSWindow) {
