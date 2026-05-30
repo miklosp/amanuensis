@@ -29,7 +29,7 @@ struct MainWindowView: View {
             case .jobs:
                 JobsView(presets: coordinator.presets,
                          jobs: coordinator.jobs,
-                         keychain: coordinator.keychain)
+                         providers: coordinator.providers)
                     .navigationTitle("Jobs")
             }
         }

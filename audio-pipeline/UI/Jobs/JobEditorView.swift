@@ -4,10 +4,8 @@ import SwiftUI
 
 struct JobEditorView: View {
     @State private var name: String
-    @State private var presetID: String
-    @State private var baseURL: String
+    @State private var providerID: UUID?
     @State private var model: String
-    @State private var apiKeyAccount: String
     @State private var fields: [String: String]
     @State private var outputExt: String
     @State private var customOutputFolder: Bool
@@ -15,21 +13,19 @@ struct JobEditorView: View {
 
     private let initialID: UUID
     private let presets: PresetsStore
-    private let keychain: KeychainStore
+    private let providers: ProvidersStore
     private let onSave: (Job) -> Void
 
-    init(initial: Job, presets: PresetsStore, keychain: KeychainStore,
+    init(initial: Job, presets: PresetsStore, providers: ProvidersStore,
          onSave: @escaping (Job) -> Void) {
         self.presets = presets
-        self.keychain = keychain
+        self.providers = providers
         self.onSave = onSave
 
         self.initialID = initial.id
         _name = State(initialValue: initial.name)
-        _presetID = State(initialValue: initial.presetID)
-        _baseURL = State(initialValue: initial.baseURL)
+        _providerID = State(initialValue: initial.providerID)
         _model = State(initialValue: initial.model)
-        _apiKeyAccount = State(initialValue: initial.apiKeyRef.account)
         _fields = State(initialValue: initial.fields)
         _outputExt = State(initialValue: initial.outputExt)
         let startingFolder = initial.outputFolderPath ?? ""
@@ -37,7 +33,14 @@ struct JobEditorView: View {
         _outputFolderPath = State(initialValue: startingFolder)
     }
 
-    private var preset: Preset? { presets.preset(id: presetID) }
+    private var provider: Provider? {
+        providerID.flatMap { providers.provider(id: $0) }
+    }
+
+    private var preset: Preset? {
+        provider.flatMap { presets.preset(id: $0.presetID) }
+    }
+
     private var shape: JobShape? { preset?.shape }
 
     var body: some View {
@@ -45,18 +48,28 @@ struct JobEditorView: View {
             Form {
                 Section("General") {
                     TextField("Name", text: $name)
-                    Picker("Preset", selection: $presetID) {
-                        ForEach(presets.all) { p in
-                            Text(p.displayName).tag(p.id)
+                    Picker("Provider", selection: $providerID) {
+                        Text("Select…").tag(UUID?.none)
+                        ForEach(providers.providers.sorted(by: { $0.name.localizedStandardCompare($1.name) == .orderedAscending })) { p in
+                            Text(p.name).tag(Optional(p.id))
                         }
                     }
-                    .onChange(of: presetID) { _, newID in
-                        guard let p = presets.preset(id: newID) else { return }
-                        baseURL = p.baseURL
-                        if model.isEmpty { model = p.suggestedModels.first ?? "" }
-                        for (k, v) in p.defaults where fields[k] == nil { fields[k] = v }
+                    .onChange(of: providerID) { oldID, newID in
+                        let oldShape = oldID
+                            .flatMap { providers.provider(id: $0) }
+                            .flatMap { presets.preset(id: $0.presetID) }?.shape
+                        let newShape = newID
+                            .flatMap { providers.provider(id: $0) }
+                            .flatMap { presets.preset(id: $0.presetID) }?.shape
+                        if oldShape != newShape {
+                            // Shape changed — clear model and reset fields to new preset's defaults.
+                            model = ""
+                            let newDefaults = newID
+                                .flatMap { providers.provider(id: $0) }
+                                .flatMap { presets.preset(id: $0.presetID) }?.defaults ?? [:]
+                            fields = newDefaults
+                        }
                     }
-                    TextField("Base URL", text: $baseURL)
                     HStack {
                         TextField("Model", text: $model)
                         if let suggestions = preset?.suggestedModels, !suggestions.isEmpty {
@@ -68,7 +81,6 @@ struct JobEditorView: View {
                             .frame(width: 110)
                         }
                     }
-                    KeychainAccountPicker(account: $apiKeyAccount, keychain: keychain)
                     TextField("Output extension", text: $outputExt)
                     Toggle(isOn: $customOutputFolder) {
                         Text("Custom output folder")
@@ -107,17 +119,16 @@ struct JobEditorView: View {
 
     private var canSave: Bool {
         let folderOK = !customOutputFolder || !outputFolderPath.isEmpty
-        return !name.isEmpty && !presetID.isEmpty && !apiKeyAccount.isEmpty
-            && !model.isEmpty && folderOK
+        return !name.isEmpty && providerID != nil && !model.isEmpty && folderOK
     }
 
     private func save() {
-        let job = Job(id: initialID, name: name, presetID: presetID,
-                      baseURL: baseURL, model: model,
-                      apiKeyRef: KeychainRef(account: apiKeyAccount),
-                      fields: fields, outputExt: outputExt,
-                      outputFolderPath: customOutputFolder && !outputFolderPath.isEmpty
-                          ? outputFolderPath : nil)
+        let job = Job(
+            id: initialID, name: name, providerID: providerID,
+            model: model, fields: fields, outputExt: outputExt,
+            outputFolderPath: customOutputFolder && !outputFolderPath.isEmpty
+                ? outputFolderPath : nil
+        )
         onSave(job)
     }
 

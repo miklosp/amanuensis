@@ -4,7 +4,7 @@ import SwiftUI
 struct JobsView: View {
     let presets: PresetsStore
     @Bindable var jobs: JobsStore
-    let keychain: KeychainStore
+    @Bindable var providers: ProvidersStore
 
     @State private var selection: Job.ID?
 
@@ -21,17 +21,13 @@ struct JobsView: View {
             }
             .frame(minWidth: 200, idealWidth: 240)
 
-            if let id = selection, let job = sortedJobs.first(where: { $0.id == id }) {
-                JobEditorView(initial: job,
-                              presets: presets,
-                              keychain: keychain,
-                              onSave: { jobs.upsert($0) })
-                    .id(job.id)
-                    .frame(minWidth: 420)
-            } else {
-                ContentUnavailableView("Select a job", systemImage: "wand.and.stars")
-                    .frame(minWidth: 420)
-            }
+            JobsDetailPane(
+                job: sortedJobs.first(where: { $0.id == selection }),
+                presets: presets,
+                providers: providers,
+                onSave: { jobs.upsert($0) }
+            )
+            .frame(minWidth: 420)
         }
         .toolbar {
             ToolbarItemGroup {
@@ -40,6 +36,7 @@ struct JobsView: View {
                 } label: {
                     Label("New Job", systemImage: "plus")
                 }
+                .disabled(providers.providers.isEmpty)
                 Button(role: .destructive) {
                     deleteSelected()
                 } label: {
@@ -62,7 +59,8 @@ struct JobsView: View {
     }
 
     private func addJob() {
-        let draft = Job.makeDraft(presets: presets)
+        guard !providers.providers.isEmpty else { return }
+        let draft = Job.makeDraft()
         jobs.upsert(draft)
         selection = draft.id
     }
@@ -71,5 +69,24 @@ struct JobsView: View {
         guard let id = selection else { return }
         jobs.delete(id: id)
         selection = nil
+    }
+}
+
+private struct JobsDetailPane: View {
+    let job: Job?
+    let presets: PresetsStore
+    let providers: ProvidersStore
+    let onSave: (Job) -> Void
+
+    var body: some View {
+        if let job {
+            JobEditorView(initial: job,
+                          presets: presets,
+                          providers: providers,
+                          onSave: onSave)
+                .id(job.id)
+        } else {
+            ContentUnavailableView("Select a job", systemImage: "wand.and.stars")
+        }
     }
 }
