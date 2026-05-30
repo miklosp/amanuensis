@@ -16,9 +16,10 @@ public struct JobRunner: Sendable {
     }
 
     @discardableResult
-    public func run(job: Job, audioURL: URL) async throws -> URL {
-        let key = try await keychain.get(account: job.apiKeyRef.account)
-        let text = try await handler.send(job: job, audioURL: audioURL, apiKey: key)
+    public func run(job: Job, provider: Provider, audioURL: URL) async throws -> URL {
+        let key = try await keychain.get(account: provider.apiKeyRef.account)
+        let text = try await handler.send(job: job, provider: provider,
+                                          audioURL: audioURL, apiKey: key)
         let folder: URL
         if let path = job.outputFolderPath, !path.isEmpty {
             folder = URL(fileURLWithPath: path, isDirectory: true)
@@ -26,18 +27,11 @@ public struct JobRunner: Sendable {
             folder = audioURL.deletingLastPathComponent()
         }
         let outURL = Self.uniqueOutputURL(in: folder, jobName: job.name, ext: job.outputExt)
-        // Ensure the target folder exists (custom folder might not). Failure here
-        // bubbles via the .write() call below, which is correct: better to throw
-        // than silently produce no file.
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try Data(text.utf8).write(to: outURL, options: .atomic)
         return outURL
     }
 
-    // Builds "combined-<sanitised-name>.<ext>" inside `folder`; appends " (N)"
-    // to the stem if the path already exists. Sanitisation replaces "/" and ":"
-    // only — leaves spaces and other punctuation untouched (they're valid in
-    // macOS filenames).
     static func uniqueOutputURL(in folder: URL, jobName: String, ext: String) -> URL {
         let sanitised = jobName
             .replacingOccurrences(of: "/", with: "-")

@@ -1,43 +1,32 @@
 import Foundation
 
-// User-saved configuration for one audio→text run. Many Jobs may share a
-// presetID. Stored as JSON on disk via JobsStore.
+// User-saved configuration for one audio→text run. References a Provider for
+// endpoint/credentials/shape; carries only the per-run fields (model, prompt
+// and shape-specific params, output location). Stored as JSON on disk via
+// JobsStore.
 public struct Job: Identifiable, Codable, Hashable, Sendable {
     public let id: UUID
     public var name: String                 // user label, e.g. "Swedish lesson"
-    public var presetID: String             // links back to Preset
-    public var baseURL: String              // may diverge from preset (self-hosted)
-    public var model: String                // free text; preset.suggestedModels is just autocomplete
-    public var apiKeyRef: KeychainRef
-    public var fields: [String: String]     // shape-specific values
+    public var providerID: UUID?            // nil = unset (draft or broken)
+    public var model: String                // free text; provider.preset.suggestedModels is autocomplete
+    public var fields: [String: String]     // shape-specific values, validated against provider's preset shape
     public var outputExt: String            // "txt", "json", "srt"
     public var outputFolderPath: String?    // nil = next to recording; set = absolute path to folder
 
-    public init(id: UUID = UUID(), name: String, presetID: String,
-                baseURL: String, model: String, apiKeyRef: KeychainRef,
-                fields: [String: String], outputExt: String,
+    public init(id: UUID = UUID(), name: String, providerID: UUID?,
+                model: String, fields: [String: String], outputExt: String,
                 outputFolderPath: String? = nil) {
         self.id = id
         self.name = name
-        self.presetID = presetID
-        self.baseURL = baseURL
+        self.providerID = providerID
         self.model = model
-        self.apiKeyRef = apiKeyRef
         self.fields = fields
         self.outputExt = outputExt
         self.outputFolderPath = outputFolderPath
     }
 
-    public static func makeDraft(presets: PresetsStore) -> Job {
-        let firstPreset = presets.all.first
-        return Job(
-            name: "Untitled",
-            presetID: firstPreset?.id ?? "",
-            baseURL: firstPreset?.baseURL ?? "",
-            model: firstPreset?.suggestedModels.first ?? "",
-            apiKeyRef: KeychainRef(account: ""),
-            fields: firstPreset?.defaults ?? [:],
-            outputExt: "txt"
-        )
+    public static func makeDraft() -> Job {
+        Job(name: "Untitled", providerID: nil, model: "",
+            fields: [:], outputExt: "txt")
     }
 }

@@ -7,13 +7,9 @@ private func tempFile() -> URL {
     return dir.appendingPathComponent("jobs-\(UUID().uuidString).json")
 }
 
-private func makeJob(name: String = "demo") -> Job {
-    Job(name: name, presetID: "openai-compat-chat",
-        baseURL: "http://localhost:4444/openai",
-        model: "gemini-flash",
-        apiKeyRef: KeychainRef(account: "bifrost"),
-        fields: ["prompt": "Transcribe this."],
-        outputExt: "txt")
+private func makeJob(name: String = "demo", providerID: UUID = UUID()) -> Job {
+    Job(name: name, providerID: providerID, model: "gemini-flash",
+        fields: ["prompt": "Transcribe this."], outputExt: "txt")
 }
 
 @MainActor

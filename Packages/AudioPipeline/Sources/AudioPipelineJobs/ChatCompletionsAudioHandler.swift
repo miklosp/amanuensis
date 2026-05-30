@@ -22,12 +22,12 @@ public enum ChatCompletionsAudioHandler {
         case audioReadFailed
     }
 
-    public static func buildRequest(job: Job, audioURL: URL, apiKey: String) throws -> URLRequest {
+    public static func buildRequest(job: Job, provider: Provider, audioURL: URL, apiKey: String) throws -> URLRequest {
         guard let prompt = job.fields["prompt"], !prompt.isEmpty else {
             throw BuildError.missingPrompt
         }
 
-        let trimmedBase = job.baseURL.hasSuffix("/") ? String(job.baseURL.dropLast()) : job.baseURL
+        let trimmedBase = provider.baseURL.hasSuffix("/") ? String(provider.baseURL.dropLast()) : provider.baseURL
         guard let endpoint = URL(string: trimmedBase + "/v1/chat/completions") else {
             throw BuildError.invalidBaseURL
         }
@@ -85,11 +85,12 @@ extension ChatCompletionsAudioHandler {
 
     public static func send(
         job: Job,
+        provider: Provider,
         audioURL: URL,
         apiKey: String,
         session: URLSession = .shared
     ) async throws -> String {
-        let request = try buildRequest(job: job, audioURL: audioURL, apiKey: apiKey)
+        let request = try buildRequest(job: job, provider: provider, audioURL: audioURL, apiKey: apiKey)
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw SendError.malformedResponse
@@ -123,12 +124,13 @@ extension ChatCompletionsAudioHandler {
 // Mirror of the static `send` as a protocol, so JobRunner can be tested
 // without making real network calls.
 public protocol ChatCompletionsAudioSending: Sendable {
-    func send(job: Job, audioURL: URL, apiKey: String) async throws -> String
+    func send(job: Job, provider: Provider, audioURL: URL, apiKey: String) async throws -> String
 }
 
 public struct DefaultChatCompletionsAudioSender: ChatCompletionsAudioSending {
     public init() {}
-    public func send(job: Job, audioURL: URL, apiKey: String) async throws -> String {
-        try await ChatCompletionsAudioHandler.send(job: job, audioURL: audioURL, apiKey: apiKey)
+    public func send(job: Job, provider: Provider, audioURL: URL, apiKey: String) async throws -> String {
+        try await ChatCompletionsAudioHandler.send(job: job, provider: provider,
+                                                   audioURL: audioURL, apiKey: apiKey)
     }
 }

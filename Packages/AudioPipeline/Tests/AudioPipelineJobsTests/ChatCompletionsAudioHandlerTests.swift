@@ -2,16 +2,18 @@ import Foundation
 import Testing
 @testable import AudioPipelineJobs
 
+private func makeProvider(baseURL: String = "http://localhost:4444/openai") -> Provider {
+    Provider(name: "p", presetID: "openai-compat-chat",
+             baseURL: baseURL, apiKeyRef: KeychainRef(account: "bifrost"))
+}
+
 private func makeJob(prompt: String, model: String = "gemini-flash",
-                     baseURL: String = "http://localhost:4444/openai",
                      audioFormat: String? = nil,
                      temperature: String? = nil) -> Job {
     var fields: [String: String] = ["prompt": prompt]
     if let audioFormat { fields["audio_format"] = audioFormat }
     if let temperature { fields["temperature"] = temperature }
-    return Job(name: "t", presetID: "openai-compat-chat",
-               baseURL: baseURL, model: model,
-               apiKeyRef: KeychainRef(account: "bifrost"),
+    return Job(name: "t", providerID: UUID(), model: model,
                fields: fields, outputExt: "txt")
 }
 
@@ -25,24 +27,30 @@ private func writeAudio(_ bytes: [UInt8], ext: String) throws -> URL {
 @Suite struct ChatCompletionsAudioRequest {
     @Test func buildsPOST_toChatCompletionsPath() throws {
         let job = makeJob(prompt: "Hello")
+        let provider = makeProvider()
         let audio = try writeAudio([0x01, 0x02], ext: "flac")
-        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, audioURL: audio, apiKey: "sk-x")
+        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, provider: provider,
+                                                               audioURL: audio, apiKey: "sk-x")
         #expect(req.httpMethod == "POST")
         #expect(req.url?.absoluteString == "http://localhost:4444/openai/v1/chat/completions")
     }
 
     @Test func authorizationHeader_isBearerToken() throws {
         let job = makeJob(prompt: "Hello")
+        let provider = makeProvider()
         let audio = try writeAudio([0x01], ext: "flac")
-        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, audioURL: audio, apiKey: "sk-x")
+        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, provider: provider,
+                                                               audioURL: audio, apiKey: "sk-x")
         #expect(req.value(forHTTPHeaderField: "Authorization") == "Bearer sk-x")
         #expect(req.value(forHTTPHeaderField: "Content-Type") == "application/json")
     }
 
     @Test func body_encodesModelMessagesAndBase64Audio() throws {
         let job = makeJob(prompt: "Transcribe.")
+        let provider = makeProvider()
         let audio = try writeAudio([0xAA, 0xBB, 0xCC], ext: "flac")
-        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, audioURL: audio, apiKey: "k")
+        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, provider: provider,
+                                                               audioURL: audio, apiKey: "k")
         let body = try #require(req.httpBody)
         let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         #expect(json?["model"] as? String == "gemini-flash")
@@ -58,8 +66,10 @@ private func writeAudio(_ bytes: [UInt8], ext: String) throws -> URL {
 
     @Test func audioFormat_auto_derivesFromExtension() throws {
         let job = makeJob(prompt: "p", audioFormat: "auto")
+        let provider = makeProvider()
         let audio = try writeAudio([0x01], ext: "wav")
-        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, audioURL: audio, apiKey: "k")
+        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, provider: provider,
+                                                               audioURL: audio, apiKey: "k")
         let body = try #require(req.httpBody)
         let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         let messages = try #require(json?["messages"] as? [[String: Any]])
@@ -71,8 +81,10 @@ private func writeAudio(_ bytes: [UInt8], ext: String) throws -> URL {
 
     @Test func temperature_isIncludedWhenSet() throws {
         let job = makeJob(prompt: "p", temperature: "0.3")
+        let provider = makeProvider()
         let audio = try writeAudio([0x01], ext: "flac")
-        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, audioURL: audio, apiKey: "k")
+        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, provider: provider,
+                                                               audioURL: audio, apiKey: "k")
         let body = try #require(req.httpBody)
         let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         #expect(json?["temperature"] as? Double == 0.3)
@@ -80,26 +92,32 @@ private func writeAudio(_ bytes: [UInt8], ext: String) throws -> URL {
 
     @Test func temperature_isOmittedWhenAbsent() throws {
         let job = makeJob(prompt: "p")
+        let provider = makeProvider()
         let audio = try writeAudio([0x01], ext: "flac")
-        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, audioURL: audio, apiKey: "k")
+        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, provider: provider,
+                                                               audioURL: audio, apiKey: "k")
         let body = try #require(req.httpBody)
         let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         #expect(json?["temperature"] == nil)
     }
 
     @Test func trailingSlashInBaseURL_isHandled() throws {
-        let job = makeJob(prompt: "p", baseURL: "http://example.com/")
+        let job = makeJob(prompt: "p")
+        let provider = makeProvider(baseURL: "http://example.com/")
         let audio = try writeAudio([0x01], ext: "flac")
-        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, audioURL: audio, apiKey: "k")
+        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, provider: provider,
+                                                               audioURL: audio, apiKey: "k")
         #expect(req.url?.absoluteString == "http://example.com/v1/chat/completions")
     }
 
     @Test func buildRequest_throws_missingPrompt_whenPromptEmpty() throws {
         var job = makeJob(prompt: "Hello")
         job.fields["prompt"] = ""
+        let provider = makeProvider()
         let audio = try writeAudio([0x01], ext: "flac")
         do {
-            _ = try ChatCompletionsAudioHandler.buildRequest(job: job, audioURL: audio, apiKey: "k")
+            _ = try ChatCompletionsAudioHandler.buildRequest(job: job, provider: provider,
+                                                             audioURL: audio, apiKey: "k")
             Issue.record("expected missingPrompt")
         } catch ChatCompletionsAudioHandler.BuildError.missingPrompt {
             // expected
@@ -108,10 +126,12 @@ private func writeAudio(_ bytes: [UInt8], ext: String) throws -> URL {
 
     @Test func buildRequest_throws_audioReadFailed_whenFileMissing() throws {
         let job = makeJob(prompt: "p")
+        let provider = makeProvider()
         let missing = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("nonexistent-\(UUID().uuidString).flac")
         do {
-            _ = try ChatCompletionsAudioHandler.buildRequest(job: job, audioURL: missing, apiKey: "k")
+            _ = try ChatCompletionsAudioHandler.buildRequest(job: job, provider: provider,
+                                                             audioURL: missing, apiKey: "k")
             Issue.record("expected audioReadFailed")
         } catch ChatCompletionsAudioHandler.BuildError.audioReadFailed {
             // expected
@@ -156,19 +176,23 @@ private func stubSession(status: Int, body: Data) -> URLSession {
         let json = #"{"choices":[{"message":{"content":"Hello world"}}]}"#
         let session = stubSession(status: 200, body: Data(json.utf8))
         let job = makeJob(prompt: "p")
+        let provider = makeProvider()
         let audio = try writeAudio([0x01], ext: "flac")
-        let text = try await ChatCompletionsAudioHandler.send(job: job, audioURL: audio,
-                                                              apiKey: "k", session: session)
+        let text = try await ChatCompletionsAudioHandler.send(job: job, provider: provider,
+                                                              audioURL: audio, apiKey: "k",
+                                                              session: session)
         #expect(text == "Hello world")
     }
 
     @Test func send_throws_onNon200() async throws {
         let session = stubSession(status: 401, body: Data(#"{"error":"unauthorized"}"#.utf8))
         let job = makeJob(prompt: "p")
+        let provider = makeProvider()
         let audio = try writeAudio([0x01], ext: "flac")
         do {
-            _ = try await ChatCompletionsAudioHandler.send(job: job, audioURL: audio,
-                                                          apiKey: "k", session: session)
+            _ = try await ChatCompletionsAudioHandler.send(job: job, provider: provider,
+                                                          audioURL: audio, apiKey: "k",
+                                                          session: session)
             Issue.record("expected throw")
         } catch ChatCompletionsAudioHandler.SendError.httpError(let code, _) {
             #expect(code == 401)
@@ -178,10 +202,12 @@ private func stubSession(status: Int, body: Data) -> URLSession {
     @Test func send_throws_whenChoicesMissing() async throws {
         let session = stubSession(status: 200, body: Data(#"{"unexpected":true}"#.utf8))
         let job = makeJob(prompt: "p")
+        let provider = makeProvider()
         let audio = try writeAudio([0x01], ext: "flac")
         do {
-            _ = try await ChatCompletionsAudioHandler.send(job: job, audioURL: audio,
-                                                          apiKey: "k", session: session)
+            _ = try await ChatCompletionsAudioHandler.send(job: job, provider: provider,
+                                                          audioURL: audio, apiKey: "k",
+                                                          session: session)
             Issue.record("expected throw")
         } catch ChatCompletionsAudioHandler.SendError.malformedResponse {
             // expected
