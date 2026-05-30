@@ -55,8 +55,8 @@ public final class ProvidersStore {
             let data = try JSONEncoder().encode(providers)
             try data.write(to: fileURL, options: .atomic)
         } catch {
-            // Persistence failure is non-fatal for the in-memory store. The app
-            // composition root logs from the catch around ProvidersStore.standard.
+            // Persistence failure is non-fatal for the in-memory store but worth
+            // logging. Defer to OSLog from the app composition root if needed.
         }
     }
 }

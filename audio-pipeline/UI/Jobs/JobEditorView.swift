@@ -159,7 +159,10 @@ struct JobEditorView: View {
 
     private var canSave: Bool {
         let folderOK = !customOutputFolder || !outputFolderPath.isEmpty
-        return !name.isEmpty && providerID != nil && !model.isEmpty && folderOK
+        // provider != nil (not just providerID != nil) — guards against the
+        // repair-pane case where providerID still holds the dangling UUID of
+        // a deleted Provider and the user hits Save without touching the Picker.
+        return !name.isEmpty && provider != nil && !model.isEmpty && folderOK
     }
 
     private func save() {

@@ -85,8 +85,12 @@ struct JobsView: View {
     }
 
     private func addJob() {
-        guard !providers.providers.isEmpty else { return }
-        let draft = Job.makeDraft()
+        let firstProvider = providers.providers
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            .first
+        guard let firstProvider else { return }
+        var draft = Job.makeDraft()
+        draft.providerID = firstProvider.id
         jobs.upsert(draft)
         selection = draft.id
     }
