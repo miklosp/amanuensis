@@ -46,6 +46,7 @@ final class AppCoordinator {
     let keychain: KeychainStore
     let presets: PresetsStore
     let jobs: JobsStore
+    let providers: ProvidersStore
 
     var jobActivity: String?
     var recordingActivity: String?
@@ -74,6 +75,16 @@ final class AppCoordinator {
                 .appendingPathComponent("jobs-fallback.json")
             self.jobs = (try? JobsStore(fileURL: tmp)) ?? {
                 preconditionFailure("could not initialise JobsStore even at temp path")
+            }()
+        }
+        do {
+            self.providers = try ProvidersStore.standard(bundleID: "work.miklos.audio-pipeline")
+        } catch {
+            Self.log.error("failed to load providers: \(String(describing: error), privacy: .public)")
+            let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("providers-fallback.json")
+            self.providers = (try? ProvidersStore(fileURL: tmp)) ?? {
+                preconditionFailure("could not initialise ProvidersStore even at temp path")
             }()
         }
     }
