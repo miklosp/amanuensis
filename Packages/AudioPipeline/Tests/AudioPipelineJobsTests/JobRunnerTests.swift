@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import AudioPipelineJobs
 
+// Fake keychain that returns a fixed key without touching Security.framework.
 private actor FakeKeychain: KeychainProviding {
     let key: String
     init(key: String) { self.key = key }
@@ -92,10 +93,11 @@ private func makeAudio() throws -> URL {
         let handler = FakeHandler(result: .success("ok"))
         let runner = JobRunner(keychain: keychain, handler: handler)
         let provider = makeProvider()
-        _ = try await runner.run(job: makeJob(providerID: provider.id),
-                                 provider: provider, audioURL: audio)
+        let job = makeJob(providerID: provider.id)
+        _ = try await runner.run(job: job, provider: provider, audioURL: audio)
         #expect(await handler.lastKey == "sk-real")
         #expect(await handler.lastProvider?.id == provider.id)
+        #expect(await handler.lastJob?.id == job.id)
         #expect(await handler.lastAudio == audio)
     }
 

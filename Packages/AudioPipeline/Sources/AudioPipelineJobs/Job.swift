@@ -9,7 +9,7 @@ public struct Job: Identifiable, Codable, Hashable, Sendable {
     public var name: String                 // user label, e.g. "Swedish lesson"
     public var providerID: UUID?            // nil = unset (draft or broken)
     public var model: String                // free text; provider.preset.suggestedModels is autocomplete
-    public var fields: [String: String]     // shape-specific values, validated against provider's preset shape
+    public var fields: [String: String]     // shape-specific values; keys defined by provider's preset shape
     public var outputExt: String            // "txt", "json", "srt"
     public var outputFolderPath: String?    // nil = next to recording; set = absolute path to folder
 

@@ -27,11 +27,18 @@ public struct JobRunner: Sendable {
             folder = audioURL.deletingLastPathComponent()
         }
         let outURL = Self.uniqueOutputURL(in: folder, jobName: job.name, ext: job.outputExt)
+        // Ensure the target folder exists (custom folder might not). Failure here
+        // bubbles via the .write() call below, which is correct: better to throw
+        // than silently produce no file.
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try Data(text.utf8).write(to: outURL, options: .atomic)
         return outURL
     }
 
+    // Builds "combined-<sanitised-name>.<ext>" inside `folder`; appends " (N)"
+    // to the stem if the path already exists. Sanitisation replaces "/" and ":"
+    // only — leaves spaces and other punctuation untouched (they're valid in
+    // macOS filenames).
     static func uniqueOutputURL(in folder: URL, jobName: String, ext: String) -> URL {
         let sanitised = jobName
             .replacingOccurrences(of: "/", with: "-")
