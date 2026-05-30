@@ -66,6 +66,8 @@ struct JobEditorView: View {
                 }
             }
             .onChange(of: providerID) { _, newID in
+                // Always reset — the old provider is gone, so there's no shape
+                // to preserve. Differs from editorForm's onChange below.
                 let newPreset = newID
                     .flatMap { providers.provider(id: $0) }
                     .flatMap { presets.preset(id: $0.presetID) }
