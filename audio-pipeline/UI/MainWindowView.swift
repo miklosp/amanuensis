@@ -14,6 +14,8 @@ struct MainWindowView: View {
                         .tag(SidebarDestination.recordings)
                     Label("Jobs", systemImage: "wand.and.stars")
                         .tag(SidebarDestination.jobs)
+                    Label("Providers", systemImage: "key")
+                        .tag(SidebarDestination.providers)
                 }
             }
             .listStyle(.sidebar)
@@ -31,6 +33,11 @@ struct MainWindowView: View {
                          jobs: coordinator.jobs,
                          providers: coordinator.providers)
                     .navigationTitle("Jobs")
+            case .providers:
+                ProvidersView(presets: coordinator.presets,
+                              providers: coordinator.providers,
+                              keychain: coordinator.keychain)
+                    .navigationTitle("Providers")
             }
         }
         .background {
@@ -42,5 +49,5 @@ struct MainWindowView: View {
 }
 
 enum SidebarDestination: Hashable {
-    case recordings, jobs
+    case recordings, jobs, providers
 }
