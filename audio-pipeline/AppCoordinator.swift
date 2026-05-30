@@ -69,12 +69,23 @@ final class AppCoordinator {
         do {
             self.jobs = try JobsStore.standard(bundleID: "work.miklos.audio-pipeline")
         } catch {
-            Self.log.error("failed to load jobs: \(String(describing: error), privacy: .public)")
-            // Last-resort in-memory store at a throwaway temp path.
-            let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
-                .appendingPathComponent("jobs-fallback.json")
-            self.jobs = (try? JobsStore(fileURL: tmp)) ?? {
-                preconditionFailure("could not initialise JobsStore even at temp path")
+            Self.log.error("failed to load jobs (likely stale schema): \(String(describing: error), privacy: .public)")
+            // Pre-release wipe: drop a stale jobs.json so the next launch starts clean.
+            let support = try? FileManager.default.url(for: .applicationSupportDirectory,
+                                                       in: .userDomainMask,
+                                                       appropriateFor: nil, create: false)
+            if let url = support?
+                .appendingPathComponent("work.miklos.audio-pipeline", isDirectory: true)
+                .appendingPathComponent("jobs.json") {
+                try? FileManager.default.removeItem(at: url)
+            }
+            // Try once more from the standard location; fall back to a temp file if even that fails.
+            self.jobs = (try? JobsStore.standard(bundleID: "work.miklos.audio-pipeline")) ?? {
+                let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+                    .appendingPathComponent("jobs-fallback.json")
+                return (try? JobsStore(fileURL: tmp)) ?? {
+                    preconditionFailure("could not initialise JobsStore even at temp path")
+                }()
             }()
         }
         do {
@@ -205,9 +216,12 @@ final class AppCoordinator {
     func runJob(_ job: Job, on recordingFolder: URL) async -> Result<URL, Error> {
         let recordingName = recordingFolder.lastPathComponent
 
-        // If conversion for this recording is still in flight, wait for it
-        // before checking combined.flac. Failure is fine here — the existence
-        // check below will return the canonical .combinedFlacMissing.
+        guard let providerID = job.providerID,
+              let provider = providers.provider(id: providerID) else {
+            await self.flashActivity("Failed: '\(job.name)' — provider missing")
+            return .failure(JobRunError.providerMissing)
+        }
+
         if await conversionService.isConverting(folderName: recordingName) {
             withAnimation { jobActivity = "Waiting for '\(recordingName)' to finish converting…" }
             await conversionService.waitForConversion(folderName: recordingName)
@@ -224,7 +238,7 @@ final class AppCoordinator {
         }
         let runner = JobRunner(keychain: keychain)
         do {
-            let out = try await runner.run(job: job, audioURL: target)
+            let out = try await runner.run(job: job, provider: provider, audioURL: target)
             await self.flashActivity("Done: '\(job.name)' → \(out.lastPathComponent)")
             return .success(out)
         } catch {
@@ -262,6 +276,7 @@ final class AppCoordinator {
 
     enum JobRunError: Error {
         case combinedFlacMissing
+        case providerMissing
     }
 
     private static let log = Logger(subsystem: "work.miklos.audio-pipeline", category: "coordinator")
