@@ -44,6 +44,45 @@ struct JobEditorView: View {
     private var shape: JobShape? { preset?.shape }
 
     var body: some View {
+        if providerID == nil || provider == nil {
+            repairPane
+        } else {
+            editorForm
+        }
+    }
+
+    @ViewBuilder
+    private var repairPane: some View {
+        VStack(spacing: 16) {
+            ContentUnavailableView {
+                Label("Provider missing", systemImage: "key.slash")
+            } description: {
+                Text("Pick a provider to repair this job. Switching shapes resets prompt/parameters.")
+            }
+            Picker("Provider", selection: $providerID) {
+                Text("Select…").tag(UUID?.none)
+                ForEach(providers.providers.sorted(by: { $0.name.localizedStandardCompare($1.name) == .orderedAscending })) { p in
+                    Text(p.name).tag(Optional(p.id))
+                }
+            }
+            .onChange(of: providerID) { _, newID in
+                let newPreset = newID
+                    .flatMap { providers.provider(id: $0) }
+                    .flatMap { presets.preset(id: $0.presetID) }
+                model = ""
+                fields = newPreset?.defaults ?? [:]
+            }
+            .frame(maxWidth: 360)
+            Button("Save repair") { save() }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canSave)
+                .buttonStyle(.glassProminent)
+        }
+        .padding(24)
+    }
+
+    @ViewBuilder
+    private var editorForm: some View {
         VStack(alignment: .leading, spacing: 0) {
             Form {
                 Section("General") {
@@ -62,7 +101,6 @@ struct JobEditorView: View {
                             .flatMap { providers.provider(id: $0) }
                             .flatMap { presets.preset(id: $0.presetID) }?.shape
                         if oldShape != newShape {
-                            // Shape changed — clear model and reset fields to new preset's defaults.
                             model = ""
                             let newDefaults = newID
                                 .flatMap { providers.provider(id: $0) }

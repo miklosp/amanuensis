@@ -5,6 +5,7 @@ struct JobsView: View {
     let presets: PresetsStore
     @Bindable var jobs: JobsStore
     @Bindable var providers: ProvidersStore
+    @Binding var sidebarSelection: SidebarDestination
 
     @State private var selection: Job.ID?
 
@@ -14,20 +15,47 @@ struct JobsView: View {
         }
     }
 
-    var body: some View {
-        HSplitView {
-            List(sortedJobs, selection: $selection) { job in
-                Text(job.name).tag(Optional(job.id))
-            }
-            .frame(minWidth: 200, idealWidth: 240)
+    private func isBroken(_ job: Job) -> Bool {
+        guard let id = job.providerID else { return true }
+        return providers.provider(id: id) == nil
+    }
 
-            JobsDetailPane(
-                job: sortedJobs.first(where: { $0.id == selection }),
-                presets: presets,
-                providers: providers,
-                onSave: { jobs.upsert($0) }
-            )
-            .frame(minWidth: 420)
+    var body: some View {
+        Group {
+            if providers.providers.isEmpty {
+                ContentUnavailableView {
+                    Label("No providers configured", systemImage: "key")
+                } description: {
+                    Text("Add a provider first.")
+                } actions: {
+                    Button("Go to Providers") {
+                        sidebarSelection = .providers
+                    }
+                    .buttonStyle(.glassProminent)
+                }
+            } else {
+                HSplitView {
+                    List(sortedJobs, selection: $selection) { job in
+                        HStack(spacing: 6) {
+                            if isBroken(job) {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .foregroundStyle(.orange)
+                            }
+                            Text(job.name)
+                        }
+                        .tag(Optional(job.id))
+                    }
+                    .frame(minWidth: 200, idealWidth: 240)
+
+                    JobsDetailPane(
+                        job: sortedJobs.first(where: { $0.id == selection }),
+                        presets: presets,
+                        providers: providers,
+                        onSave: { jobs.upsert($0) }
+                    )
+                    .frame(minWidth: 420)
+                }
+            }
         }
         .toolbar {
             ToolbarItemGroup {
@@ -50,8 +78,6 @@ struct JobsView: View {
     }
 
     private func selectFirstIfNeeded() {
-        // If nothing is selected yet, or the previously-selected job no
-        // longer exists, fall back to the alphabetically-first job.
         if let id = selection, sortedJobs.contains(where: { $0.id == id }) {
             return
         }

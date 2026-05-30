@@ -31,7 +31,8 @@ struct MainWindowView: View {
             case .jobs:
                 JobsView(presets: coordinator.presets,
                          jobs: coordinator.jobs,
-                         providers: coordinator.providers)
+                         providers: coordinator.providers,
+                         sidebarSelection: $selection)
                     .navigationTitle("Jobs")
             case .providers:
                 ProvidersView(presets: coordinator.presets,
