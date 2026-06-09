@@ -39,7 +39,19 @@ struct ProviderEditorView: View {
                         guard let p = presets.preset(id: newID) else { return }
                         baseURL = p.baseURL
                     }
-                    TextField("Base URL", text: $baseURL)
+                    LabeledContent("Base URL") {
+                        VStack(alignment: .leading, spacing: 4) {
+                            TextField("Base URL", text: $baseURL)
+                                .labelsHidden()
+                            if let pathHint {
+                                (Text("Excluding ")
+                                    + Text(pathHint).bold().monospaced()
+                                    + Text(" which gets added to the given URL."))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                     KeychainAccountPicker(account: $apiKeyAccount, keychain: keychain)
                 }
             }
@@ -55,6 +67,12 @@ struct ProviderEditorView: View {
             }
             .padding(12)
         }
+    }
+
+    // Path the selected preset's handler appends to the Base URL, shown so the
+    // user doesn't include it themselves (e.g. the /v1 doubling trap).
+    private var pathHint: String? {
+        presets.preset(id: presetID)?.shape.baseURLPathHint
     }
 
     private var canSave: Bool {

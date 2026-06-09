@@ -48,3 +48,21 @@ import Testing
         #expect(!shape.fields.isEmpty)
     }
 }
+
+@Suite struct JobShapeBaseURLHint {
+    @Test func chatCompletionsAudio_appendsChatCompletions() {
+        #expect(JobShape.chatCompletionsAudio.baseURLPathHint == "/v1/chat/completions")
+    }
+
+    @Test func transcriptionMultipart_appendsAudioTranscriptions() {
+        #expect(JobShape.transcriptionMultipart.baseURLPathHint == "/v1/audio/transcriptions")
+    }
+
+    @Test func elevenLabsScribe_appendsSpeechToText() {
+        #expect(JobShape.elevenLabsScribe.baseURLPathHint == "/v1/speech-to-text")
+    }
+
+    @Test func gemini_appendsModelAndGenerateContent() {
+        #expect(JobShape.geminiGenerateContent.baseURLPathHint == "/models/{model}:generateContent")
+    }
+}
