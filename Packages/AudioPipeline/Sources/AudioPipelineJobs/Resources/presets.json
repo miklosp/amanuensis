@@ -22,7 +22,7 @@
   {"id":"openai-compat-transcribe","displayName":"OpenAI-compatible Transcription","shape":"transcriptionMultipart",
    "baseURL":"","suggestedModels":[],"defaults":{}},
   {"id":"elevenlabs","displayName":"ElevenLabs Scribe","shape":"elevenLabsScribe",
-   "baseURL":"https://api.elevenlabs.io","suggestedModels":["scribe_v1","scribe_v1_experimental"],
+   "baseURL":"https://api.elevenlabs.io","suggestedModels":["scribe_v2","scribe_v1"],
    "defaults":{"diarize":"true"},
    "docsURL":"https://elevenlabs.io/docs/api-reference/speech-to-text"},
   {"id":"gemini","displayName":"Gemini","shape":"geminiGenerateContent",
