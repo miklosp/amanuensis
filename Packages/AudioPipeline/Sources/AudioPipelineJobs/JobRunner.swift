@@ -12,10 +12,10 @@ public struct JobRunner: Sendable {
     private let handlers: [JobShape: any AudioJobSending]
 
     // The complete production handler set, passed verbatim as the default for
-    // `handlers:` (the init replaces, not merges). Tests substitute a partial
-    // map. ElevenLabs is added in its own task.
+    // `handlers:` (the init replaces, not merges). Tests substitute a partial map.
     public static let defaultHandlers: [JobShape: any AudioJobSending] = [
         .chatCompletionsAudio: DefaultChatCompletionsAudioSender(),
+        .elevenLabsScribe: DefaultElevenLabsScribeSender(),
     ]
 
     public init(

@@ -159,3 +159,64 @@ private func writeAudio(_ bytes: [UInt8], name: String = "combined.flac") throws
         }
     }
 }
+
+// URLProtocol stub local to the ElevenLabs send tests.
+private final class ScribeStubProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var response: (Int, Data)?
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        guard let (status, body) = Self.response else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+        let resp = HTTPURLResponse(url: request.url!, statusCode: status,
+                                   httpVersion: "HTTP/1.1", headerFields: nil)!
+        client?.urlProtocol(self, didReceive: resp, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+private func scribeStubSession(status: Int, body: Data) -> URLSession {
+    ScribeStubProtocol.response = (status, body)
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [ScribeStubProtocol.self]
+    return URLSession(configuration: config)
+}
+
+@Suite(.serialized) struct ElevenLabsScribeSend {
+    @Test func send_returnsLabelledTranscript_onSuccess() async throws {
+        let json = #"{"text":"hi","words":[{"text":"hi","speaker_id":"speaker_0"}]}"#
+        let session = scribeStubSession(status: 200, body: Data(json.utf8))
+        let audio = try writeAudio([0x01])
+        let text = try await ElevenLabsScribeHandler.send(
+            job: makeJob(), provider: makeProvider(), audioURL: audio, apiKey: "xi", session: session)
+        #expect(text == "Speaker 1: hi")
+    }
+
+    @Test func send_throws_onNon200() async throws {
+        let session = scribeStubSession(status: 401, body: Data(#"{"detail":"unauthorized"}"#.utf8))
+        let audio = try writeAudio([0x01])
+        do {
+            _ = try await ElevenLabsScribeHandler.send(
+                job: makeJob(), provider: makeProvider(), audioURL: audio, apiKey: "xi", session: session)
+            Issue.record("expected throw")
+        } catch ElevenLabsScribeHandler.SendError.httpError(let code, _) {
+            #expect(code == 401)
+        }
+    }
+
+    @Test func send_throws_onMalformedJSON() async throws {
+        let session = scribeStubSession(status: 200, body: Data("not json".utf8))
+        let audio = try writeAudio([0x01])
+        do {
+            _ = try await ElevenLabsScribeHandler.send(
+                job: makeJob(), provider: makeProvider(), audioURL: audio, apiKey: "xi", session: session)
+            Issue.record("expected throw")
+        } catch ElevenLabsScribeHandler.SendError.malformedResponse {
+            // expected
+        }
+    }
+}

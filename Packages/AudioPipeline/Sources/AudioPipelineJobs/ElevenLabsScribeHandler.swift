@@ -96,6 +96,24 @@ public enum ElevenLabsScribeHandler {
         return resp.labelledTranscript()
     }
 
+    public static func send(
+        job: Job,
+        provider: Provider,
+        audioURL: URL,
+        apiKey: String,
+        session: URLSession = .shared
+    ) async throws -> String {
+        let request = try buildRequest(job: job, provider: provider, audioURL: audioURL, apiKey: apiKey)
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw SendError.malformedResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw SendError.httpError(status: http.statusCode, body: data)
+        }
+        return try format(data: data, outputExt: job.outputExt)
+    }
+
     struct Response: Decodable {
         struct Word: Decodable {
             let text: String
@@ -144,5 +162,14 @@ public enum ElevenLabsScribeHandler {
 private extension Data {
     mutating func append(_ string: String) {
         append(Data(string.utf8))
+    }
+}
+
+// Adapts the static `send` to AudioJobSending so JobRunner can dispatch to it.
+public struct DefaultElevenLabsScribeSender: AudioJobSending {
+    public init() {}
+    public func send(job: Job, provider: Provider, audioURL: URL, apiKey: String) async throws -> String {
+        try await ElevenLabsScribeHandler.send(job: job, provider: provider,
+                                               audioURL: audioURL, apiKey: apiKey)
     }
 }
