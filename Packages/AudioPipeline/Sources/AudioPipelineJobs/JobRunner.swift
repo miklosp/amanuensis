@@ -15,6 +15,7 @@ public struct JobRunner: Sendable {
     // `handlers:` (the init replaces, not merges). Tests substitute a partial map.
     public static let defaultHandlers: [JobShape: any AudioJobSending] = [
         .chatCompletionsAudio: DefaultChatCompletionsAudioSender(),
+        .transcriptionMultipart: DefaultTranscriptionMultipartSender(),
         .elevenLabsScribe: DefaultElevenLabsScribeSender(),
     ]
 
