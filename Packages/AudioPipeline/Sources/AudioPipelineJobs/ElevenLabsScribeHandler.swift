@@ -96,12 +96,25 @@ public enum ElevenLabsScribeHandler {
         return resp.labelledTranscript()
     }
 
+    // ElevenLabs' synchronous speech-to-text holds the connection open while it
+    // transcribes, sending no bytes until done — so URLSession's default 60s
+    // request (inactivity) timeout aborts real recordings with NSURLErrorTimedOut.
+    // Wait generously for the transcript instead. (Very long audio is better
+    // served by ElevenLabs' async webhook mode, which we don't use yet.)
+    static let requestTimeout: TimeInterval = 600
+
+    public static let defaultSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = requestTimeout
+        return URLSession(configuration: config)
+    }()
+
     public static func send(
         job: Job,
         provider: Provider,
         audioURL: URL,
         apiKey: String,
-        session: URLSession = .shared
+        session: URLSession = ElevenLabsScribeHandler.defaultSession
     ) async throws -> String {
         let request = try buildRequest(job: job, provider: provider, audioURL: audioURL, apiKey: apiKey)
         let (data, response) = try await session.data(for: request)

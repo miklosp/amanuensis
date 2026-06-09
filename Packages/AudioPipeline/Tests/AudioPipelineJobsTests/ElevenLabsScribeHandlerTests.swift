@@ -220,3 +220,14 @@ private func scribeStubSession(status: Int, body: Data) -> URLSession {
         }
     }
 }
+
+@Suite struct ElevenLabsScribeSession {
+    @Test func defaultSession_usesGenerousRequestTimeout() {
+        // ElevenLabs synchronous STT holds the connection while transcribing and
+        // sends no bytes until done, so the 60s URLSession default aborts real
+        // recordings with NSURLErrorTimedOut (-1001). Wait generously instead.
+        #expect(ElevenLabsScribeHandler.requestTimeout >= 300)
+        #expect(ElevenLabsScribeHandler.defaultSession.configuration.timeoutIntervalForRequest
+                == ElevenLabsScribeHandler.requestTimeout)
+    }
+}
