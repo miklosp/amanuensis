@@ -222,6 +222,11 @@ final class AppCoordinator {
             return .failure(JobRunError.providerMissing)
         }
 
+        guard let shape = presets.preset(id: provider.presetID)?.shape else {
+            await self.flashActivity("Failed: '\(job.name)' — provider preset unknown")
+            return .failure(JobRunError.presetMissing)
+        }
+
         if await conversionService.isConverting(folderName: recordingName) {
             withAnimation { jobActivity = "Waiting for '\(recordingName)' to finish converting…" }
             await conversionService.waitForConversion(folderName: recordingName)
@@ -238,7 +243,7 @@ final class AppCoordinator {
         }
         let runner = JobRunner(keychain: keychain)
         do {
-            let out = try await runner.run(job: job, provider: provider, audioURL: target)
+            let out = try await runner.run(job: job, provider: provider, shape: shape, audioURL: target)
             await self.flashActivity("Done: '\(job.name)' → \(out.lastPathComponent)")
             return .success(out)
         } catch {
@@ -277,6 +282,7 @@ final class AppCoordinator {
     enum JobRunError: Error {
         case combinedFlacMissing
         case providerMissing
+        case presetMissing
     }
 
     private static let log = Logger(subsystem: "work.miklos.audio-pipeline", category: "coordinator")
