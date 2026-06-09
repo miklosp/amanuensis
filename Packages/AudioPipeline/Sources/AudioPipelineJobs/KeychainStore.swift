@@ -85,13 +85,17 @@ public actor KeychainStore {
     }
 
     public func deleteAll() throws {
+        // macOS legacy file-based keychain removes one item per SecItemDelete
+        // call when the query has no kSecMatchLimit. Loop until nothing matches.
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
         ]
-        let status = SecItemDelete(query as CFDictionary)
-        if status == errSecSuccess || status == errSecItemNotFound { return }
-        throw Error.osStatus(status)
+        while true {
+            let status = SecItemDelete(query as CFDictionary)
+            if status == errSecItemNotFound { return }
+            guard status == errSecSuccess else { throw Error.osStatus(status) }
+        }
     }
 }
 

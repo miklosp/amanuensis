@@ -3,17 +3,19 @@ import Testing
 @testable import AudioPipelineJobs
 
 // Each test uses a unique service so concurrent runs and prior failures
-// don't collide. teardown wipes everything under that service.
+// don't collide. On the success path the teardown error is surfaced so a
+// broken deleteAll never goes silent again; on the failure path we still
+// attempt cleanup but don't mask the original error.
 private func withFreshKeychain(_ body: (KeychainStore) async throws -> Void) async throws {
     let service = "work.miklos.audio-pipeline.test-\(UUID().uuidString)"
     let store = KeychainStore(service: service)
     do {
         try await body(store)
-        try? await store.deleteAll()
     } catch {
         try? await store.deleteAll()
         throw error
     }
+    try await store.deleteAll()
 }
 
 @Suite struct KeychainStoreBehavior {
@@ -64,6 +66,17 @@ private func withFreshKeychain(_ body: (KeychainStore) async throws -> Void) asy
             } catch KeychainStore.Error.itemNotFound {
                 // expected
             }
+        }
+    }
+
+    @Test func deleteAll_removesEveryAccount() async throws {
+        try await withFreshKeychain { store in
+            try await store.set(account: "a", key: "1")
+            try await store.set(account: "b", key: "2")
+            try await store.set(account: "c", key: "3")
+            try await store.deleteAll()
+            let remaining = try await store.list()
+            #expect(remaining.isEmpty)
         }
     }
 }
