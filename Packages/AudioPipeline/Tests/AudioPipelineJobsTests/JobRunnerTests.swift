@@ -9,15 +9,17 @@ private actor FakeKeychain: KeychainProviding {
     func get(account: String) async throws -> String { key }
 }
 
-private actor FakeHandler: ChatCompletionsAudioSending {
+private actor FakeHandler: AudioJobSending {
     private(set) var lastJob: Job?
     private(set) var lastProvider: Provider?
     private(set) var lastAudio: URL?
     private(set) var lastKey: String?
+    private(set) var callCount = 0
     let result: Result<String, Error>
     init(result: Result<String, Error>) { self.result = result }
     func send(job: Job, provider: Provider, audioURL: URL, apiKey: String) async throws -> String {
         lastJob = job; lastProvider = provider; lastAudio = audioURL; lastKey = apiKey
+        callCount += 1
         return try result.get()
     }
 }
@@ -41,15 +43,20 @@ private func makeAudio() throws -> URL {
     return url
 }
 
+// Single-handler runner for the chat-shape behavioural tests.
+private func chatRunner(keychain: any KeychainProviding, handler: any AudioJobSending) -> JobRunner {
+    JobRunner(keychain: keychain, handlers: [.chatCompletionsAudio: handler])
+}
+
 @Suite struct JobRunnerBehavior {
     @Test func run_writesOutputFile_nextToRecording() async throws {
         let audio = try makeAudio()
         let provider = makeProvider()
         let keychain = FakeKeychain(key: "sk-x")
         let handler = FakeHandler(result: .success("transcribed text"))
-        let runner = JobRunner(keychain: keychain, handler: handler)
+        let runner = chatRunner(keychain: keychain, handler: handler)
         let outURL = try await runner.run(job: makeJob(providerID: provider.id),
-                                          provider: provider, audioURL: audio)
+                                          provider: provider, shape: .chatCompletionsAudio, audioURL: audio)
         let written = try String(contentsOf: outURL, encoding: .utf8)
         #expect(written == "transcribed text")
         #expect(outURL.lastPathComponent == "combined-demo.txt")
@@ -63,12 +70,10 @@ private func makeAudio() throws -> URL {
         try Data("prior".utf8).write(to: existing)
 
         let provider = makeProvider()
-        let runner = JobRunner(
-            keychain: FakeKeychain(key: "k"),
-            handler: FakeHandler(result: .success("new"))
-        )
+        let runner = chatRunner(keychain: FakeKeychain(key: "k"),
+                                handler: FakeHandler(result: .success("new")))
         let outURL = try await runner.run(job: makeJob(providerID: provider.id),
-                                          provider: provider, audioURL: audio)
+                                          provider: provider, shape: .chatCompletionsAudio, audioURL: audio)
         #expect(outURL.lastPathComponent == "combined-demo (1).txt")
         let written = try String(contentsOf: outURL, encoding: .utf8)
         #expect(written == "new")
@@ -77,13 +82,12 @@ private func makeAudio() throws -> URL {
     @Test func run_sanitisesSlashesAndColonsInJobName() async throws {
         let audio = try makeAudio()
         let provider = makeProvider()
-        let runner = JobRunner(
-            keychain: FakeKeychain(key: "k"),
-            handler: FakeHandler(result: .success("x"))
-        )
+        let runner = chatRunner(keychain: FakeKeychain(key: "k"),
+                                handler: FakeHandler(result: .success("x")))
         var job = makeJob(providerID: provider.id)
         job.name = "Folder/With:Bad chars"
-        let outURL = try await runner.run(job: job, provider: provider, audioURL: audio)
+        let outURL = try await runner.run(job: job, provider: provider,
+                                          shape: .chatCompletionsAudio, audioURL: audio)
         #expect(outURL.lastPathComponent == "combined-Folder-With-Bad chars.txt")
     }
 
@@ -91,10 +95,11 @@ private func makeAudio() throws -> URL {
         let audio = try makeAudio()
         let keychain = FakeKeychain(key: "sk-real")
         let handler = FakeHandler(result: .success("ok"))
-        let runner = JobRunner(keychain: keychain, handler: handler)
+        let runner = chatRunner(keychain: keychain, handler: handler)
         let provider = makeProvider()
         let job = makeJob(providerID: provider.id)
-        _ = try await runner.run(job: job, provider: provider, audioURL: audio)
+        _ = try await runner.run(job: job, provider: provider,
+                                 shape: .chatCompletionsAudio, audioURL: audio)
         #expect(await handler.lastKey == "sk-real")
         #expect(await handler.lastProvider?.id == provider.id)
         #expect(await handler.lastJob?.id == job.id)
@@ -105,11 +110,11 @@ private func makeAudio() throws -> URL {
         struct Boom: Error {}
         let audio = try makeAudio()
         let provider = makeProvider()
-        let runner = JobRunner(keychain: FakeKeychain(key: "k"),
-                               handler: FakeHandler(result: .failure(Boom())))
+        let runner = chatRunner(keychain: FakeKeychain(key: "k"),
+                                handler: FakeHandler(result: .failure(Boom())))
         do {
             _ = try await runner.run(job: makeJob(providerID: provider.id),
-                                     provider: provider, audioURL: audio)
+                                     provider: provider, shape: .chatCompletionsAudio, audioURL: audio)
             Issue.record("expected throw")
         } catch is Boom {
             // expected
@@ -121,13 +126,12 @@ private func makeAudio() throws -> URL {
         let customFolder = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("custom-\(UUID().uuidString)", isDirectory: true)
         let provider = makeProvider()
-        let runner = JobRunner(
-            keychain: FakeKeychain(key: "k"),
-            handler: FakeHandler(result: .success("hello"))
-        )
+        let runner = chatRunner(keychain: FakeKeychain(key: "k"),
+                                handler: FakeHandler(result: .success("hello")))
         var job = makeJob(providerID: provider.id)
         job.outputFolderPath = customFolder.path
-        let outURL = try await runner.run(job: job, provider: provider, audioURL: audio)
+        let outURL = try await runner.run(job: job, provider: provider,
+                                          shape: .chatCompletionsAudio, audioURL: audio)
         #expect(outURL.deletingLastPathComponent().path == customFolder.path)
         #expect(outURL.lastPathComponent == "combined-demo.txt")
     }
@@ -135,12 +139,40 @@ private func makeAudio() throws -> URL {
     @Test func run_writesNextToAudio_whenOutputFolderPathNil() async throws {
         let audio = try makeAudio()
         let provider = makeProvider()
-        let runner = JobRunner(
-            keychain: FakeKeychain(key: "k"),
-            handler: FakeHandler(result: .success("hi"))
-        )
+        let runner = chatRunner(keychain: FakeKeychain(key: "k"),
+                                handler: FakeHandler(result: .success("hi")))
         let outURL = try await runner.run(job: makeJob(providerID: provider.id),
-                                          provider: provider, audioURL: audio)
+                                          provider: provider, shape: .chatCompletionsAudio, audioURL: audio)
         #expect(outURL.deletingLastPathComponent() == audio.deletingLastPathComponent())
+    }
+}
+
+@Suite struct JobRunnerDispatch {
+    @Test func run_dispatchesToHandlerForShape() async throws {
+        let audio = try makeAudio()
+        let provider = makeProvider()
+        let chat = FakeHandler(result: .success("chat"))
+        let scribe = FakeHandler(result: .success("scribe"))
+        let runner = JobRunner(keychain: FakeKeychain(key: "k"),
+                               handlers: [.chatCompletionsAudio: chat, .elevenLabsScribe: scribe])
+        let outURL = try await runner.run(job: makeJob(providerID: provider.id),
+                                          provider: provider, shape: .elevenLabsScribe, audioURL: audio)
+        #expect(try String(contentsOf: outURL, encoding: .utf8) == "scribe")
+        #expect(await scribe.callCount == 1)
+        #expect(await chat.callCount == 0)
+    }
+
+    @Test func run_throwsUnsupportedShape_whenNoHandlerRegistered() async throws {
+        let audio = try makeAudio()
+        let provider = makeProvider()
+        let runner = JobRunner(keychain: FakeKeychain(key: "k"),
+                               handlers: [.chatCompletionsAudio: FakeHandler(result: .success("x"))])
+        do {
+            _ = try await runner.run(job: makeJob(providerID: provider.id),
+                                     provider: provider, shape: .geminiGenerateContent, audioURL: audio)
+            Issue.record("expected throw")
+        } catch JobRunner.Error.unsupportedShape(let shape) {
+            #expect(shape == .geminiGenerateContent)
+        }
     }
 }

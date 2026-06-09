@@ -1,22 +1,36 @@
 import Foundation
 
-// Glue: fetch API key → call handler → write result file next to recording.
-// Single-shape for the MVP slice; later shapes get their own sender protocol
-// or a dispatch table inside the runner.
+// Glue: fetch API key → dispatch to the handler for the job's shape → write
+// result file next to recording. The shape is resolved by the caller from the
+// provider's preset and passed in, so JobRunner stays free of PresetsStore.
 public struct JobRunner: Sendable {
+    public enum Error: Swift.Error, Equatable {
+        case unsupportedShape(JobShape)
+    }
+
     private let keychain: any KeychainProviding
-    private let handler: any ChatCompletionsAudioSending
+    private let handlers: [JobShape: any AudioJobSending]
+
+    // The complete production handler set, passed verbatim as the default for
+    // `handlers:` (the init replaces, not merges). Tests substitute a partial
+    // map. ElevenLabs is added in its own task.
+    public static let defaultHandlers: [JobShape: any AudioJobSending] = [
+        .chatCompletionsAudio: DefaultChatCompletionsAudioSender(),
+    ]
 
     public init(
         keychain: any KeychainProviding,
-        handler: any ChatCompletionsAudioSending = DefaultChatCompletionsAudioSender()
+        handlers: [JobShape: any AudioJobSending] = JobRunner.defaultHandlers
     ) {
         self.keychain = keychain
-        self.handler = handler
+        self.handlers = handlers
     }
 
     @discardableResult
-    public func run(job: Job, provider: Provider, audioURL: URL) async throws -> URL {
+    public func run(job: Job, provider: Provider, shape: JobShape, audioURL: URL) async throws -> URL {
+        guard let handler = handlers[shape] else {
+            throw Error.unsupportedShape(shape)
+        }
         let key = try await keychain.get(account: provider.apiKeyRef.account)
         let text = try await handler.send(job: job, provider: provider,
                                           audioURL: audioURL, apiKey: key)
