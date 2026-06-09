@@ -104,3 +104,58 @@ private func writeAudio(_ bytes: [UInt8], name: String = "combined.flac") throws
         }
     }
 }
+
+@Suite struct ElevenLabsScribeFormat {
+    @Test func diarized_rendersSpeakerLabelsInFirstSeenOrder() throws {
+        let json = """
+        {"text":"Hello there hi",
+         "words":[
+           {"text":"Hello","type":"word","speaker_id":"speaker_0"},
+           {"text":" ","type":"spacing","speaker_id":"speaker_0"},
+           {"text":"there","type":"word","speaker_id":"speaker_0"},
+           {"text":"hi","type":"word","speaker_id":"speaker_1"}]}
+        """
+        let out = try ElevenLabsScribeHandler.format(data: Data(json.utf8), outputExt: "txt")
+        #expect(out == "Speaker 1: Hello there\nSpeaker 2: hi")
+    }
+
+    @Test func leadingNilSpeakerWord_isDroppedNotPhantomLabelled() throws {
+        let json = """
+        {"text":"[MUSIC] Hello",
+         "words":[
+           {"text":"[MUSIC]","type":"audio_event","speaker_id":null},
+           {"text":"Hello","type":"word","speaker_id":"speaker_0"}]}
+        """
+        let out = try ElevenLabsScribeHandler.format(data: Data(json.utf8), outputExt: "txt")
+        #expect(out == "Speaker 1: Hello")
+    }
+
+    @Test func wordsWithoutSpeakerIds_returnPlainText() throws {
+        let json = #"{"text":"plain transcript","words":[{"text":"plain"},{"text":" transcript"}]}"#
+        let out = try ElevenLabsScribeHandler.format(data: Data(json.utf8), outputExt: "txt")
+        #expect(out == "plain transcript")
+    }
+
+    @Test func noWordsArray_returnsPlainText() throws {
+        let json = #"{"text":"just text"}"#
+        let out = try ElevenLabsScribeHandler.format(data: Data(json.utf8), outputExt: "txt")
+        #expect(out == "just text")
+    }
+
+    @Test func jsonOutput_returnsPrettyRawResponse() throws {
+        let json = #"{"text":"hi","language_code":"en","words":[{"text":"hi","speaker_id":"speaker_0"}]}"#
+        let out = try ElevenLabsScribeHandler.format(data: Data(json.utf8), outputExt: "json")
+        #expect(out.contains("\"language_code\""))   // snake_case preserved
+        #expect(out.contains("\"speaker_id\""))
+        #expect(out.contains("\n"))                   // pretty-printed
+    }
+
+    @Test func malformedJSON_throwsMalformedResponse() throws {
+        do {
+            _ = try ElevenLabsScribeHandler.format(data: Data("not json".utf8), outputExt: "txt")
+            Issue.record("expected malformedResponse")
+        } catch ElevenLabsScribeHandler.SendError.malformedResponse {
+            // expected
+        }
+    }
+}

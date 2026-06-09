@@ -69,6 +69,75 @@ public enum ElevenLabsScribeHandler {
         req.httpBody = body
         return req
     }
+
+    public enum SendError: Error {
+        case httpError(status: Int, body: Data)
+        case malformedResponse
+    }
+
+    // Maps the JSON response to the string JobRunner writes. "json" → the raw
+    // response, pretty-printed (original snake_case keys, sorted for stable
+    // output); anything else → speaker-labelled transcript, falling back to
+    // plain text when the response carries no speaker ids.
+    static func format(data: Data, outputExt: String) throws -> String {
+        if outputExt == "json" {
+            guard let obj = try? JSONSerialization.jsonObject(with: data),
+                  let pretty = try? JSONSerialization.data(withJSONObject: obj,
+                                                           options: [.prettyPrinted, .sortedKeys]) else {
+                throw SendError.malformedResponse
+            }
+            return String(decoding: pretty, as: UTF8.self)
+        }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        guard let resp = try? decoder.decode(Response.self, from: data) else {
+            throw SendError.malformedResponse
+        }
+        return resp.labelledTranscript()
+    }
+
+    struct Response: Decodable {
+        struct Word: Decodable {
+            let text: String
+            let speakerId: String?
+        }
+        let text: String
+        let words: [Word]?
+
+        // Groups consecutive words by speaker; assigns "Speaker N" in first-seen
+        // order. Words with no speaker id attach to the current run. Returns the
+        // plain transcript when no word carries a speaker id.
+        func labelledTranscript() -> String {
+            guard let words, words.contains(where: { $0.speakerId != nil }) else {
+                return text
+            }
+            var runs: [(speaker: String, text: String)] = []
+            for w in words {
+                if let speaker = w.speakerId, runs.last?.speaker != speaker {
+                    runs.append((speaker, w.text))
+                } else if !runs.isEmpty {
+                    runs[runs.count - 1].text += w.text
+                }
+                // Words before the first identified speaker are unattributable
+                // preamble (e.g. a leading audio event) — drop them rather than
+                // invent a phantom "Speaker 1".
+            }
+            var order: [String: Int] = [:]
+            var next = 1
+            let lines = runs.map { run -> String in
+                let n: Int
+                if let existing = order[run.speaker] {
+                    n = existing
+                } else {
+                    n = next
+                    order[run.speaker] = next
+                    next += 1
+                }
+                return "Speaker \(n): \(run.text.trimmingCharacters(in: .whitespacesAndNewlines))"
+            }
+            return lines.joined(separator: "\n")
+        }
+    }
 }
 
 // File-local: append a String's UTF-8 bytes to Data (Foundation has no helper).
