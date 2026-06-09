@@ -214,3 +214,14 @@ private func stubSession(status: Int, body: Data) -> URLSession {
         }
     }
 }
+
+@Suite struct ChatCompletionsAudioSession {
+    @Test func defaultSession_usesGenerousRequestTimeout() {
+        // Audio chat-completions uploads base64 audio and waits on the model, so
+        // the 60s URLSession default is too short (same NSURLErrorTimedOut trap the
+        // ElevenLabs handler hit). Wait generously instead.
+        #expect(ChatCompletionsAudioHandler.requestTimeout >= 300)
+        #expect(ChatCompletionsAudioHandler.defaultSession.configuration.timeoutIntervalForRequest
+                == ChatCompletionsAudioHandler.requestTimeout)
+    }
+}

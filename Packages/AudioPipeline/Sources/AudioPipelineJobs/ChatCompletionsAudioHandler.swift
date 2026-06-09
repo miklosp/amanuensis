@@ -83,12 +83,24 @@ extension ChatCompletionsAudioHandler {
         case malformedResponse
     }
 
+    // The model uploads (base64) audio and holds the connection while it
+    // responds, which can exceed URLSession's default 60s request (inactivity)
+    // timeout — the same NSURLErrorTimedOut trap the ElevenLabs handler hit.
+    // Wait generously instead.
+    static let requestTimeout: TimeInterval = 600
+
+    public static let defaultSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = requestTimeout
+        return URLSession(configuration: config)
+    }()
+
     public static func send(
         job: Job,
         provider: Provider,
         audioURL: URL,
         apiKey: String,
-        session: URLSession = .shared
+        session: URLSession = ChatCompletionsAudioHandler.defaultSession
     ) async throws -> String {
         let request = try buildRequest(job: job, provider: provider, audioURL: audioURL, apiKey: apiKey)
         let (data, response) = try await session.data(for: request)
