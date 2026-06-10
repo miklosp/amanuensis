@@ -1,4 +1,5 @@
 import AppKit
+import AppLog
 import AppSettings
 import AudioPipelineJobs
 import Foundation
@@ -47,6 +48,7 @@ final class AppCoordinator {
     let presets: PresetsStore
     let jobs: JobsStore
     let providers: ProvidersStore
+    let logs: LogStore
 
     var jobActivity: String?
     var recordingActivity: String?
@@ -98,6 +100,14 @@ final class AppCoordinator {
                 preconditionFailure("could not initialise ProvidersStore even at temp path")
             }()
         }
+        do {
+            self.logs = try LogStore.standard(bundleID: "work.miklos.audio-pipeline")
+        } catch {
+            Self.log.error("failed to init logs store: \(String(describing: error), privacy: .public)")
+            let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("logs-fallback.json")
+            self.logs = LogStore(fileURL: tmp)
+        }
     }
 
     func toggleRecording() {
@@ -123,6 +133,7 @@ final class AppCoordinator {
         let systemAudioGranted = await AudioCapturePermission.requestIfNeeded()
         if !systemAudioGranted {
             Self.log.error("system audio capture not authorized — system track will be silent")
+            logs.log(.warning, "System audio not authorized — system track will be silent", category: .recording)
         }
 
         let folder: RecordingFolder
@@ -142,9 +153,11 @@ final class AppCoordinator {
             session = newSession
             _ = machine.sessionStarted()
             Self.log.info("recording started in \(folder.name, privacy: .public)")
+            logs.log(.info, "Recording started in \(folder.name)", category: .recording)
         } catch {
             _ = machine.sessionFailed("Couldn't start recording: \(error.localizedDescription)")
             Self.log.error("start failed: \(String(describing: error), privacy: .public)")
+            logs.log(.error, "Recording start failed: \(error.localizedDescription)", category: .recording)
         }
     }
 
@@ -156,6 +169,7 @@ final class AppCoordinator {
         session = nil
 
         Self.log.info("recording stopped — mic frames \(result.mic.framesWritten, privacy: .public), system frames \(result.system?.framesWritten ?? -1, privacy: .public)")
+        logs.log(.info, "Recording stopped — \(folder.name)", category: .recording)
 
         let stoppedAction = machine.sessionStopped(folderURL: folder.url)
         guard case .convertOutput = stoppedAction else { return }
@@ -188,9 +202,11 @@ final class AppCoordinator {
             case .success:
                 result = .success(())
                 flashMessage = "Recording ready"
+                self.logs.log(.info, "Recording ready — \(folderName)", category: .recording)
             case .failure(let failure):
                 result = .failure(failure)
                 flashMessage = "Conversion failed: \(failure.message)"
+                self.logs.log(.error, "Conversion failed: \(failure.message)", category: .recording)
             }
             _ = self.machine.conversionFinished(result)
             await self.library.refresh()
@@ -219,36 +235,43 @@ final class AppCoordinator {
         guard let providerID = job.providerID,
               let provider = providers.provider(id: providerID) else {
             await self.flashActivity("Failed: '\(job.name)' — provider missing")
+            logs.log(.error, "Failed: '\(job.name)' — provider missing", category: .job)
             return .failure(JobRunError.providerMissing)
         }
 
         guard let shape = presets.preset(id: provider.presetID)?.shape else {
             await self.flashActivity("Failed: '\(job.name)' — provider preset unknown")
+            logs.log(.error, "Failed: '\(job.name)' — provider preset unknown", category: .job)
             return .failure(JobRunError.presetMissing)
         }
 
         if await conversionService.isConverting(folderName: recordingName) {
             withAnimation { jobActivity = "Waiting for '\(recordingName)' to finish converting…" }
+            logs.log(.warning, "Waiting for '\(recordingName)' to finish converting before '\(job.name)'", category: .job)
             await conversionService.waitForConversion(folderName: recordingName)
         }
 
         withAnimation { jobActivity = "Running '\(job.name)' on '\(recordingName)'…" }
+        logs.log(.info, "Running '\(job.name)' on '\(recordingName)'", category: .job)
 
         // combined.flac is the canonical input — guaranteed to exist after a
         // successful recording (mic + optional system mixed at stop).
         let target = recordingFolder.appendingPathComponent("combined.flac")
         guard FileManager.default.fileExists(atPath: target.path) else {
             await self.flashActivity("Failed: '\(job.name)' — combined.flac missing")
+            logs.log(.error, "Failed: '\(job.name)' — combined.flac missing", category: .job)
             return .failure(JobRunError.combinedFlacMissing)
         }
         let runner = JobRunner(keychain: keychain)
         do {
             let out = try await runner.run(job: job, provider: provider, shape: shape, audioURL: target)
             await self.flashActivity("Done: '\(job.name)' → \(out.lastPathComponent)")
+            logs.log(.info, "Done: '\(job.name)' → \(out.lastPathComponent)", category: .job)
             return .success(out)
         } catch {
             Self.log.error("job '\(job.name, privacy: .public)' failed: \(String(describing: error), privacy: .public)")
             await self.flashActivity("Failed: '\(job.name)' — \(error.localizedDescription)")
+            logs.log(.error, "Failed: '\(job.name)' — \(error.localizedDescription)", category: .job)
             return .failure(error)
         }
     }
