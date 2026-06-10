@@ -56,5 +56,10 @@ let package = Package(
             dependencies: ["AudioPipelineJobs"],
             swiftSettings: nonisolatedSettings
         ),
+        .testTarget(
+            name: "AppLogTests",
+            dependencies: ["AppLog"],
+            swiftSettings: nonisolatedSettings
+        ),
     ]
 )
