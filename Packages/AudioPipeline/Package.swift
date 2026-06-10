@@ -59,7 +59,7 @@ let package = Package(
         .testTarget(
             name: "AppLogTests",
             dependencies: ["AppLog"],
-            swiftSettings: nonisolatedSettings
+            swiftSettings: mainActorSettings
         ),
     ]
 )

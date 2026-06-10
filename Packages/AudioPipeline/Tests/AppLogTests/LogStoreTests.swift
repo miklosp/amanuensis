@@ -8,7 +8,6 @@ private func tempFile() -> URL {
         .appendingPathExtension("json")
 }
 
-@MainActor
 @Suite struct LogStoreBehavior {
     @Test func logAppendsEntry() {
         let store = LogStore(fileURL: tempFile())
