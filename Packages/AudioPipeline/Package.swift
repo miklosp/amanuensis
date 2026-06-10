@@ -20,6 +20,7 @@ let package = Package(
         .library(name: "RecordingStorage", targets: ["RecordingStorage"]),
         .library(name: "RecordingCore",    targets: ["RecordingCore"]),
         .library(name: "AudioPipelineJobs", targets: ["AudioPipelineJobs"]),
+        .library(name: "AppLog",            targets: ["AppLog"]),
     ],
     targets: [
         .target(name: "AppSettings",      swiftSettings: mainActorSettings),
@@ -34,6 +35,7 @@ let package = Package(
             resources: [.process("Resources")],
             swiftSettings: nonisolatedSettings
         ),
+        .target(name: "AppLog", swiftSettings: mainActorSettings),
         .testTarget(
             name: "AppSettingsTests",
             dependencies: ["AppSettings"],
