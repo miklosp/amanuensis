@@ -14,6 +14,7 @@
 		B613BAFD1C592783FC3934C9 /* MainWindowViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2869FCC8825AFD91DAD850C7 /* MainWindowViewTests.swift */; };
 		C30715B2C425CA0BDDF2BC88 /* RecordingStorage in Frameworks */ = {isa = PBXBuildFile; productRef = C81DE0068215EFA9C64A00DA /* RecordingStorage */; };
 		E74C324A87BEC59AA8FBC2A1 /* AppSettings in Frameworks */ = {isa = PBXBuildFile; productRef = DDADBEADF4CFB28174A18CD6 /* AppSettings */; };
+		EDD09D52AABBE7C1F59C03C3 /* AppLog in Frameworks */ = {isa = PBXBuildFile; productRef = 2D7BB706295DFD7293887750 /* AppLog */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -37,6 +38,8 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		64F04E732FBDBC4A00B58BE7 /* audio-pipeline */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = "audio-pipeline";
 			sourceTree = "<group>";
 		};
@@ -51,6 +54,7 @@
 				C30715B2C425CA0BDDF2BC88 /* RecordingStorage in Frameworks */,
 				64674FEC558B1BB721E3281B /* RecordingCore in Frameworks */,
 				651FA23B038E85E0704E3342 /* AudioPipelineJobs in Frameworks */,
+				EDD09D52AABBE7C1F59C03C3 /* AppLog in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -133,6 +137,7 @@
 				C81DE0068215EFA9C64A00DA /* RecordingStorage */,
 				B237FACF51794DAD4B8B30A6 /* RecordingCore */,
 				234879DAEC2256F37E40EEBC /* AudioPipelineJobs */,
+				2D7BB706295DFD7293887750 /* AppLog */,
 			);
 			productName = "audio-pipeline";
 			productReference = 64F04E712FBDBC4A00B58BE7 /* audio-pipeline.app */;
@@ -181,7 +186,7 @@
 			mainGroup = 64F04E682FBDBC4A00B58BE7;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				0301059DB260F61893F0428E /* XCLocalSwiftPackageReference "Packages/AudioPipeline" */,
+				0301059DB260F61893F0428E /* XCLocalSwiftPackageReference "AudioPipeline" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 64F04E722FBDBC4A00B58BE7 /* Products */;
@@ -495,7 +500,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		0301059DB260F61893F0428E /* XCLocalSwiftPackageReference "Packages/AudioPipeline" */ = {
+		0301059DB260F61893F0428E /* XCLocalSwiftPackageReference "AudioPipeline" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/AudioPipeline;
 		};
@@ -505,6 +510,10 @@
 		234879DAEC2256F37E40EEBC /* AudioPipelineJobs */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AudioPipelineJobs;
+		};
+		2D7BB706295DFD7293887750 /* AppLog */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AppLog;
 		};
 		B237FACF51794DAD4B8B30A6 /* RecordingCore */ = {
 			isa = XCSwiftPackageProductDependency;
