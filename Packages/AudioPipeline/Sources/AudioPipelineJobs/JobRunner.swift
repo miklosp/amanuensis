@@ -41,7 +41,9 @@ public struct JobRunner: Sendable {
         } else {
             folder = audioURL.deletingLastPathComponent()
         }
-        let outURL = Self.uniqueOutputURL(in: folder, jobName: job.name, ext: job.outputExt)
+        let recordingName = audioURL.deletingLastPathComponent().lastPathComponent
+        let outURL = Self.uniqueOutputURL(in: folder, recordingName: recordingName,
+                                          jobName: job.name, ext: job.outputExt)
         // Ensure the target folder exists (custom folder might not). Failure here
         // bubbles via the .write() call below, which is correct: better to throw
         // than silently produce no file.
@@ -50,15 +52,16 @@ public struct JobRunner: Sendable {
         return outURL
     }
 
-    // Builds "combined-<sanitised-name>.<ext>" inside `folder`; appends " (N)"
-    // to the stem if the path already exists. Sanitisation replaces "/" and ":"
-    // only — leaves spaces and other punctuation untouched (they're valid in
-    // macOS filenames).
-    static func uniqueOutputURL(in folder: URL, jobName: String, ext: String) -> URL {
+    // Builds "<recordingName>-<sanitised job name>.<ext>" inside `folder`;
+    // appends " (N)" to the stem if the path already exists. Sanitisation
+    // replaces "/" and ":" only — leaves spaces and other punctuation untouched
+    // (they're valid in macOS filenames). recordingName is already a folder name
+    // on disk, so it needs no further sanitising.
+    static func uniqueOutputURL(in folder: URL, recordingName: String, jobName: String, ext: String) -> URL {
         let sanitised = jobName
             .replacingOccurrences(of: "/", with: "-")
             .replacingOccurrences(of: ":", with: "-")
-        let base = "combined-\(sanitised)"
+        let base = "\(recordingName)-\(sanitised)"
         let candidate = folder.appendingPathComponent("\(base).\(ext)")
         if !FileManager.default.fileExists(atPath: candidate.path) {
             return candidate

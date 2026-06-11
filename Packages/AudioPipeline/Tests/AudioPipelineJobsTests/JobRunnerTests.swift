@@ -58,15 +58,17 @@ private func chatRunner(keychain: any KeychainProviding, handler: any AudioJobSe
         let outURL = try await runner.run(job: makeJob(providerID: provider.id),
                                           provider: provider, shape: .chatCompletionsAudio, audioURL: audio)
         let written = try String(contentsOf: outURL, encoding: .utf8)
+        let recName = audio.deletingLastPathComponent().lastPathComponent
         #expect(written == "transcribed text")
-        #expect(outURL.lastPathComponent == "combined-demo.txt")
+        #expect(outURL.lastPathComponent == "\(recName)-demo.txt")
         #expect(outURL.deletingLastPathComponent() == audio.deletingLastPathComponent())
     }
 
     @Test func run_appendsConflictSuffix_whenOutputFileExists() async throws {
         let audio = try makeAudio()
         let folder = audio.deletingLastPathComponent()
-        let existing = folder.appendingPathComponent("combined-demo.txt")
+        let recName = folder.lastPathComponent
+        let existing = folder.appendingPathComponent("\(recName)-demo.txt")
         try Data("prior".utf8).write(to: existing)
 
         let provider = makeProvider()
@@ -74,7 +76,7 @@ private func chatRunner(keychain: any KeychainProviding, handler: any AudioJobSe
                                 handler: FakeHandler(result: .success("new")))
         let outURL = try await runner.run(job: makeJob(providerID: provider.id),
                                           provider: provider, shape: .chatCompletionsAudio, audioURL: audio)
-        #expect(outURL.lastPathComponent == "combined-demo (1).txt")
+        #expect(outURL.lastPathComponent == "\(recName)-demo (1).txt")
         let written = try String(contentsOf: outURL, encoding: .utf8)
         #expect(written == "new")
     }
@@ -88,7 +90,8 @@ private func chatRunner(keychain: any KeychainProviding, handler: any AudioJobSe
         job.name = "Folder/With:Bad chars"
         let outURL = try await runner.run(job: job, provider: provider,
                                           shape: .chatCompletionsAudio, audioURL: audio)
-        #expect(outURL.lastPathComponent == "combined-Folder-With-Bad chars.txt")
+        let recName = audio.deletingLastPathComponent().lastPathComponent
+        #expect(outURL.lastPathComponent == "\(recName)-Folder-With-Bad chars.txt")
     }
 
     @Test func run_fetchesKeyForProvidersAccount() async throws {
@@ -132,8 +135,9 @@ private func chatRunner(keychain: any KeychainProviding, handler: any AudioJobSe
         job.outputFolderPath = customFolder.path
         let outURL = try await runner.run(job: job, provider: provider,
                                           shape: .chatCompletionsAudio, audioURL: audio)
+        let recName = audio.deletingLastPathComponent().lastPathComponent
         #expect(outURL.deletingLastPathComponent().path == customFolder.path)
-        #expect(outURL.lastPathComponent == "combined-demo.txt")
+        #expect(outURL.lastPathComponent == "\(recName)-demo.txt")
     }
 
     @Test func run_writesNextToAudio_whenOutputFolderPathNil() async throws {
