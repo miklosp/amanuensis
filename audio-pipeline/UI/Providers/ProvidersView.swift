@@ -15,11 +15,13 @@ struct ProvidersView: View {
     }
 
     var body: some View {
-        HSplitView {
+        HStack(spacing: 0) {
             List(sortedProviders, selection: $selection) { provider in
                 Text(provider.name).tag(Optional(provider.id))
             }
-            .frame(minWidth: 200, idealWidth: 240)
+            .frame(width: 240)
+
+            Divider()
 
             ProvidersDetailPane(
                 provider: sortedProviders.first(where: { $0.id == selection }),
@@ -27,8 +29,9 @@ struct ProvidersView: View {
                 keychain: keychain,
                 onSave: { providers.upsert($0) }
             )
-            .frame(minWidth: 420)
+            .frame(minWidth: 420, maxWidth: .infinity)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .toolbar {
             ToolbarItemGroup {
                 Button {
@@ -46,6 +49,9 @@ struct ProvidersView: View {
         }
         .onAppear { selectFirstIfNeeded() }
         .onChange(of: sortedProviders.map(\.id)) { _, _ in selectFirstIfNeeded() }
+        .onChange(of: selection) { _, newValue in
+            if newValue == nil { selectFirstIfNeeded() }
+        }
     }
 
     private func selectFirstIfNeeded() {

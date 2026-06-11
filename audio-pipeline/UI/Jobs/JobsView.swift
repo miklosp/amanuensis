@@ -34,7 +34,7 @@ struct JobsView: View {
                     .buttonStyle(.glassProminent)
                 }
             } else {
-                HSplitView {
+                HStack(spacing: 0) {
                     List(sortedJobs, selection: $selection) { job in
                         HStack(spacing: 6) {
                             if isBroken(job) {
@@ -45,7 +45,9 @@ struct JobsView: View {
                         }
                         .tag(Optional(job.id))
                     }
-                    .frame(minWidth: 200, idealWidth: 240)
+                    .frame(width: 240)
+
+                    Divider()
 
                     JobsDetailPane(
                         job: sortedJobs.first(where: { $0.id == selection }),
@@ -53,8 +55,9 @@ struct JobsView: View {
                         providers: providers,
                         onSave: { jobs.upsert($0) }
                     )
-                    .frame(minWidth: 420)
+                    .frame(minWidth: 420, maxWidth: .infinity)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .toolbar {
@@ -75,6 +78,9 @@ struct JobsView: View {
         }
         .onAppear { selectFirstIfNeeded() }
         .onChange(of: sortedJobs.map(\.id)) { _, _ in selectFirstIfNeeded() }
+        .onChange(of: selection) { _, newValue in
+            if newValue == nil { selectFirstIfNeeded() }
+        }
     }
 
     private func selectFirstIfNeeded() {
