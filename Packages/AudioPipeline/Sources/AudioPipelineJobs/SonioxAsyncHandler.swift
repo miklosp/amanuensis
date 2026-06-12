@@ -59,6 +59,39 @@ public enum SonioxAsyncHandler {
         req.httpBody = body
         return req
     }
+
+    // Step 2: create the transcription job. Required: model + file_id. Optional
+    // keys are emitted only when their job.field is present & non-empty:
+    //   enable_speaker_diarization / enable_language_identification → JSON bool
+    //   language_hints "en, es" → ["en","es"]   context "<text>" → {"text": …}
+    public static func buildCreateRequest(job: Job, provider: Provider, fileID: String, apiKey: String) throws -> URLRequest {
+        guard !job.model.isEmpty else { throw BuildError.missingModel }
+        let url = try endpoint(provider, "/v1/transcriptions")
+
+        var payload: [String: Any] = ["model": job.model, "file_id": fileID]
+        if let v = job.fields["enable_speaker_diarization"], !v.isEmpty {
+            payload["enable_speaker_diarization"] = (v == "true")
+        }
+        if let hints = job.fields["language_hints"], !hints.isEmpty {
+            let arr = hints.split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+            if !arr.isEmpty { payload["language_hints"] = arr }
+        }
+        if let v = job.fields["enable_language_identification"], !v.isEmpty {
+            payload["enable_language_identification"] = (v == "true")
+        }
+        if let ctx = job.fields["context"], !ctx.isEmpty {
+            payload["context"] = ["text": ctx]
+        }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+        return req
+    }
 }
 
 // File-local: append a String's UTF-8 bytes to Data (Foundation has no helper).

@@ -74,3 +74,61 @@ private func writeAudio(_ bytes: [UInt8]) throws -> URL {
         #expect(req.url?.absoluteString == "https://api.soniox.com/v1/files")
     }
 }
+
+// MARK: - Create transcription request
+
+@Suite struct SonioxAsyncCreateRequest {
+    private func decodeBody(_ req: URLRequest) throws -> [String: Any] {
+        let data = try #require(req.httpBody)
+        return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    @Test func buildsPOST_toTranscriptionsPath_withModelAndFileID() throws {
+        let req = try SonioxAsyncHandler.buildCreateRequest(
+            job: makeJob(model: "stt-async-v4"), provider: makeProvider(), fileID: "file_9", apiKey: "k")
+        #expect(req.httpMethod == "POST")
+        #expect(req.url?.absoluteString == "https://api.soniox.com/v1/transcriptions")
+        #expect(req.value(forHTTPHeaderField: "Authorization") == "Bearer k")
+        #expect(req.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        let body = try decodeBody(req)
+        #expect(body["model"] as? String == "stt-async-v4")
+        #expect(body["file_id"] as? String == "file_9")
+    }
+
+    @Test func throws_missingModel_whenModelEmpty() throws {
+        do {
+            _ = try SonioxAsyncHandler.buildCreateRequest(
+                job: makeJob(model: ""), provider: makeProvider(), fileID: "f", apiKey: "k")
+            Issue.record("expected missingModel")
+        } catch SonioxAsyncHandler.BuildError.missingModel {
+            // expected
+        }
+    }
+
+    @Test func omitsOptionalKeys_whenAbsent() throws {
+        let body = try decodeBody(try SonioxAsyncHandler.buildCreateRequest(
+            job: makeJob(), provider: makeProvider(), fileID: "f", apiKey: "k"))
+        #expect(body["enable_speaker_diarization"] == nil)
+        #expect(body["language_hints"] == nil)
+        #expect(body["enable_language_identification"] == nil)
+        #expect(body["context"] == nil)
+    }
+
+    @Test func mapsCheckboxesToBools_hintsToArray_contextToObject() throws {
+        let job = makeJob(diarization: "true", languageHints: "en, es",
+                          languageIdentification: "true", context: "Volvo, Skåne")
+        let body = try decodeBody(try SonioxAsyncHandler.buildCreateRequest(
+            job: job, provider: makeProvider(), fileID: "f", apiKey: "k"))
+        #expect(body["enable_speaker_diarization"] as? Bool == true)
+        #expect(body["enable_language_identification"] as? Bool == true)
+        #expect(body["language_hints"] as? [String] == ["en", "es"])
+        let ctx = try #require(body["context"] as? [String: Any])
+        #expect(ctx["text"] as? String == "Volvo, Skåne")
+    }
+
+    @Test func diarizationFalse_emitsBoolFalse() throws {
+        let body = try decodeBody(try SonioxAsyncHandler.buildCreateRequest(
+            job: makeJob(diarization: "false"), provider: makeProvider(), fileID: "f", apiKey: "k"))
+        #expect(body["enable_speaker_diarization"] as? Bool == false)
+    }
+}
