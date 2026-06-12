@@ -193,6 +193,113 @@ public enum SonioxAsyncHandler {
         let status: String
         let errorMessage: String?
     }
+
+    // Each individual request (esp. the multipart upload of a large FLAC) must
+    // not hit URLSession's 60s inactivity default — same trap the sync handlers
+    // hit. The poll loop itself is bounded separately by `deadline`.
+    static let requestTimeout: TimeInterval = 600
+
+    public static let defaultSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = requestTimeout
+        return URLSession(configuration: config)
+    }()
+
+    // Orchestrates the full async job. `pollInterval`/`deadline` are injectable so
+    // tests stay fast and deterministic; the deadline is tracked as the sum of
+    // slept intervals (no wall clock). The uploaded file and the transcription are
+    // deleted best-effort on every exit path.
+    public static func send(
+        job: Job,
+        provider: Provider,
+        audioURL: URL,
+        apiKey: String,
+        session: URLSession = SonioxAsyncHandler.defaultSession,
+        pollInterval: Duration = .seconds(3),
+        deadline: Duration = .seconds(600)
+    ) async throws -> String {
+        let fileID = try await postForID(
+            try buildUploadRequest(provider: provider, audioURL: audioURL, apiKey: apiKey),
+            session: session)
+
+        var transcriptionID: String?
+        do {
+            let tid = try await postForID(
+                try buildCreateRequest(job: job, provider: provider, fileID: fileID, apiKey: apiKey),
+                session: session)
+            transcriptionID = tid
+            try await waitUntilComplete(provider: provider, transcriptionID: tid, apiKey: apiKey,
+                                        session: session, pollInterval: pollInterval, deadline: deadline)
+            let data = try await fetchData(
+                try buildTranscriptRequest(provider: provider, transcriptionID: tid, apiKey: apiKey),
+                session: session)
+            let result = try format(data: data, outputExt: job.outputExt)
+            await cleanup(provider: provider, apiKey: apiKey, fileID: fileID,
+                          transcriptionID: transcriptionID, session: session)
+            return result
+        } catch {
+            await cleanup(provider: provider, apiKey: apiKey, fileID: fileID,
+                          transcriptionID: transcriptionID, session: session)
+            throw error
+        }
+    }
+
+    private static func postForID(_ request: URLRequest, session: URLSession) async throws -> String {
+        let data = try await fetchData(request, session: session)
+        guard let decoded = try? JSONDecoder().decode(IDResponse.self, from: data) else {
+            throw SendError.malformedResponse
+        }
+        return decoded.id
+    }
+
+    private static func fetchData(_ request: URLRequest, session: URLSession) async throws -> Data {
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw SendError.malformedResponse }
+        guard (200..<300).contains(http.statusCode) else {
+            throw SendError.httpError(status: http.statusCode, body: data)
+        }
+        return data
+    }
+
+    private static func waitUntilComplete(
+        provider: Provider, transcriptionID: String, apiKey: String,
+        session: URLSession, pollInterval: Duration, deadline: Duration
+    ) async throws {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        var elapsed: Duration = .zero
+        while true {
+            let data = try await fetchData(
+                try buildPollRequest(provider: provider, transcriptionID: transcriptionID, apiKey: apiKey),
+                session: session)
+            guard let status = try? decoder.decode(StatusResponse.self, from: data) else {
+                throw SendError.malformedResponse
+            }
+            switch status.status {
+            case "completed":
+                return
+            case "error":
+                throw SendError.transcriptionFailed(message: status.errorMessage ?? "")
+            default:   // queued / processing
+                if elapsed >= deadline { throw SendError.timedOut }
+                try await Task.sleep(for: pollInterval)
+                elapsed += pollInterval
+            }
+        }
+    }
+
+    private static func cleanup(
+        provider: Provider, apiKey: String, fileID: String,
+        transcriptionID: String?, session: URLSession
+    ) async {
+        if let tid = transcriptionID,
+           let req = try? buildDeleteTranscriptionRequest(provider: provider, transcriptionID: tid, apiKey: apiKey) {
+            _ = try? await session.data(for: req)
+        }
+        if let req = try? buildDeleteFileRequest(provider: provider, fileID: fileID, apiKey: apiKey) {
+            _ = try? await session.data(for: req)
+        }
+    }
 }
 
 // File-local: append a String's UTF-8 bytes to Data (Foundation has no helper).

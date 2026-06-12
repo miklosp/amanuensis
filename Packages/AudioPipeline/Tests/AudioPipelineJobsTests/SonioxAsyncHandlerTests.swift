@@ -198,3 +198,130 @@ private func writeAudio(_ bytes: [UInt8]) throws -> URL {
         }
     }
 }
+
+// MARK: - send() orchestration
+
+// Closure-routed URLProtocol stub: the test inspects (method, path) and returns
+// (status, body). `pollCount` lets a test sequence "processing" → "completed".
+final class SonioxStubProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var handler: (@Sendable (URLRequest) -> (Int, Data))?
+    nonisolated(unsafe) static var pollCount = 0
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let handler = Self.handler else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+        let (status, body) = handler(request)
+        let resp = HTTPURLResponse(url: request.url!, statusCode: status,
+                                   httpVersion: "HTTP/1.1", headerFields: nil)!
+        client?.urlProtocol(self, didReceive: resp, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+private func stubSession() -> URLSession {
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [SonioxStubProtocol.self]
+    return URLSession(configuration: config)
+}
+
+@Suite(.serialized) struct SonioxAsyncSend {
+    @Test func send_uploadsCreatesPollsThenFormatsTranscript() async throws {
+        SonioxStubProtocol.pollCount = 0
+        SonioxStubProtocol.handler = { req in
+            switch (req.httpMethod ?? "", req.url!.path) {
+            case ("POST", "/v1/files"):
+                return (200, Data(#"{"id":"file_1"}"#.utf8))
+            case ("POST", "/v1/transcriptions"):
+                return (200, Data(#"{"id":"tx_1"}"#.utf8))
+            case ("GET", "/v1/transcriptions/tx_1"):
+                SonioxStubProtocol.pollCount += 1
+                let status = SonioxStubProtocol.pollCount >= 2 ? "completed" : "processing"
+                return (200, Data("{\"status\":\"\(status)\"}".utf8))
+            case ("GET", "/v1/transcriptions/tx_1/transcript"):
+                return (200, Data(#"{"tokens":[{"text":" Hello","speaker":1},{"text":" world","speaker":1}]}"#.utf8))
+            case ("DELETE", _):
+                return (200, Data())
+            default:
+                return (404, Data())
+            }
+        }
+        let text = try await SonioxAsyncHandler.send(
+            job: makeJob(), provider: makeProvider(),
+            audioURL: try writeAudio([0x01]), apiKey: "k",
+            session: stubSession(), pollInterval: .milliseconds(1), deadline: .seconds(5))
+        #expect(text == "Speaker 1: Hello world")
+        #expect(SonioxStubProtocol.pollCount == 2)
+    }
+
+    @Test func send_throwsTranscriptionFailed_whenStatusError() async throws {
+        SonioxStubProtocol.pollCount = 0
+        SonioxStubProtocol.handler = { req in
+            switch (req.httpMethod ?? "", req.url!.path) {
+            case ("POST", "/v1/files"): return (200, Data(#"{"id":"file_1"}"#.utf8))
+            case ("POST", "/v1/transcriptions"): return (200, Data(#"{"id":"tx_1"}"#.utf8))
+            case ("GET", "/v1/transcriptions/tx_1"):
+                return (200, Data(#"{"status":"error","error_message":"bad audio"}"#.utf8))
+            case ("DELETE", _): return (200, Data())
+            default: return (404, Data())
+            }
+        }
+        do {
+            _ = try await SonioxAsyncHandler.send(
+                job: makeJob(), provider: makeProvider(),
+                audioURL: try writeAudio([0x01]), apiKey: "k",
+                session: stubSession(), pollInterval: .milliseconds(1), deadline: .seconds(5))
+            Issue.record("expected throw")
+        } catch SonioxAsyncHandler.SendError.transcriptionFailed(let message) {
+            #expect(message == "bad audio")
+        }
+    }
+
+    @Test func send_throwsTimedOut_whenNeverCompletes() async throws {
+        SonioxStubProtocol.handler = { req in
+            switch (req.httpMethod ?? "", req.url!.path) {
+            case ("POST", "/v1/files"): return (200, Data(#"{"id":"file_1"}"#.utf8))
+            case ("POST", "/v1/transcriptions"): return (200, Data(#"{"id":"tx_1"}"#.utf8))
+            case ("GET", "/v1/transcriptions/tx_1"): return (200, Data(#"{"status":"processing"}"#.utf8))
+            case ("DELETE", _): return (200, Data())
+            default: return (404, Data())
+            }
+        }
+        do {
+            _ = try await SonioxAsyncHandler.send(
+                job: makeJob(), provider: makeProvider(),
+                audioURL: try writeAudio([0x01]), apiKey: "k",
+                session: stubSession(), pollInterval: .milliseconds(1), deadline: .milliseconds(3))
+            Issue.record("expected throw")
+        } catch SonioxAsyncHandler.SendError.timedOut {
+            // expected
+        }
+    }
+
+    @Test func send_throwsHTTPError_whenUploadFails() async throws {
+        SonioxStubProtocol.handler = { _ in (401, Data(#"{"error":"unauthorized"}"#.utf8)) }
+        do {
+            _ = try await SonioxAsyncHandler.send(
+                job: makeJob(), provider: makeProvider(),
+                audioURL: try writeAudio([0x01]), apiKey: "k",
+                session: stubSession(), pollInterval: .milliseconds(1), deadline: .seconds(5))
+            Issue.record("expected throw")
+        } catch SonioxAsyncHandler.SendError.httpError(let status, _) {
+            #expect(status == 401)
+        }
+    }
+}
+
+@Suite struct SonioxAsyncSession {
+    @Test func defaultSession_usesGenerousRequestTimeout() {
+        #expect(SonioxAsyncHandler.requestTimeout >= 300)
+        #expect(SonioxAsyncHandler.defaultSession.configuration.timeoutIntervalForRequest
+                == SonioxAsyncHandler.requestTimeout)
+    }
+}
