@@ -69,6 +69,8 @@ public enum SonioxAsyncHandler {
         let url = try endpoint(provider, "/v1/transcriptions")
 
         var payload: [String: Any] = ["model": job.model, "file_id": fileID]
+        // Checkbox fields only ever store "true"/"false" (the form writes those),
+        // so any non-"true" present value maps to a JSON false.
         if let v = job.fields["enable_speaker_diarization"], !v.isEmpty {
             payload["enable_speaker_diarization"] = (v == "true")
         }
@@ -265,6 +267,9 @@ public enum SonioxAsyncHandler {
         provider: Provider, transcriptionID: String, apiKey: String,
         session: URLSession, pollInterval: Duration, deadline: Duration
     ) async throws {
+        // Only the status payload carries a snake_case field (error_message), so
+        // the convertFromSnakeCase strategy lives here, not on the id/transcript
+        // decoders.
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         var elapsed: Duration = .zero
@@ -288,6 +293,9 @@ public enum SonioxAsyncHandler {
         }
     }
 
+    // Best-effort: a non-2xx (or thrown) DELETE is intentionally swallowed —
+    // an orphaned file/transcription on Soniox is a billing nuisance, never a
+    // reason to fail an otherwise-complete job.
     private static func cleanup(
         provider: Provider, apiKey: String, fileID: String,
         transcriptionID: String?, session: URLSession

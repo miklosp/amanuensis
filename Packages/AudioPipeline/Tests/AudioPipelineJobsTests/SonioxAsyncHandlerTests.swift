@@ -316,6 +316,27 @@ private func stubSession() -> URLSession {
             #expect(status == 401)
         }
     }
+
+    @Test func send_throwsMalformedResponse_whenPollJSONUnparseable() async throws {
+        SonioxStubProtocol.handler = { req in
+            switch (req.httpMethod ?? "", req.url!.path) {
+            case ("POST", "/v1/files"): return (200, Data(#"{"id":"file_1"}"#.utf8))
+            case ("POST", "/v1/transcriptions"): return (200, Data(#"{"id":"tx_1"}"#.utf8))
+            case ("GET", "/v1/transcriptions/tx_1"): return (200, Data(#"{"garbage":true}"#.utf8))
+            case ("DELETE", _): return (200, Data())
+            default: return (404, Data())
+            }
+        }
+        do {
+            _ = try await SonioxAsyncHandler.send(
+                job: makeJob(), provider: makeProvider(),
+                audioURL: try writeAudio([0x01]), apiKey: "k",
+                session: stubSession(), pollInterval: .milliseconds(1), deadline: .seconds(5))
+            Issue.record("expected throw")
+        } catch SonioxAsyncHandler.SendError.malformedResponse {
+            // expected
+        }
+    }
 }
 
 @Suite struct SonioxAsyncSession {
