@@ -325,3 +325,11 @@ private func stubSession() -> URLSession {
                 == SonioxAsyncHandler.requestTimeout)
     }
 }
+
+// MARK: - Dispatch registration
+
+@Suite struct SonioxAsyncDispatch {
+    @Test func jobRunner_registersSonioxAsyncHandler() {
+        #expect(JobRunner.defaultHandlers[.sonioxAsync] != nil)
+    }
+}

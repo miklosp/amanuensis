@@ -308,3 +308,13 @@ private extension Data {
         append(Data(string.utf8))
     }
 }
+
+// Adapts the static `send` to AudioJobSending so JobRunner can dispatch to it
+// (and tests can inject a fake).
+public struct DefaultSonioxAsyncSender: AudioJobSending {
+    public init() {}
+    public func send(job: Job, provider: Provider, audioURL: URL, apiKey: String) async throws -> String {
+        try await SonioxAsyncHandler.send(job: job, provider: provider,
+                                          audioURL: audioURL, apiKey: apiKey)
+    }
+}
