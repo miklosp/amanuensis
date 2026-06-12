@@ -166,3 +166,35 @@ private func writeAudio(_ bytes: [UInt8]) throws -> URL {
         #expect(req.url?.absoluteString == "https://api.soniox.com/v1/files/file_3")
     }
 }
+
+// MARK: - Output formatting
+
+@Suite struct SonioxAsyncFormat {
+    @Test func diarizedTokens_renderSpeakerLabels() throws {
+        let data = Data(#"{"tokens":[{"text":" Hi","speaker":1},{"text":" there","speaker":1},{"text":" Bye","speaker":2}]}"#.utf8)
+        let out = try SonioxAsyncHandler.format(data: data, outputExt: "txt")
+        #expect(out == "Speaker 1: Hi there\nSpeaker 2: Bye")
+    }
+
+    @Test func tokensWithoutSpeaker_renderPlainConcatenatedText() throws {
+        let data = Data(#"{"tokens":[{"text":"Hello"},{"text":" world"}]}"#.utf8)
+        let out = try SonioxAsyncHandler.format(data: data, outputExt: "txt")
+        #expect(out == "Hello world")
+    }
+
+    @Test func jsonOutput_prettyPrintsRaw() throws {
+        let data = Data(#"{"tokens":[{"text":"Hi","speaker":1}]}"#.utf8)
+        let out = try SonioxAsyncHandler.format(data: data, outputExt: "json")
+        #expect(out.contains("\"tokens\""))
+        #expect(out.contains("\n"))   // pretty-printed → multiline
+    }
+
+    @Test func malformedJSON_throwsMalformedResponse() throws {
+        do {
+            _ = try SonioxAsyncHandler.format(data: Data("not json".utf8), outputExt: "txt")
+            Issue.record("expected throw")
+        } catch SonioxAsyncHandler.SendError.malformedResponse {
+            // expected
+        }
+    }
+}

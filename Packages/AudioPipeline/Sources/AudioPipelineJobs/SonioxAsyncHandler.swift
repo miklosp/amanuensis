@@ -125,6 +125,74 @@ public enum SonioxAsyncHandler {
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         return req
     }
+
+    // Maps the transcript response to the string JobRunner writes. "json" → the
+    // raw body pretty-printed (sorted keys, stable); anything else → speaker-
+    // labelled transcript, falling back to plain concatenated text when no token
+    // carries a speaker. Keys off the actual response, not the request flag.
+    static func format(data: Data, outputExt: String) throws -> String {
+        if outputExt == "json" {
+            guard let obj = try? JSONSerialization.jsonObject(with: data),
+                  let pretty = try? JSONSerialization.data(withJSONObject: obj,
+                                                           options: [.prettyPrinted, .sortedKeys]) else {
+                throw SendError.malformedResponse
+            }
+            return String(decoding: pretty, as: UTF8.self)
+        }
+        guard let resp = try? JSONDecoder().decode(TranscriptResponse.self, from: data) else {
+            throw SendError.malformedResponse
+        }
+        return resp.labelledTranscript()
+    }
+
+    // Token text carries its own spacing (Soniox concatenates token.text), so the
+    // transcript is rebuilt by joining without separators.
+    struct TranscriptResponse: Decodable {
+        struct Token: Decodable {
+            let text: String
+            let speaker: Int?
+        }
+        let tokens: [Token]
+
+        func labelledTranscript() -> String {
+            guard tokens.contains(where: { $0.speaker != nil }) else {
+                return tokens.map(\.text).joined().trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            var runs: [(speaker: Int, text: String)] = []
+            for t in tokens {
+                if let s = t.speaker, runs.last?.speaker != s {
+                    runs.append((s, t.text))
+                } else if !runs.isEmpty {
+                    runs[runs.count - 1].text += t.text
+                }
+                // Tokens before the first identified speaker are dropped, matching
+                // the ElevenLabs handler — no phantom "Speaker 1".
+            }
+            var order: [Int: Int] = [:]
+            var next = 1
+            let lines = runs.map { run -> String in
+                let n: Int
+                if let existing = order[run.speaker] {
+                    n = existing
+                } else {
+                    n = next
+                    order[run.speaker] = next
+                    next += 1
+                }
+                return "Speaker \(n): \(run.text.trimmingCharacters(in: .whitespacesAndNewlines))"
+            }
+            return lines.joined(separator: "\n")
+        }
+    }
+
+    // Step 1/2 responses: { "id": "..." }.
+    struct IDResponse: Decodable { let id: String }
+
+    // Step 3 response: { "status": "...", "error_message": "..." }.
+    struct StatusResponse: Decodable {
+        let status: String
+        let errorMessage: String?
+    }
 }
 
 // File-local: append a String's UTF-8 bytes to Data (Foundation has no helper).
