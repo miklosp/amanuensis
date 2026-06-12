@@ -18,7 +18,7 @@ import Testing
         let store = try PresetsStore.loadBundled()
         let preset = store.preset(id: "soniox-async")
         #expect(preset?.shape == .sonioxAsync)
-        #expect(preset?.suggestedModels.contains("stt-async-v4") == true)
+        #expect(preset?.suggestedModels.contains("stt-async-v5") == true)
         #expect(preset?.defaults["enable_speaker_diarization"] == "true")
     }
 
