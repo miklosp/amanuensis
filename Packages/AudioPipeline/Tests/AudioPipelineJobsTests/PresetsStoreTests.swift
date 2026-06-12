@@ -11,7 +11,15 @@ import Testing
         #expect(ids.contains("cohere"))
         #expect(ids.contains("gemini"))
         #expect(ids.contains("openrouter"))
-        #expect(store.all.count == 10)
+        #expect(store.all.count == 11)
+    }
+
+    @Test func lookupByID_sonioxAsync_returnsPreset() throws {
+        let store = try PresetsStore.loadBundled()
+        let preset = store.preset(id: "soniox-async")
+        #expect(preset?.shape == .sonioxAsync)
+        #expect(preset?.suggestedModels.contains("stt-async-v4") == true)
+        #expect(preset?.defaults["enable_speaker_diarization"] == "true")
     }
 
     @Test func lookupByID_returnsPreset() throws {

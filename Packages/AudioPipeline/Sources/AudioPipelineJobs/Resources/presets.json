@@ -27,5 +27,9 @@
    "docsURL":"https://elevenlabs.io/docs/api-reference/speech-to-text"},
   {"id":"gemini","displayName":"Gemini","shape":"geminiGenerateContent",
    "baseURL":"https://generativelanguage.googleapis.com/v1beta","suggestedModels":["gemini-2.5-flash","gemini-2.5-pro"],
-   "defaults":{},"docsURL":"https://ai.google.dev/api/generate-content"}
+   "defaults":{},"docsURL":"https://ai.google.dev/api/generate-content"},
+  {"id":"soniox-async","displayName":"Soniox Async","shape":"sonioxAsync",
+   "baseURL":"https://api.soniox.com","suggestedModels":["stt-async-v4"],
+   "defaults":{"enable_speaker_diarization":"true"},
+   "docsURL":"https://soniox.com/docs/stt/async/async-transcription"}
 ]
