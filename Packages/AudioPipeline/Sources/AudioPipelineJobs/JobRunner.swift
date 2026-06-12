@@ -17,6 +17,7 @@ public struct JobRunner: Sendable {
         .chatCompletionsAudio: DefaultChatCompletionsAudioSender(),
         .transcriptionMultipart: DefaultTranscriptionMultipartSender(),
         .elevenLabsScribe: DefaultElevenLabsScribeSender(),
+        .sonioxAsync: DefaultSonioxAsyncSender(),
     ]
 
     public init(
