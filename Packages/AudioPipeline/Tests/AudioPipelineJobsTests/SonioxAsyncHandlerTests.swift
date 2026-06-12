@@ -126,6 +126,37 @@ private func writeAudio(_ bytes: [UInt8]) throws -> URL {
         #expect(ctx["text"] as? String == "Volvo, Skåne")
     }
 
+    @Test func context_jsonObject_passedThroughVerbatim() throws {
+        let json = #"{"general":[{"key":"domain","value":"B2B SaaS"}],"terms":["Petravich","Botkube"],"text":"interview context"}"#
+        let body = try decodeBody(try SonioxAsyncHandler.buildCreateRequest(
+            job: makeJob(context: json), provider: makeProvider(), fileID: "f", apiKey: "k"))
+        let ctx = try #require(body["context"] as? [String: Any])
+        #expect(ctx["text"] as? String == "interview context")
+        #expect((ctx["terms"] as? [String])?.contains("Botkube") == true)
+        let general = try #require(ctx["general"] as? [[String: Any]])
+        #expect(general.first?["key"] as? String == "domain")
+        // The raw JSON must NOT be double-encoded as a text string.
+        #expect(ctx["text"] as? String != json)
+    }
+
+    @Test func context_plainProse_isWrappedAsText() throws {
+        let body = try decodeBody(try SonioxAsyncHandler.buildCreateRequest(
+            job: makeJob(context: "Bias toward Volvo and Skåne"), provider: makeProvider(),
+            fileID: "f", apiKey: "k"))
+        let ctx = try #require(body["context"] as? [String: Any])
+        #expect(ctx["text"] as? String == "Bias toward Volvo and Skåne")
+        #expect(ctx.count == 1)
+    }
+
+    @Test func context_wrappedObject_isUnwrapped() throws {
+        let json = #"{"context":{"terms":["Petravich"]}}"#
+        let body = try decodeBody(try SonioxAsyncHandler.buildCreateRequest(
+            job: makeJob(context: json), provider: makeProvider(), fileID: "f", apiKey: "k"))
+        let ctx = try #require(body["context"] as? [String: Any])
+        #expect((ctx["terms"] as? [String])?.contains("Petravich") == true)
+        #expect(ctx["context"] == nil)  // unwrapped, not nested under another "context"
+    }
+
     @Test func diarizationFalse_emitsBoolFalse() throws {
         let body = try decodeBody(try SonioxAsyncHandler.buildCreateRequest(
             job: makeJob(diarization: "false"), provider: makeProvider(), fileID: "f", apiKey: "k"))

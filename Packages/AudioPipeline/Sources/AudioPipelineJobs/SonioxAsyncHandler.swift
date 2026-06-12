@@ -84,7 +84,16 @@ public enum SonioxAsyncHandler {
             payload["enable_language_identification"] = (v == "true")
         }
         if let ctx = job.fields["context"], !ctx.isEmpty {
-            payload["context"] = ["text": ctx]
+            // A Soniox context object ({general,terms,text,translation_terms}) is
+            // sent verbatim; plain prose is wrapped as {"text": …}. A pasted
+            // {"context": {…}} request fragment is unwrapped to its inner object.
+            if let data = ctx.data(using: .utf8),
+               var obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                if let inner = obj["context"] as? [String: Any] { obj = inner }
+                payload["context"] = obj
+            } else {
+                payload["context"] = ["text": ctx]
+            }
         }
 
         var req = URLRequest(url: url)

@@ -73,7 +73,7 @@ extension JobShape {
                 FieldSpec(key: "enable_language_identification", label: "Language identification",
                           kind: .checkbox, required: false),
                 FieldSpec(key: "context", label: "Context / vocabulary", kind: .longText, required: false,
-                          help: "Bias toward names/jargon; sent as context.text"),
+                          help: "Plain text, or a Soniox context JSON object (general/terms/text)"),
             ]
         }
     }
