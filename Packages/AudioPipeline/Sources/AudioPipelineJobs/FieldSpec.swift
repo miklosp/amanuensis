@@ -64,6 +64,17 @@ extension JobShape {
                 FieldSpec(key: "thinkingBudget", label: "Thinking budget", kind: .number, required: false,
                           help: "Reasoning tokens; 0 disables"),
             ]
+        case .sonioxAsync:
+            return [
+                FieldSpec(key: "enable_speaker_diarization", label: "Speaker diarization",
+                          kind: .checkbox, required: false),
+                FieldSpec(key: "language_hints", label: "Language hints", kind: .text, required: false,
+                          help: "Comma-separated ISO codes, e.g. en,es"),
+                FieldSpec(key: "enable_language_identification", label: "Language identification",
+                          kind: .checkbox, required: false),
+                FieldSpec(key: "context", label: "Context / vocabulary", kind: .longText, required: false,
+                          help: "Bias toward names/jargon; sent as context.text"),
+            ]
         }
     }
 }
