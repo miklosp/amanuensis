@@ -22,6 +22,8 @@ Two test surfaces:
 
 The SPM scaffolding script for adding new library products is `scripts/run-setup-spm-package.sh <ProductName>`.
 
+**After SPM tests pass, always rebuild the app target** to confirm the app still compiles: `./scripts/xcode-build-helper.sh -project audio-pipeline.xcodeproj -scheme audio-pipeline -configuration Debug build` (via the xcode-build skill's daemon). `swift test` only compiles the SPM package, not the app target, so a green SPM suite is not proof the app builds.
+
 ## Project structure quirks
 
 - **`PBXFileSystemSynchronizedRootGroup`**: the `audio-pipeline/` source folder is declared as a synchronized group in `project.pbxproj`. New `.swift` files dropped into `audio-pipeline/` (or its subfolders) are automatically picked up by Xcode — no need to edit the pbxproj to register them. Subfolders become groups automatically. The synchronized group's folder (`audio-pipeline/`) and the package source folders (`Packages/AudioPipeline/Sources/`) deliberately do not overlap — see `docs/superpowers/specs/2026-05-24-spm-module-architecture-design.md` §4.
