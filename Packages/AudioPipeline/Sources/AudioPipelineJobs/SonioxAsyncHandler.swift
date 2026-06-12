@@ -92,6 +92,39 @@ public enum SonioxAsyncHandler {
         req.httpBody = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         return req
     }
+
+    // Step 3: poll one transcription's status.
+    public static func buildPollRequest(provider: Provider, transcriptionID: String, apiKey: String) throws -> URLRequest {
+        get(try endpoint(provider, "/v1/transcriptions/\(transcriptionID)"), apiKey: apiKey)
+    }
+
+    // Step 4: fetch the finished transcript (tokens).
+    public static func buildTranscriptRequest(provider: Provider, transcriptionID: String, apiKey: String) throws -> URLRequest {
+        get(try endpoint(provider, "/v1/transcriptions/\(transcriptionID)/transcript"), apiKey: apiKey)
+    }
+
+    // Step 5a/5b: best-effort cleanup.
+    static func buildDeleteTranscriptionRequest(provider: Provider, transcriptionID: String, apiKey: String) throws -> URLRequest {
+        delete(try endpoint(provider, "/v1/transcriptions/\(transcriptionID)"), apiKey: apiKey)
+    }
+
+    static func buildDeleteFileRequest(provider: Provider, fileID: String, apiKey: String) throws -> URLRequest {
+        delete(try endpoint(provider, "/v1/files/\(fileID)"), apiKey: apiKey)
+    }
+
+    private static func get(_ url: URL, apiKey: String) -> URLRequest {
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        return req
+    }
+
+    private static func delete(_ url: URL, apiKey: String) -> URLRequest {
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        return req
+    }
 }
 
 // File-local: append a String's UTF-8 bytes to Data (Foundation has no helper).

@@ -132,3 +132,37 @@ private func writeAudio(_ bytes: [UInt8]) throws -> URL {
         #expect(body["enable_speaker_diarization"] as? Bool == false)
     }
 }
+
+// MARK: - Poll / transcript / delete requests
+
+@Suite struct SonioxAsyncOtherRequests {
+    @Test func pollRequest_isGET_toTranscriptionPath() throws {
+        let req = try SonioxAsyncHandler.buildPollRequest(
+            provider: makeProvider(), transcriptionID: "tx_7", apiKey: "k")
+        #expect(req.httpMethod == "GET")
+        #expect(req.url?.absoluteString == "https://api.soniox.com/v1/transcriptions/tx_7")
+        #expect(req.value(forHTTPHeaderField: "Authorization") == "Bearer k")
+    }
+
+    @Test func transcriptRequest_isGET_toTranscriptSubpath() throws {
+        let req = try SonioxAsyncHandler.buildTranscriptRequest(
+            provider: makeProvider(), transcriptionID: "tx_7", apiKey: "k")
+        #expect(req.httpMethod == "GET")
+        #expect(req.url?.absoluteString == "https://api.soniox.com/v1/transcriptions/tx_7/transcript")
+        #expect(req.value(forHTTPHeaderField: "Authorization") == "Bearer k")
+    }
+
+    @Test func deleteTranscription_isDELETE() throws {
+        let req = try SonioxAsyncHandler.buildDeleteTranscriptionRequest(
+            provider: makeProvider(), transcriptionID: "tx_7", apiKey: "k")
+        #expect(req.httpMethod == "DELETE")
+        #expect(req.url?.absoluteString == "https://api.soniox.com/v1/transcriptions/tx_7")
+    }
+
+    @Test func deleteFile_isDELETE() throws {
+        let req = try SonioxAsyncHandler.buildDeleteFileRequest(
+            provider: makeProvider(), fileID: "file_3", apiKey: "k")
+        #expect(req.httpMethod == "DELETE")
+        #expect(req.url?.absoluteString == "https://api.soniox.com/v1/files/file_3")
+    }
+}
