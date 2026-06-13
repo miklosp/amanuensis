@@ -72,6 +72,30 @@ import Testing
         #expect(p?.suggestedModels.contains("gpt-4o-mini-transcribe") == true)
     }
 
+    @Test func everyPreset_hasValidOutputExtDefault() throws {
+        let store = try PresetsStore.loadBundled()
+        let allowed: Set<String> = ["json", "md", "txt"]
+        for p in store.all {
+            #expect(p.defaultOutputExt != nil && allowed.contains(p.defaultOutputExt ?? ""),
+                    "preset '\(p.id)' has invalid defaultOutputExt: \(p.defaultOutputExt ?? "nil")")
+        }
+    }
+
+    @Test func outputExtDefaults_matchProviderType() throws {
+        let store = try PresetsStore.loadBundled()
+        #expect(store.preset(id: "deepgram")?.defaultOutputExt == "json")
+        #expect(store.preset(id: "gemini")?.defaultOutputExt == "md")
+        #expect(store.preset(id: "openai-chat-audio")?.defaultOutputExt == "md")
+        #expect(store.preset(id: "openai-whisper")?.defaultOutputExt == "txt")
+    }
+
+    @Test func transcriptionPresets_overrideLabelAndHint_forPrompt() throws {
+        let store = try PresetsStore.loadBundled()
+        #expect(store.preset(id: "openai-gpt4o-transcribe")?.fieldLabels?["prompt"]?.isEmpty == false)
+        #expect(store.preset(id: "openai-gpt4o-transcribe")?.fieldHints?["prompt"]?.isEmpty == false)
+        #expect(store.preset(id: "mistral-voxtral")?.fieldHints?["prompt"]?.isEmpty == false)
+    }
+
     @Test func deepgram_presetExists() throws {
         let store = try PresetsStore.loadBundled()
         let p = store.preset(id: "deepgram")

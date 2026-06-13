@@ -48,4 +48,33 @@ import Testing
         #expect(decoded == preset)
         #expect(decoded.fieldHelp?["prompt"] == "biases spelling, not instructions")
     }
+
+    @Test func roundTrip_preservesUIMetadata() throws {
+        let preset = Preset(
+            id: "p", displayName: "P", shape: .transcriptionMultipart,
+            baseURL: "https://example.com", suggestedModels: ["m"],
+            defaults: [:], docsURL: nil,
+            fieldHelp: ["prompt": "tip"],
+            defaultOutputExt: "txt",
+            fieldLabels: ["prompt": "Prompt"],
+            fieldHints: ["prompt": "free text"]
+        )
+        let data = try JSONEncoder().encode(preset)
+        let decoded = try JSONDecoder().decode(Preset.self, from: data)
+        #expect(decoded == preset)
+        #expect(decoded.defaultOutputExt == "txt")
+        #expect(decoded.fieldLabels?["prompt"] == "Prompt")
+        #expect(decoded.fieldHints?["prompt"] == "free text")
+    }
+
+    @Test func uiMetadata_isOptional() throws {
+        let json = #"""
+        {"id":"x","displayName":"X","shape":"chatCompletionsAudio",
+         "baseURL":"","suggestedModels":[],"defaults":{}}
+        """#
+        let decoded = try JSONDecoder().decode(Preset.self, from: Data(json.utf8))
+        #expect(decoded.defaultOutputExt == nil)
+        #expect(decoded.fieldLabels == nil)
+        #expect(decoded.fieldHints == nil)
+    }
 }

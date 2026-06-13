@@ -41,8 +41,6 @@ struct JobEditorView: View {
         provider.flatMap { presets.preset(id: $0.presetID) }
     }
 
-    private var shape: JobShape? { preset?.shape }
-
     var body: some View {
         if providerID == nil || provider == nil {
             repairPane
@@ -73,6 +71,7 @@ struct JobEditorView: View {
                     .flatMap { presets.preset(id: $0.presetID) }
                 model = Self.autoFilledModel(newPreset)
                 fields = newPreset?.defaults ?? [:]
+                outputExt = newPreset?.defaultOutputExt ?? "txt"
             }
             .frame(maxWidth: 360)
             Button("Save repair") { save() }
@@ -105,6 +104,7 @@ struct JobEditorView: View {
                         if oldShape != newPreset?.shape {
                             model = Self.autoFilledModel(newPreset)
                             fields = newPreset?.defaults ?? [:]
+                            outputExt = newPreset?.defaultOutputExt ?? "txt"
                         }
                     }
                     HStack {
@@ -118,7 +118,9 @@ struct JobEditorView: View {
                             .frame(width: 110)
                         }
                     }
-                    TextField("Output extension", text: $outputExt)
+                    Picker("Output extension", selection: $outputExt) {
+                        ForEach(outputExtOptions, id: \.self) { Text($0).tag($0) }
+                    }
                     Toggle(isOn: $customOutputFolder) {
                         Text("Custom output folder")
                     }
@@ -134,9 +136,9 @@ struct JobEditorView: View {
                     }
                 }
 
-                if let shape {
+                if let preset {
                     Section("Parameters") {
-                        JobFieldFormView(shape: shape, fieldHelp: preset?.fieldHelp ?? [:], values: $fields)
+                        JobFieldFormView(preset: preset, values: $fields)
                     }
                 }
             }
@@ -167,6 +169,14 @@ struct JobEditorView: View {
     private static func autoFilledModel(_ preset: Preset?) -> String {
         guard let models = preset?.suggestedModels, models.count == 1 else { return "" }
         return models[0]
+    }
+
+    // The dropdown offers json/md/txt; keep any existing out-of-list value (e.g.
+    // a legacy "srt") so editing an older job doesn't silently change its output.
+    private var outputExtOptions: [String] {
+        let base = ["json", "md", "txt"]
+        if !outputExt.isEmpty && !base.contains(outputExt) { return base + [outputExt] }
+        return base
     }
 
     private func save() {

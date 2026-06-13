@@ -2,9 +2,10 @@ import AudioPipelineJobs
 import SwiftUI
 
 struct JobFieldFormView: View {
-    let shape: JobShape
-    let fieldHelp: [String: String]   // field key -> provider-specific tooltip
+    let preset: Preset
     @Binding var values: [String: String]
+
+    private var shape: JobShape { preset.shape }
 
     var body: some View {
         ForEach(shape.fields, id: \.key) { spec in
@@ -42,7 +43,7 @@ struct JobFieldFormView: View {
             Toggle(isOn: boolBinding(spec.key)) {
                 VStack(alignment: .leading) {
                     labelRow(spec)
-                    if let help = spec.help {
+                    if let help = hint(spec) {
                         Text(help).font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -55,7 +56,7 @@ struct JobFieldFormView: View {
         VStack(alignment: .leading, spacing: 4) {
             labelRow(spec).font(.subheadline)
             content()
-            if let help = spec.help {
+            if let help = hint(spec) {
                 Text(help).font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -67,7 +68,7 @@ struct JobFieldFormView: View {
     private func labelRow(_ spec: FieldSpec) -> some View {
         HStack(spacing: 4) {
             Text(label(spec))
-            if let tip = fieldHelp[spec.key], !tip.isEmpty {
+            if let tip = preset.fieldHelp?[spec.key], !tip.isEmpty {
                 Image(systemName: "info.circle")
                     .imageScale(.small)
                     .foregroundStyle(.secondary)
@@ -76,8 +77,16 @@ struct JobFieldFormView: View {
         }
     }
 
+    // Per-preset label override (e.g. gpt-4o-transcribe relabels the shared
+    // "Vocabulary biasing" prompt field as "Prompt") falling back to the shape.
     private func label(_ spec: FieldSpec) -> String {
-        spec.required ? "\(spec.label) *" : spec.label
+        let base = preset.fieldLabels?[spec.key] ?? spec.label
+        return spec.required ? "\(base) *" : base
+    }
+
+    // Per-preset inline caption override, falling back to the shape's help.
+    private func hint(_ spec: FieldSpec) -> String? {
+        preset.fieldHints?[spec.key] ?? spec.help
     }
 
     private func binding(_ key: String) -> Binding<String> {
