@@ -50,6 +50,11 @@ struct ProviderEditorView: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
+                            if !baseURL.isEmpty, !Provider.isAcceptableBaseURL(baseURL) {
+                                Text("Use an https:// URL — http:// is allowed only for localhost.")
+                                    .font(.caption)
+                                    .foregroundStyle(.red)
+                            }
                         }
                     }
                     KeychainAccountPicker(account: $apiKeyAccount, keychain: keychain)
@@ -77,6 +82,7 @@ struct ProviderEditorView: View {
 
     private var canSave: Bool {
         !name.isEmpty && !presetID.isEmpty && !apiKeyAccount.isEmpty
+            && Provider.isAcceptableBaseURL(baseURL)
     }
 
     private func save() {

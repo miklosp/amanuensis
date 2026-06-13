@@ -37,7 +37,10 @@ final class MicRecorder {
             bufferSize: 4096,
             format: format
         ) { @Sendable [writer] buffer, _ in
-            writer.enqueue(buffer)
+            // The tap buffer is framework-owned and may be reused after this
+            // callback returns; AudioFileWriter writes it later on its own
+            // queue, so copy before handing it off (matches the system path).
+            if let copy = buffer.deepCopy() { writer.enqueue(copy) }
         }
         engine.prepare()
         try engine.start()

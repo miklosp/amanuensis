@@ -72,14 +72,18 @@ final class AppCoordinator {
             self.jobs = try JobsStore.standard(bundleID: "work.miklos.audio-pipeline")
         } catch {
             Self.log.error("failed to load jobs (likely stale schema): \(String(describing: error), privacy: .public)")
-            // Pre-release wipe: drop a stale jobs.json so the next launch starts clean.
+            // Pre-release recovery: move the unreadable jobs.json aside to a
+            // .bak so the next launch starts clean without destroying the only
+            // copy — the stale file stays recoverable for inspection/migration.
             let support = try? FileManager.default.url(for: .applicationSupportDirectory,
                                                        in: .userDomainMask,
                                                        appropriateFor: nil, create: false)
             if let url = support?
                 .appendingPathComponent("work.miklos.audio-pipeline", isDirectory: true)
                 .appendingPathComponent("jobs.json") {
-                try? FileManager.default.removeItem(at: url)
+                let backup = url.appendingPathExtension("bak")
+                try? FileManager.default.removeItem(at: backup)
+                try? FileManager.default.moveItem(at: url, to: backup)
             }
             // Try once more from the standard location; fall back to a temp file if even that fails.
             self.jobs = (try? JobsStore.standard(bundleID: "work.miklos.audio-pipeline")) ?? {

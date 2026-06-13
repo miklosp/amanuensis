@@ -8,8 +8,19 @@ public struct RecordingStore {
     }
 
     public func makeRecordingFolder(label: String?, date: Date = Date()) throws -> RecordingFolder {
-        let name = Self.folderName(date: date, label: label)
-        let folder = baseURL.appending(path: name, directoryHint: .isDirectory)
+        let baseName = Self.folderName(date: date, label: label)
+        // The timestamp resolves only to whole seconds, so two recordings
+        // started in the same second would otherwise share a folder and
+        // overwrite each other's tracks. Disambiguate with a `-2`, `-3`, …
+        // suffix when the path is already taken.
+        var name = baseName
+        var attempt = 2
+        var folder = baseURL.appending(path: name, directoryHint: .isDirectory)
+        while FileManager.default.fileExists(atPath: folder.path) {
+            name = "\(baseName)-\(attempt)"
+            folder = baseURL.appending(path: name, directoryHint: .isDirectory)
+            attempt += 1
+        }
         try FileManager.default.createDirectory(
             at: folder,
             withIntermediateDirectories: true

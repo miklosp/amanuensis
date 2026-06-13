@@ -42,6 +42,27 @@ import RecordingStorage
         }
     }
 
+    @Test func makeRecordingFolder_sameSecond_doesNotCollide() throws {
+        try withTempDirectory { baseURL in
+            let store = RecordingStore(baseURL: baseURL)
+            // Two recordings started at the identical whole-second instant must
+            // land in distinct folders, not overwrite each other.
+            let date = Date(timeIntervalSince1970: 1_700_000_000)
+            let first = try store.makeRecordingFolder(label: nil, date: date)
+            let second = try store.makeRecordingFolder(label: nil, date: date)
+
+            #expect(first.name == "2023-11-14T22-13-20Z")
+            #expect(second.name == "2023-11-14T22-13-20Z-2")
+            #expect(first.url != second.url)
+
+            for folder in [first, second] {
+                var isDir: ObjCBool = false
+                #expect(FileManager.default.fileExists(atPath: folder.url.path, isDirectory: &isDir))
+                #expect(isDir.boolValue)
+            }
+        }
+    }
+
     @Test func recordingFolderURLs_pointAtExpectedFiles() {
         let baseURL = URL(filePath: "/tmp/audio-pipeline-tests-url-only", directoryHint: .isDirectory)
         let folder = RecordingFolder(

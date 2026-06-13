@@ -20,6 +20,25 @@ public struct Provider: Identifiable, Codable, Hashable, Sendable {
         self.apiKeyRef = apiKeyRef
     }
 
+    // A base URL is acceptable only if its transport won't leak the attached
+    // API key over cleartext: https is always allowed; plain http only for a
+    // loopback host (the local dev/proxy case, e.g. a Bifrost gateway). A
+    // missing scheme is rejected so the URL is unambiguous.
+    public static func isAcceptableBaseURL(_ string: String) -> Bool {
+        guard let url = URL(string: string), let scheme = url.scheme?.lowercased() else {
+            return false
+        }
+        switch scheme {
+        case "https":
+            return true
+        case "http":
+            let host = (url.host ?? "").lowercased()
+            return host == "localhost" || host == "127.0.0.1" || host == "::1"
+        default:
+            return false
+        }
+    }
+
     public static func makeDraft(presets: PresetsStore) -> Provider {
         let first = presets.all.first
         return Provider(

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 // Persistent list of Jobs. JSON-on-disk in Application Support. Observable so
 // the Jobs settings panel re-renders on CRUD.
@@ -51,8 +52,11 @@ public final class JobsStore {
             let data = try JSONEncoder().encode(jobs)
             try data.write(to: fileURL, options: .atomic)
         } catch {
-            // Persistence failure is non-fatal for the in-memory store but worth
-            // logging. Defer to OSLog from the app composition root if needed.
+            // Persistence failure is non-fatal for the in-memory store, but the
+            // edit silently won't survive a relaunch — log so it's diagnosable.
+            Self.log.error("jobs save failed: \(String(describing: error), privacy: .public)")
         }
     }
+
+    private static let log = Logger(subsystem: "work.miklos.audio-pipeline", category: "store")
 }
