@@ -207,6 +207,21 @@ private func writeAudio(_ bytes: [UInt8]) throws -> URL {
         #expect(out == "Speaker 1: Hi there\nSpeaker 2: Bye")
     }
 
+    // Regression: the live Soniox transcript sends `speaker` as a numeric string,
+    // which the old `Int?` decode rejected → malformedResponse on every diarized job.
+    @Test func stringSpeaker_decodesAndRendersLabels() throws {
+        let data = Data(#"{"id":"x","text":"Hi there Bye","tokens":[{"text":" Hi","speaker":"1"},{"text":" there","speaker":"1"},{"text":" Bye","speaker":"2"}]}"#.utf8)
+        let out = try SonioxAsyncHandler.format(data: data, outputExt: "txt")
+        #expect(out == "Speaker 1: Hi there\nSpeaker 2: Bye")
+    }
+
+    // A token missing `text` must not fail the whole transcript decode.
+    @Test func tokenMissingText_doesNotFailDecode() throws {
+        let data = Data(#"{"tokens":[{"text":"Hello"},{},{"text":" world"}]}"#.utf8)
+        let out = try SonioxAsyncHandler.format(data: data, outputExt: "txt")
+        #expect(out == "Hello world")
+    }
+
     @Test func tokensWithoutSpeaker_renderPlainConcatenatedText() throws {
         let data = Data(#"{"tokens":[{"text":"Hello"},{"text":" world"}]}"#.utf8)
         let out = try SonioxAsyncHandler.format(data: data, outputExt: "txt")

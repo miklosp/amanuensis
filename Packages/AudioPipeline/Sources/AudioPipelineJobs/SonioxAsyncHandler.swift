@@ -162,6 +162,24 @@ public enum SonioxAsyncHandler {
         struct Token: Decodable {
             let text: String
             let speaker: Int?
+
+            private enum CodingKeys: String, CodingKey { case text, speaker }
+
+            // Tolerant decode: Soniox sends `speaker` as a numeric STRING ("1"),
+            // which a plain `Int?` decode rejects — failing the whole transcript.
+            // Accept a JSON number or a numeric string; `text` defaults to "" if a
+            // token omits it, so one odd token can't sink the rest.
+            init(from decoder: Decoder) throws {
+                let c = try decoder.container(keyedBy: CodingKeys.self)
+                text = (try? c.decode(String.self, forKey: .text)) ?? ""
+                if let i = try? c.decode(Int.self, forKey: .speaker) {
+                    speaker = i
+                } else if let s = try? c.decode(String.self, forKey: .speaker), let i = Int(s) {
+                    speaker = i
+                } else {
+                    speaker = nil
+                }
+            }
         }
         let tokens: [Token]
 
