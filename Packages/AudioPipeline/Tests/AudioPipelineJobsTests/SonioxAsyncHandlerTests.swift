@@ -157,6 +157,32 @@ private func writeAudio(_ bytes: [UInt8]) throws -> URL {
         #expect(ctx["context"] == nil)  // unwrapped, not nested under another "context"
     }
 
+    // A pasted whole create-transcription request body (the API reference shows
+    // `context` as a sibling STRING key) must not leak foreign top-level keys into
+    // the context object; the nested context string is extracted as context.text.
+    @Test func context_wholeRequestBody_doesNotLeakForeignKeys() throws {
+        let json = #"{"model":"stt-async-v5","file_id":"abc","language_hints":["en"],"context":"extra context for the transcription"}"#
+        let body = try decodeBody(try SonioxAsyncHandler.buildCreateRequest(
+            job: makeJob(context: json), provider: makeProvider(), fileID: "f", apiKey: "k"))
+        let ctx = try #require(body["context"] as? [String: Any])
+        #expect(ctx["model"] == nil)       // foreign key must not leak into context
+        #expect(ctx["file_id"] == nil)
+        #expect(ctx["language_hints"] == nil)
+        #expect(ctx["text"] as? String == "extra context for the transcription")
+    }
+
+    // Foreign keys alongside a real context field are dropped; the context field
+    // is kept.
+    @Test func context_objectWithForeignKeys_keepsOnlyAllowed() throws {
+        let json = #"{"model":"stt-async-v5","file_id":"abc","terms":["Botkube"]}"#
+        let body = try decodeBody(try SonioxAsyncHandler.buildCreateRequest(
+            job: makeJob(context: json), provider: makeProvider(), fileID: "f", apiKey: "k"))
+        let ctx = try #require(body["context"] as? [String: Any])
+        #expect(ctx["model"] == nil)
+        #expect(ctx["file_id"] == nil)
+        #expect((ctx["terms"] as? [String])?.contains("Botkube") == true)
+    }
+
     @Test func diarizationFalse_emitsBoolFalse() throws {
         let body = try decodeBody(try SonioxAsyncHandler.buildCreateRequest(
             job: makeJob(diarization: "false"), provider: makeProvider(), fileID: "f", apiKey: "k"))

@@ -84,13 +84,22 @@ public enum SonioxAsyncHandler {
             payload["enable_language_identification"] = (v == "true")
         }
         if let ctx = job.fields["context"], !ctx.isEmpty {
-            // A Soniox context object ({general,terms,text,translation_terms}) is
-            // sent verbatim; plain prose is wrapped as {"text": …}. A pasted
-            // {"context": {…}} request fragment is unwrapped to its inner object.
+            // Soniox's context is a structured object whose only keys are these.
+            // Plain prose is wrapped as {"text": …}. A pasted JSON object keeps
+            // only recognized keys, so foreign keys from a whole request body
+            // (model, file_id, …) never leak into context. A nested {"context": …}
+            // fragment is unwrapped first — its value may be the object itself or
+            // a bare string (the API reference shows context as a string).
+            let allowedKeys: Set<String> = ["general", "text", "terms", "translation_terms"]
             if let data = ctx.data(using: .utf8),
                var obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
-                if let inner = obj["context"] as? [String: Any] { obj = inner }
-                payload["context"] = obj
+                if let inner = obj["context"] as? [String: Any] {
+                    obj = inner
+                } else if let innerText = obj["context"] as? String {
+                    obj = ["text": innerText]
+                }
+                let filtered = obj.filter { allowedKeys.contains($0.key) }
+                payload["context"] = filtered.isEmpty ? ["text": ctx] : filtered
             } else {
                 payload["context"] = ["text": ctx]
             }
