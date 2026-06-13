@@ -12,7 +12,9 @@ public struct PresetsStore: Sendable {
     private let byID: [String: Preset]
 
     public init(presets: [Preset]) {
-        self.all = presets
+        // Sorted by display name so every preset listing (e.g. the provider
+        // editor's picker) is alphabetical regardless of presets.json order.
+        self.all = presets.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
         self.byID = Dictionary(uniqueKeysWithValues: presets.map { ($0.id, $0) })
     }
 

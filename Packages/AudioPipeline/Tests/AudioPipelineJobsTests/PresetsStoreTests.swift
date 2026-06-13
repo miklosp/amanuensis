@@ -31,6 +31,12 @@ import Testing
         #expect(preset?.suggestedModels.contains("voxtral-mini-2602") == true)
     }
 
+    @Test func all_isSortedByDisplayName() throws {
+        let store = try PresetsStore.loadBundled()
+        let names = store.all.map(\.displayName)
+        #expect(names == names.sorted { $0.localizedStandardCompare($1) == .orderedAscending })
+    }
+
     @Test func lookupByID_missing_returnsNil() throws {
         let store = try PresetsStore.loadBundled()
         #expect(store.preset(id: "does-not-exist") == nil)
