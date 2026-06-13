@@ -7,6 +7,7 @@ public enum JobShape: String, Codable, CaseIterable, Hashable, Sendable {
     case elevenLabsScribe           // ElevenLabs Scribe, own field names
     case geminiGenerateContent      // Gemini File API + generateContent
     case sonioxAsync                // Soniox async: upload → create → poll → fetch transcript
+    case deepgramListen             // Deepgram /v1/listen, raw body + query-param options
 
     // The path the handler appends to the provider's Base URL. Shown as a hint
     // in the provider editor so users know not to include it themselves. Must
@@ -20,6 +21,7 @@ public enum JobShape: String, Codable, CaseIterable, Hashable, Sendable {
         case .elevenLabsScribe:      return "/v1/speech-to-text"
         case .geminiGenerateContent: return "/models/{model}:generateContent"
         case .sonioxAsync:           return "/v1/transcriptions"
+        case .deepgramListen:        return "/v1/listen"
         }
     }
 }

@@ -75,6 +75,15 @@ extension JobShape {
                 FieldSpec(key: "context", label: "Context / vocabulary", kind: .longText, required: false,
                           help: "Plain text, or a Soniox context JSON object (general/terms/text)"),
             ]
+        case .deepgramListen:
+            return [
+                FieldSpec(key: "language", label: "Language", kind: .language, required: false,
+                          help: "Deepgram code, e.g. en; omit to let Nova-3 auto-detect"),
+                FieldSpec(key: "diarize", label: "Speaker diarization", kind: .checkbox, required: false),
+                FieldSpec(key: "smart_format", label: "Smart formatting", kind: .checkbox, required: false),
+                FieldSpec(key: "keyterm", label: "Keyterm biasing", kind: .text, required: false,
+                          help: "Comma-separated terms (Nova-3)"),
+            ]
         }
     }
 }

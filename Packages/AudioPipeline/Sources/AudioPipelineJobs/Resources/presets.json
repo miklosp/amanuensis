@@ -45,5 +45,10 @@
    "baseURL":"https://api.soniox.com","suggestedModels":["stt-async-v5"],
    "defaults":{"enable_speaker_diarization":"true"},
    "docsURL":"https://soniox.com/docs/stt/async/async-transcription",
-   "fieldHelp":{"context":"Plain text becomes the context \"text\". Or paste a Soniox context JSON object — general / text / terms / translation_terms are kept, other keys stripped. Max ~8,000 tokens (~10,000 chars)."}}
+   "fieldHelp":{"context":"Plain text becomes the context \"text\". Or paste a Soniox context JSON object — general / text / terms / translation_terms are kept, other keys stripped. Max ~8,000 tokens (~10,000 chars)."}},
+  {"id":"deepgram","displayName":"Deepgram","shape":"deepgramListen",
+   "baseURL":"https://api.deepgram.com","suggestedModels":["nova-3","nova-2"],
+   "defaults":{"smart_format":"true"},
+   "docsURL":"https://developers.deepgram.com/docs/pre-recorded-audio",
+   "fieldHelp":{"keyterm":"Keyterm Prompting (Nova-3): biases toward names/jargon — up to ~100 terms, 500 tokens/request, comma-separated. Not free-text instructions. (Nova-2 and earlier use keywords instead.)"}}
 ]

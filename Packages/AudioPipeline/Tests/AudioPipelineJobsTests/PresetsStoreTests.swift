@@ -12,7 +12,8 @@ import Testing
         #expect(ids.contains("gemini"))
         #expect(ids.contains("openrouter"))
         #expect(ids.contains("openai-gpt4o-transcribe"))
-        #expect(store.all.count == 12)
+        #expect(ids.contains("deepgram"))
+        #expect(store.all.count == 13)
     }
 
     @Test func lookupByID_sonioxAsync_returnsPreset() throws {
@@ -43,7 +44,7 @@ import Testing
 
     @Test func everyPromptOrContextField_hasTooltip() throws {
         let store = try PresetsStore.loadBundled()
-        let constraintKeys: Set<String> = ["prompt", "context"]
+        let constraintKeys: Set<String> = ["prompt", "context", "keyterm"]
         for preset in store.all {
             for field in preset.shape.fields where constraintKeys.contains(field.key) {
                 #expect(preset.fieldHelp?[field.key]?.isEmpty == false,
@@ -63,5 +64,13 @@ import Testing
         #expect(p?.shape == .transcriptionMultipart)
         #expect(p?.suggestedModels.contains("gpt-4o-transcribe") == true)
         #expect(p?.suggestedModels.contains("gpt-4o-mini-transcribe") == true)
+    }
+
+    @Test func deepgram_presetExists() throws {
+        let store = try PresetsStore.loadBundled()
+        let p = store.preset(id: "deepgram")
+        #expect(p?.shape == .deepgramListen)
+        #expect(p?.suggestedModels.contains("nova-3") == true)
+        #expect(p?.fieldHelp?["keyterm"]?.isEmpty == false)
     }
 }
