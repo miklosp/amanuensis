@@ -72,7 +72,7 @@ public enum ElevenLabsScribeHandler {
 
     public enum SendError: Error {
         case httpError(status: Int, body: Data)
-        case malformedResponse
+        case malformedResponse(body: Data)
     }
 
     // Maps the JSON response to the string JobRunner writes. "json" → the raw
@@ -84,14 +84,14 @@ public enum ElevenLabsScribeHandler {
             guard let obj = try? JSONSerialization.jsonObject(with: data),
                   let pretty = try? JSONSerialization.data(withJSONObject: obj,
                                                            options: [.prettyPrinted, .sortedKeys]) else {
-                throw SendError.malformedResponse
+                throw SendError.malformedResponse(body: data)
             }
             return String(decoding: pretty, as: UTF8.self)
         }
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let resp = try? decoder.decode(Response.self, from: data) else {
-            throw SendError.malformedResponse
+            throw SendError.malformedResponse(body: data)
         }
         return resp.labelledTranscript()
     }
@@ -119,7 +119,7 @@ public enum ElevenLabsScribeHandler {
         let request = try buildRequest(job: job, provider: provider, audioURL: audioURL, apiKey: apiKey)
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
-            throw SendError.malformedResponse
+            throw SendError.malformedResponse(body: data)
         }
         guard (200..<300).contains(http.statusCode) else {
             throw SendError.httpError(status: http.statusCode, body: data)
@@ -175,6 +175,18 @@ public enum ElevenLabsScribeHandler {
 private extension Data {
     mutating func append(_ string: String) {
         append(Data(string.utf8))
+    }
+}
+
+// Full-detail messages for the in-app log; `localizedDescription` resolves to these.
+extension ElevenLabsScribeHandler.SendError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case let .httpError(status, body):
+            return "ElevenLabs HTTP \(status): \(describeResponseBody(body))"
+        case let .malformedResponse(body):
+            return "ElevenLabs: could not decode the response: \(describeResponseBody(body))"
+        }
     }
 }
 

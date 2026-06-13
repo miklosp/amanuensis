@@ -269,7 +269,7 @@ final class AppCoordinator {
             logs.log(.info, "Done: '\(job.name)' → \(out.lastPathComponent)", category: .job)
             return .success(out)
         } catch {
-            Self.log.error("job '\(job.name, privacy: .public)' failed: \(String(describing: error), privacy: .public)")
+            Self.log.error("job '\(job.name, privacy: .public)' failed: \(error.localizedDescription, privacy: .public)")
             await self.flashActivity("Failed: '\(job.name)' — \(error.localizedDescription)")
             logs.log(.error, "Failed: '\(job.name)' — \(error.localizedDescription)", category: .job)
             return .failure(error)

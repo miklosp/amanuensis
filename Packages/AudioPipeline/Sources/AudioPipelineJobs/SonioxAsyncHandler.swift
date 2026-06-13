@@ -19,7 +19,7 @@ public enum SonioxAsyncHandler {
 
     public enum SendError: Error {
         case httpError(status: Int, body: Data)
-        case malformedResponse
+        case malformedResponse(body: Data)
         case transcriptionFailed(message: String)
         case timedOut
     }
@@ -155,12 +155,12 @@ public enum SonioxAsyncHandler {
             guard let obj = try? JSONSerialization.jsonObject(with: data),
                   let pretty = try? JSONSerialization.data(withJSONObject: obj,
                                                            options: [.prettyPrinted, .sortedKeys]) else {
-                throw SendError.malformedResponse
+                throw SendError.malformedResponse(body: data)
             }
             return String(decoding: pretty, as: UTF8.self)
         }
         guard let resp = try? JSONDecoder().decode(TranscriptResponse.self, from: data) else {
-            throw SendError.malformedResponse
+            throw SendError.malformedResponse(body: data)
         }
         return resp.labelledTranscript()
     }
@@ -285,14 +285,14 @@ public enum SonioxAsyncHandler {
     private static func postForID(_ request: URLRequest, session: URLSession) async throws -> String {
         let data = try await fetchData(request, session: session)
         guard let decoded = try? JSONDecoder().decode(IDResponse.self, from: data) else {
-            throw SendError.malformedResponse
+            throw SendError.malformedResponse(body: data)
         }
         return decoded.id
     }
 
     private static func fetchData(_ request: URLRequest, session: URLSession) async throws -> Data {
         let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw SendError.malformedResponse }
+        guard let http = response as? HTTPURLResponse else { throw SendError.malformedResponse(body: data) }
         guard (200..<300).contains(http.statusCode) else {
             throw SendError.httpError(status: http.statusCode, body: data)
         }
@@ -314,7 +314,7 @@ public enum SonioxAsyncHandler {
                 try buildPollRequest(provider: provider, transcriptionID: transcriptionID, apiKey: apiKey),
                 session: session)
             guard let status = try? decoder.decode(StatusResponse.self, from: data) else {
-                throw SendError.malformedResponse
+                throw SendError.malformedResponse(body: data)
             }
             switch status.status {
             case "completed":
@@ -350,6 +350,22 @@ public enum SonioxAsyncHandler {
 private extension Data {
     mutating func append(_ string: String) {
         append(Data(string.utf8))
+    }
+}
+
+// Full-detail messages for the in-app log; `localizedDescription` resolves to these.
+extension SonioxAsyncHandler.SendError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case let .httpError(status, body):
+            return "Soniox HTTP \(status): \(describeResponseBody(body))"
+        case let .malformedResponse(body):
+            return "Soniox: could not decode the response: \(describeResponseBody(body))"
+        case let .transcriptionFailed(message):
+            return "Soniox transcription failed: \(message)"
+        case .timedOut:
+            return "Soniox transcription timed out"
+        }
     }
 }
 

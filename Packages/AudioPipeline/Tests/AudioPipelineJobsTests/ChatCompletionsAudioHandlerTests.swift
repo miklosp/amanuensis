@@ -209,9 +209,23 @@ private func stubSession(status: Int, body: Data) -> URLSession {
                                                           audioURL: audio, apiKey: "k",
                                                           session: session)
             Issue.record("expected throw")
-        } catch ChatCompletionsAudioHandler.SendError.malformedResponse {
+        } catch ChatCompletionsAudioHandler.SendError.malformedResponse(_) {
             // expected
         }
+    }
+}
+
+@Suite struct ChatCompletionsAudioErrorDescription {
+    @Test func httpError_describesStatusAndBody() {
+        let e = ChatCompletionsAudioHandler.SendError.httpError(
+            status: 401, body: Data(#"{"error":{"message":"bad key"}}"#.utf8))
+        #expect(e.localizedDescription.contains("401"))
+        #expect(e.localizedDescription.contains("bad key"))
+    }
+
+    @Test func malformedResponse_describesBody() {
+        let e = ChatCompletionsAudioHandler.SendError.malformedResponse(body: Data(#"{"unexpected":true}"#.utf8))
+        #expect(e.localizedDescription.contains("unexpected"))
     }
 }
 

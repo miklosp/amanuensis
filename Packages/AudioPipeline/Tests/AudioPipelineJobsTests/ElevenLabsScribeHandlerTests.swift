@@ -215,9 +215,23 @@ private func scribeStubSession(status: Int, body: Data) -> URLSession {
             _ = try await ElevenLabsScribeHandler.send(
                 job: makeJob(), provider: makeProvider(), audioURL: audio, apiKey: "xi", session: session)
             Issue.record("expected throw")
-        } catch ElevenLabsScribeHandler.SendError.malformedResponse {
+        } catch ElevenLabsScribeHandler.SendError.malformedResponse(_) {
             // expected
         }
+    }
+}
+
+@Suite struct ElevenLabsScribeErrorDescription {
+    @Test func httpError_describesStatusAndBody() {
+        let e = ElevenLabsScribeHandler.SendError.httpError(
+            status: 422, body: Data(#"{"detail":"bad language_code"}"#.utf8))
+        #expect(e.localizedDescription.contains("422"))
+        #expect(e.localizedDescription.contains("bad language_code"))
+    }
+
+    @Test func malformedResponse_describesBody() {
+        let e = ElevenLabsScribeHandler.SendError.malformedResponse(body: Data("<html>nope</html>".utf8))
+        #expect(e.localizedDescription.contains("nope"))
     }
 }
 

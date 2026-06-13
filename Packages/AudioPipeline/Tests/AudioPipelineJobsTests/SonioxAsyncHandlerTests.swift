@@ -265,7 +265,7 @@ private func writeAudio(_ bytes: [UInt8]) throws -> URL {
         do {
             _ = try SonioxAsyncHandler.format(data: Data("not json".utf8), outputExt: "txt")
             Issue.record("expected throw")
-        } catch SonioxAsyncHandler.SendError.malformedResponse {
+        } catch SonioxAsyncHandler.SendError.malformedResponse(_) {
             // expected
         }
     }
@@ -405,9 +405,36 @@ private func stubSession() -> URLSession {
                 audioURL: try writeAudio([0x01]), apiKey: "k",
                 session: stubSession(), pollInterval: .milliseconds(1), deadline: .seconds(5))
             Issue.record("expected throw")
-        } catch SonioxAsyncHandler.SendError.malformedResponse {
+        } catch SonioxAsyncHandler.SendError.malformedResponse(_) {
             // expected
         }
+    }
+}
+
+// MARK: - Error descriptions (surfaced in the in-app log)
+
+@Suite struct SonioxAsyncErrorDescription {
+    @Test func httpError_describesStatusAndBody() {
+        let e = SonioxAsyncHandler.SendError.httpError(
+            status: 400, body: Data(#"{"error_message":"invalid model"}"#.utf8))
+        #expect(e.localizedDescription.contains("400"))
+        #expect(e.localizedDescription.contains("invalid model"))
+    }
+
+    @Test func malformedResponse_describesBody() {
+        let e = SonioxAsyncHandler.SendError.malformedResponse(
+            body: Data(#"{"tokens":[{"speaker":"1"}]}"#.utf8))
+        #expect(e.localizedDescription.contains("speaker"))
+    }
+
+    @Test func transcriptionFailed_describesMessage() {
+        let e = SonioxAsyncHandler.SendError.transcriptionFailed(message: "audio too short")
+        #expect(e.localizedDescription.contains("audio too short"))
+    }
+
+    @Test func timedOut_hasReadableDescription() {
+        let e = SonioxAsyncHandler.SendError.timedOut
+        #expect(e.localizedDescription.lowercased().contains("tim"))
     }
 }
 

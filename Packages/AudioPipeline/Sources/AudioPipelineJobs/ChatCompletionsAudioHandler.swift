@@ -80,7 +80,7 @@ public enum ChatCompletionsAudioHandler {
 extension ChatCompletionsAudioHandler {
     public enum SendError: Error {
         case httpError(status: Int, body: Data)
-        case malformedResponse
+        case malformedResponse(body: Data)
     }
 
     // The model uploads (base64) audio and holds the connection while it
@@ -105,7 +105,7 @@ extension ChatCompletionsAudioHandler {
         let request = try buildRequest(job: job, provider: provider, audioURL: audioURL, apiKey: apiKey)
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
-            throw SendError.malformedResponse
+            throw SendError.malformedResponse(body: data)
         }
         guard (200..<300).contains(http.statusCode) else {
             throw SendError.httpError(status: http.statusCode, body: data)
@@ -123,12 +123,24 @@ extension ChatCompletionsAudioHandler {
         }
         do {
             let env = try JSONDecoder().decode(Envelope.self, from: data)
-            guard let first = env.choices.first else { throw SendError.malformedResponse }
+            guard let first = env.choices.first else { throw SendError.malformedResponse(body: data) }
             return first.message.content
         } catch is SendError {
-            throw SendError.malformedResponse
+            throw SendError.malformedResponse(body: data)
         } catch {
-            throw SendError.malformedResponse
+            throw SendError.malformedResponse(body: data)
+        }
+    }
+}
+
+// Full-detail messages for the in-app log; `localizedDescription` resolves to these.
+extension ChatCompletionsAudioHandler.SendError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case let .httpError(status, body):
+            return "Chat completions HTTP \(status): \(describeResponseBody(body))"
+        case let .malformedResponse(body):
+            return "Chat completions: could not decode the response: \(describeResponseBody(body))"
         }
     }
 }

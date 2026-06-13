@@ -85,7 +85,7 @@ public enum TranscriptionMultipartHandler {
 
     public enum SendError: Error {
         case httpError(status: Int, body: Data)
-        case malformedResponse
+        case malformedResponse(body: Data)
     }
 
     // Groq / OpenAI Whisper reject uploads over 25 MB with HTTP 413. Leave a
@@ -129,12 +129,12 @@ public enum TranscriptionMultipartHandler {
         if fmt.isEmpty || fmt == "json" {
             struct Envelope: Decodable { let text: String }
             guard let env = try? JSONDecoder().decode(Envelope.self, from: data) else {
-                throw SendError.malformedResponse
+                throw SendError.malformedResponse(body: data)
             }
             return env.text
         }
         guard let body = String(data: data, encoding: .utf8) else {
-            throw SendError.malformedResponse
+            throw SendError.malformedResponse(body: data)
         }
         return body
     }
@@ -178,7 +178,7 @@ public enum TranscriptionMultipartHandler {
         let request = try buildRequest(job: job, provider: provider, audioURL: prepared.url, apiKey: apiKey)
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
-            throw SendError.malformedResponse
+            throw SendError.malformedResponse(body: data)
         }
         guard (200..<300).contains(http.statusCode) else {
             throw SendError.httpError(status: http.statusCode, body: data)
@@ -191,6 +191,18 @@ public enum TranscriptionMultipartHandler {
 private extension Data {
     mutating func append(_ string: String) {
         append(Data(string.utf8))
+    }
+}
+
+// Full-detail messages for the in-app log; `localizedDescription` resolves to these.
+extension TranscriptionMultipartHandler.SendError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case let .httpError(status, body):
+            return "Transcription HTTP \(status): \(describeResponseBody(body))"
+        case let .malformedResponse(body):
+            return "Transcription: could not decode the response: \(describeResponseBody(body))"
+        }
     }
 }
 

@@ -212,7 +212,7 @@ private func stubSession(status: Int, body: Data) -> URLSession {
                 job: makeJob(), provider: makeProvider(),
                 audioURL: try writeAudio([0x01]), apiKey: "k", session: session)
             Issue.record("expected throw")
-        } catch TranscriptionMultipartHandler.SendError.malformedResponse {
+        } catch TranscriptionMultipartHandler.SendError.malformedResponse(_) {
             // expected
         }
     }
@@ -233,6 +233,20 @@ private func stubSession(status: Int, body: Data) -> URLSession {
         let temp = try #require(tempURL)
         #expect(temp.pathExtension == "m4a")
         #expect(!FileManager.default.fileExists(atPath: temp.path))
+    }
+}
+
+@Suite struct TranscriptionMultipartErrorDescription {
+    @Test func httpError_describesStatusAndBody() {
+        let e = TranscriptionMultipartHandler.SendError.httpError(
+            status: 413, body: Data(#"{"error":"file too large"}"#.utf8))
+        #expect(e.localizedDescription.contains("413"))
+        #expect(e.localizedDescription.contains("file too large"))
+    }
+
+    @Test func malformedResponse_describesBody() {
+        let e = TranscriptionMultipartHandler.SendError.malformedResponse(body: Data("not json".utf8))
+        #expect(e.localizedDescription.contains("not json"))
     }
 }
 
