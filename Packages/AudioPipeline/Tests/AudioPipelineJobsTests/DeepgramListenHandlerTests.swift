@@ -121,6 +121,24 @@ private func writeAudio(_ bytes: [UInt8], name: String = "combined.flac") throws
         #expect(out == "hello world")
     }
 
+    @Test func diarized_rendersSpeakerLabelsInFirstSeenOrder() throws {
+        let json = #"{"results":{"channels":[{"alternatives":[{"transcript":"hello there general kenobi","words":[{"word":"hello","speaker":0,"punctuated_word":"Hello"},{"word":"there","speaker":0,"punctuated_word":"there"},{"word":"general","speaker":1,"punctuated_word":"General"},{"word":"kenobi","speaker":1,"punctuated_word":"Kenobi"}]}]}]}}"#
+        let out = try DeepgramListenHandler.format(data: Data(json.utf8), outputExt: "txt")
+        #expect(out == "Speaker 1: Hello there\nSpeaker 2: General Kenobi")
+    }
+
+    @Test func diarized_prefersPunctuatedWord() throws {
+        let json = #"{"results":{"channels":[{"alternatives":[{"transcript":"hello","words":[{"word":"hello","speaker":0,"punctuated_word":"Hello,"}]}]}]}}"#
+        let out = try DeepgramListenHandler.format(data: Data(json.utf8), outputExt: "txt")
+        #expect(out == "Speaker 1: Hello,")
+    }
+
+    @Test func wordsWithoutSpeaker_returnFlatTranscript() throws {
+        let json = #"{"results":{"channels":[{"alternatives":[{"transcript":"flat text here","words":[{"word":"flat"},{"word":"text"},{"word":"here"}]}]}]}}"#
+        let out = try DeepgramListenHandler.format(data: Data(json.utf8), outputExt: "txt")
+        #expect(out == "flat text here")
+    }
+
     @Test func jsonOutput_returnsPrettyRawResponse() throws {
         let out = try DeepgramListenHandler.format(data: Data(Self.sample.utf8), outputExt: "json")
         #expect(out.contains("\"transcript\""))

@@ -79,10 +79,10 @@ public enum DeepgramListenHandler {
             return String(decoding: pretty, as: UTF8.self)
         }
         guard let resp = try? JSONDecoder().decode(Response.self, from: data),
-              let transcript = resp.results.channels.first?.alternatives.first?.transcript else {
+              let alternative = resp.results.channels.first?.alternatives.first else {
             throw SendError.malformedResponse(body: data)
         }
-        return transcript
+        return alternative.labelledTranscript()
     }
 
     // Deepgram holds the connection while transcribing pre-recorded audio, so
@@ -117,7 +117,60 @@ public enum DeepgramListenHandler {
     struct Response: Decodable {
         struct Results: Decodable {
             struct Channel: Decodable {
-                struct Alternative: Decodable { let transcript: String }
+                struct Alternative: Decodable {
+                    struct Word: Decodable {
+                        let word: String?
+                        let punctuatedWord: String?
+                        let speaker: Int?
+                        var text: String? { punctuatedWord ?? word }
+                        enum CodingKeys: String, CodingKey {
+                            case word, speaker
+                            case punctuatedWord = "punctuated_word"
+                        }
+                    }
+                    let transcript: String
+                    let words: [Word]?
+
+                    // Groups consecutive words by speaker into "Speaker N: …"
+                    // lines (first-seen order), preferring punctuated_word. Falls
+                    // back to the flat transcript when diarization is off or no
+                    // word carries a speaker — so any drift in the optional words
+                    // array degrades to plain text rather than failing.
+                    func labelledTranscript() -> String {
+                        guard let words, words.contains(where: { $0.speaker != nil }) else {
+                            return transcript
+                        }
+                        var runs: [(speaker: Int, words: [String])] = []
+                        for w in words {
+                            guard let speaker = w.speaker else {
+                                // Words before the first identified speaker are
+                                // unattributable preamble — drop them; otherwise
+                                // attach to the current speaker's run.
+                                if !runs.isEmpty, let t = w.text { runs[runs.count - 1].words.append(t) }
+                                continue
+                            }
+                            if runs.last?.speaker != speaker {
+                                runs.append((speaker, w.text.map { [$0] } ?? []))
+                            } else if let t = w.text {
+                                runs[runs.count - 1].words.append(t)
+                            }
+                        }
+                        var order: [Int: Int] = [:]
+                        var next = 1
+                        let lines = runs.map { run -> String in
+                            let n: Int
+                            if let existing = order[run.speaker] {
+                                n = existing
+                            } else {
+                                n = next
+                                order[run.speaker] = next
+                                next += 1
+                            }
+                            return "Speaker \(n): \(run.words.joined(separator: " "))"
+                        }
+                        return lines.joined(separator: "\n")
+                    }
+                }
                 let alternatives: [Alternative]
             }
             let channels: [Channel]
