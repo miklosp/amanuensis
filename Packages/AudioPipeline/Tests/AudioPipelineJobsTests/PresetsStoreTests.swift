@@ -11,7 +11,8 @@ import Testing
         #expect(ids.contains("cohere"))
         #expect(ids.contains("gemini"))
         #expect(ids.contains("openrouter"))
-        #expect(store.all.count == 11)
+        #expect(ids.contains("openai-gpt4o-transcribe"))
+        #expect(store.all.count == 12)
     }
 
     @Test func lookupByID_sonioxAsync_returnsPreset() throws {
@@ -38,5 +39,29 @@ import Testing
         let store = try PresetsStore.loadBundled()
         let p = store.preset(id: "openrouter")
         #expect(p?.shape == .chatCompletionsAudio)
+    }
+
+    @Test func everyPromptOrContextField_hasTooltip() throws {
+        let store = try PresetsStore.loadBundled()
+        let constraintKeys: Set<String> = ["prompt", "context"]
+        for preset in store.all {
+            for field in preset.shape.fields where constraintKeys.contains(field.key) {
+                #expect(preset.fieldHelp?[field.key]?.isEmpty == false,
+                        "preset '\(preset.id)' field '\(field.key)' has no tooltip text")
+            }
+        }
+    }
+
+    @Test func openaiWhisper_isWhisperOnly() throws {
+        let store = try PresetsStore.loadBundled()
+        #expect(store.preset(id: "openai-whisper")?.suggestedModels == ["whisper-1"])
+    }
+
+    @Test func gpt4oTranscribe_presetExists() throws {
+        let store = try PresetsStore.loadBundled()
+        let p = store.preset(id: "openai-gpt4o-transcribe")
+        #expect(p?.shape == .transcriptionMultipart)
+        #expect(p?.suggestedModels.contains("gpt-4o-transcribe") == true)
+        #expect(p?.suggestedModels.contains("gpt-4o-mini-transcribe") == true)
     }
 }

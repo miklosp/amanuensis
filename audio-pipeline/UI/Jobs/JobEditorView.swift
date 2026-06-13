@@ -71,7 +71,7 @@ struct JobEditorView: View {
                 let newPreset = newID
                     .flatMap { providers.provider(id: $0) }
                     .flatMap { presets.preset(id: $0.presetID) }
-                model = ""
+                model = Self.autoFilledModel(newPreset)
                 fields = newPreset?.defaults ?? [:]
             }
             .frame(maxWidth: 360)
@@ -99,15 +99,12 @@ struct JobEditorView: View {
                         let oldShape = oldID
                             .flatMap { providers.provider(id: $0) }
                             .flatMap { presets.preset(id: $0.presetID) }?.shape
-                        let newShape = newID
+                        let newPreset = newID
                             .flatMap { providers.provider(id: $0) }
-                            .flatMap { presets.preset(id: $0.presetID) }?.shape
-                        if oldShape != newShape {
-                            model = ""
-                            let newDefaults = newID
-                                .flatMap { providers.provider(id: $0) }
-                                .flatMap { presets.preset(id: $0.presetID) }?.defaults ?? [:]
-                            fields = newDefaults
+                            .flatMap { presets.preset(id: $0.presetID) }
+                        if oldShape != newPreset?.shape {
+                            model = Self.autoFilledModel(newPreset)
+                            fields = newPreset?.defaults ?? [:]
                         }
                     }
                     HStack {
@@ -139,7 +136,7 @@ struct JobEditorView: View {
 
                 if let shape {
                     Section("Parameters") {
-                        JobFieldFormView(shape: shape, values: $fields)
+                        JobFieldFormView(shape: shape, fieldHelp: preset?.fieldHelp ?? [:], values: $fields)
                     }
                 }
             }
@@ -163,6 +160,13 @@ struct JobEditorView: View {
         // repair-pane case where providerID still holds the dangling UUID of
         // a deleted Provider and the user hits Save without touching the Picker.
         return !name.isEmpty && provider != nil && !model.isEmpty && folderOK
+    }
+
+    // A preset that suggests exactly one model pre-fills it; otherwise the user
+    // picks from the Suggested menu or types one, so leave it empty.
+    private static func autoFilledModel(_ preset: Preset?) -> String {
+        guard let models = preset?.suggestedModels, models.count == 1 else { return "" }
+        return models[0]
     }
 
     private func save() {

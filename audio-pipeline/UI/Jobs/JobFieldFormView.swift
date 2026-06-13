@@ -3,6 +3,7 @@ import SwiftUI
 
 struct JobFieldFormView: View {
     let shape: JobShape
+    let fieldHelp: [String: String]   // field key -> provider-specific tooltip
     @Binding var values: [String: String]
 
     var body: some View {
@@ -40,7 +41,7 @@ struct JobFieldFormView: View {
         case .checkbox:
             Toggle(isOn: boolBinding(spec.key)) {
                 VStack(alignment: .leading) {
-                    Text(label(spec))
+                    labelRow(spec)
                     if let help = spec.help {
                         Text(help).font(.caption).foregroundStyle(.secondary)
                     }
@@ -52,10 +53,25 @@ struct JobFieldFormView: View {
     @ViewBuilder
     private func field<Content: View>(_ spec: FieldSpec, @ViewBuilder _ content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label(spec)).font(.subheadline)
+            labelRow(spec).font(.subheadline)
             content()
             if let help = spec.help {
                 Text(help).font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // Field label plus, when the selected preset documents this field, an
+    // info icon whose hover tooltip carries the provider-specific constraints.
+    @ViewBuilder
+    private func labelRow(_ spec: FieldSpec) -> some View {
+        HStack(spacing: 4) {
+            Text(label(spec))
+            if let tip = fieldHelp[spec.key], !tip.isEmpty {
+                Image(systemName: "info.circle")
+                    .imageScale(.small)
+                    .foregroundStyle(.secondary)
+                    .help(tip)
             }
         }
     }
