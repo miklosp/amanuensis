@@ -3,26 +3,10 @@
     "agent-browser": "off",
     "firecrawl-scrape": "off",
     "tui-design-skill": "off",
-    "writing-for-humans": "off",
-    "xcodebuildmcp-cli": "off"
+    "writing-for-humans": "off"
   },
   "enabledPlugins": {
-    "swift-lsp@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": false,
-    "ui-ux-pro-max@ui-ux-pro-max-skill": false
-  },
-  "extraKnownMarketplaces": {
-    "swiftui-expert-skill": {
-      "source": {
-        "source": "github",
-        "repo": "AvdLee/SwiftUI-Agent-Skill"
-      }
-    },
-    "swift-concurrency-agent-skill": {
-      "source": {
-        "source": "github",
-        "repo": "AvdLee/Swift-Concurrency-Agent-Skill"
-      }
-    }
+    "swift-skills@miklos": true,
+    "swift-lsp@claude-plugins-official": true
   }
 }
