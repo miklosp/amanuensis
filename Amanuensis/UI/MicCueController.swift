@@ -24,7 +24,6 @@ final class MicCueController {
             onDismiss: { [weak self] in self?.hide(); onDismiss() }
         )
         let hosting = NSHostingView(rootView: view)
-        hosting.frame.size = hosting.fittingSize
 
         let panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: hosting.fittingSize),
@@ -47,8 +46,12 @@ final class MicCueController {
 
         dismissTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            try? await Task.sleep(for: .seconds(self.autoDismissAfter))
-            guard !Task.isCancelled, self.panel != nil else { return }
+            do {
+                try await Task.sleep(for: .seconds(self.autoDismissAfter))
+            } catch {
+                return   // cancelled by hide()
+            }
+            guard self.panel != nil else { return }
             self.hide()
             onDismiss()
         }
