@@ -9,6 +9,7 @@ import AppSettings
 private enum PersistedKey {
     static let recordingsDirectory = "recordingsDirectory"
     static let keepOriginalCAF = "keepOriginalCAF"
+    static let suggestRecordingWhenMicInUse = "suggestRecordingWhenMicInUse"
 }
 
 // Runs `body` with a fresh `UserDefaults` suite that's removed on exit, so no
@@ -27,6 +28,7 @@ private func withIsolatedDefaults(_ body: (UserDefaults) -> Void) {
 
             #expect(settings.recordingsDirectory == AppSettings.defaultRecordingsDirectory)
             #expect(settings.keepOriginalCAF == true)
+            #expect(settings.suggestRecordingWhenMicInUse == true)
         }
     }
 
@@ -61,6 +63,25 @@ private func withIsolatedDefaults(_ body: (UserDefaults) -> Void) {
 
             let settings = AppSettings(defaults: defaults)
             #expect(settings.keepOriginalCAF == false)
+        }
+    }
+
+    @Test func suggestRecordingWhenMicInUse_persistsAcrossInstances() {
+        withIsolatedDefaults { defaults in
+            let first = AppSettings(defaults: defaults)
+            first.suggestRecordingWhenMicInUse = false
+
+            let second = AppSettings(defaults: defaults)
+            #expect(second.suggestRecordingWhenMicInUse == false)
+        }
+    }
+
+    @Test func suggestRecordingWhenMicInUse_persistedFalse_loadsAsFalse() {
+        withIsolatedDefaults { defaults in
+            defaults.set(false, forKey: PersistedKey.suggestRecordingWhenMicInUse)
+
+            let settings = AppSettings(defaults: defaults)
+            #expect(settings.suggestRecordingWhenMicInUse == false)
         }
     }
 }
