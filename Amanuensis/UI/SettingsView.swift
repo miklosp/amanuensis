@@ -4,6 +4,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var settings: AppSettings
+    let coordinator: AppCoordinator
 
     var body: some View {
         Form {
@@ -28,9 +29,22 @@ struct SettingsView: View {
                     }
                 }
             }
+            Section("Meetings") {
+                Toggle(isOn: $settings.suggestRecordingWhenMicInUse) {
+                    VStack(alignment: .leading) {
+                        Text("Offer to record when the mic is in use")
+                        Text("When another app starts using the microphone (e.g. a meeting), Amanuensis shows a cue to start recording. Watches the default input device only.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .onChange(of: settings.suggestRecordingWhenMicInUse) { _, newValue in
+                    coordinator.setMicCueEnabled(newValue)
+                }
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 260)
+        .frame(width: 480, height: 360)
     }
 
     private func chooseLocation() {
