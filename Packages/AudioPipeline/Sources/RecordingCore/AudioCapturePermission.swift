@@ -15,7 +15,7 @@ import os
 // distribution; a hard blocker for Mac App Store review — a known M1 deferral.
 public enum AudioCapturePermission {
     nonisolated private static let log = Logger(
-        subsystem: "work.miklos.audio-pipeline",
+        subsystem: "work.miklos.amanuensis",
         category: "permission"
     )
 

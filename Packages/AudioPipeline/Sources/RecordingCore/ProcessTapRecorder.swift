@@ -96,7 +96,7 @@ final class ProcessTapRecorder {
         self.writer = writer
 
         let queue = DispatchQueue(
-            label: "work.miklos.audio-pipeline.tap.io",
+            label: "work.miklos.amanuensis.tap.io",
             qos: .userInitiated
         )
         ioQueue = queue
@@ -236,7 +236,7 @@ final class ProcessTapRecorder {
         return uid as String
     }
 
-    private static let log = Logger(subsystem: "work.miklos.audio-pipeline", category: "tap")
+    private static let log = Logger(subsystem: "work.miklos.amanuensis", category: "tap")
 }
 
 private struct SendableFormat: @unchecked Sendable {

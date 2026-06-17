@@ -1,16 +1,16 @@
 #!/usr/bin/env ruby
-# Idempotently ensures the `audio-pipelineTests` Swift Testing unit-test target
-# exists and that every .swift file under audio-pipelineTests/ belongs to it.
-# Also writes a shared `audio-pipeline` scheme whose Test action runs the suite.
+# Idempotently ensures the `AmanuensisTests` Swift Testing unit-test target
+# exists and that every .swift file under AmanuensisTests/ belongs to it.
+# Also writes a shared `Amanuensis` scheme whose Test action runs the suite.
 #
 # Run from the repo root, via scripts/run-setup-tests.sh.
 
 require 'xcodeproj'
 
-PROJECT_PATH = 'audio-pipeline.xcodeproj'
-APP_TARGET   = 'audio-pipeline'
-TEST_TARGET  = 'audio-pipelineTests'
-TEST_DIR     = 'audio-pipelineTests'
+PROJECT_PATH = 'Amanuensis.xcodeproj'
+APP_TARGET   = 'Amanuensis'
+TEST_TARGET  = 'AmanuensisTests'
+TEST_DIR     = 'AmanuensisTests'
 
 project = Xcodeproj::Project.open(PROJECT_PATH)
 
@@ -34,13 +34,13 @@ if test_target.nil?
 
   test_target.build_configurations.each do |config|
     s = config.build_settings
-    s['PRODUCT_BUNDLE_IDENTIFIER']     = 'work.miklos.audio-pipeline.tests'
+    s['PRODUCT_BUNDLE_IDENTIFIER']     = 'work.miklos.amanuensis.tests'
     s['PRODUCT_NAME']                  = '$(TARGET_NAME)'
     s['SWIFT_VERSION']                 = swift_ver
     s['SWIFT_DEFAULT_ACTOR_ISOLATION'] = 'MainActor'
     s['MACOSX_DEPLOYMENT_TARGET']      = deployment
     s['GENERATE_INFOPLIST_FILE']       = 'YES'
-    s['TEST_HOST']     = '$(BUILT_PRODUCTS_DIR)/audio-pipeline.app/Contents/MacOS/audio-pipeline'
+    s['TEST_HOST']     = '$(BUILT_PRODUCTS_DIR)/Amanuensis.app/Contents/MacOS/Amanuensis'
     s['BUNDLE_LOADER'] = '$(TEST_HOST)'
     s['CODE_SIGN_STYLE'] = 'Automatic'
   end

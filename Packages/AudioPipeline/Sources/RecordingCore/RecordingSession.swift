@@ -90,5 +90,5 @@ public final class RecordingSession {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
     }
 
-    nonisolated private static let log = Logger(subsystem: "work.miklos.audio-pipeline", category: "session")
+    nonisolated private static let log = Logger(subsystem: "work.miklos.amanuensis", category: "session")
 }

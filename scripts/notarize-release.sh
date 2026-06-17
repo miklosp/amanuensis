@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Build, Developer ID-sign, notarize, and staple a distributable zip of
-# audio-pipeline.app. Run OUTSIDE the Claude Code sandbox — it needs the login
+# Amanuensis.app. Run OUTSIDE the Claude Code sandbox — it needs the login
 # keychain's signing key and network. Mirrors the proven fecni release flow.
 #
 # Usage:  scripts/notarize-release.sh <notary-keychain-profile>
 #
 # <notary-keychain-profile> is a profile you stored once with notarytool, e.g.:
-#   xcrun notarytool store-credentials audio-pipeline-notary \
+#   xcrun notarytool store-credentials amanuensis-notary \
 #     --key /path/AuthKey_XXXX.p8 --key-id <KEY_ID> --issuer <ISSUER_ID>
 #   # or: --apple-id <id> --team-id V378YWVH44 --password <app-specific-pw>
 # The Developer ID Application identity is read from the keychain automatically.
@@ -18,12 +18,12 @@ if [ -z "$PROFILE" ]; then
   exit 2
 fi
 
-PROJECT="audio-pipeline.xcodeproj"
-SCHEME="audio-pipeline"
-APP_NAME="audio-pipeline.app"
-DERIVED="/tmp/audio-pipeline-release"   # off iCloud, per project convention
+PROJECT="Amanuensis.xcodeproj"
+SCHEME="Amanuensis"
+APP_NAME="Amanuensis.app"
+DERIVED="/tmp/amanuensis-release"   # off iCloud, per project convention
 APP="$DERIVED/Build/Products/Release/$APP_NAME"
-ZIP="$PWD/audio-pipeline.zip"
+ZIP="$PWD/Amanuensis.zip"
 
 # The "Developer ID Application" identity (skips the unrelated Apple Configurator
 # cert). Passed by hash so codesign picks it unambiguously.

@@ -22,9 +22,9 @@ the log path to stderr, and exit 0 iff the underlying command exited 0.
 ## Submitting a build
 
 ```bash
-./scripts/xcode-build-helper.sh -project audio-pipeline.xcodeproj -scheme audio-pipeline -list
-./scripts/xcode-build-helper.sh -project audio-pipeline.xcodeproj -scheme audio-pipeline build
-./scripts/xcode-build-helper.sh -project audio-pipeline.xcodeproj -scheme audio-pipeline \
+./scripts/xcode-build-helper.sh -project Amanuensis.xcodeproj -scheme Amanuensis -list
+./scripts/xcode-build-helper.sh -project Amanuensis.xcodeproj -scheme Amanuensis build
+./scripts/xcode-build-helper.sh -project Amanuensis.xcodeproj -scheme Amanuensis \
     -destination "platform=macOS" test
 ```
 
@@ -32,9 +32,9 @@ the log path to stderr, and exit 0 iff the underlying command exited 0.
 
 ```bash
 ./scripts/log-helper.sh show --last 5m --info \
-    --predicate 'process == "audio-pipeline"'
+    --predicate 'process == "Amanuensis"'
 ./scripts/log-helper.sh show --last 30s --style ndjson \
-    --predicate 'subsystem == "work.miklos.audio-pipeline"'
+    --predicate 'subsystem == "work.miklos.amanuensis"'
 ```
 
 The daemon kills any job after `MAX_DURATION_S` (default 600s), so `log stream`

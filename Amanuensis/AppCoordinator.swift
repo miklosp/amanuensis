@@ -69,7 +69,7 @@ final class AppCoordinator {
             self.presets = PresetsStore(presets: [])
         }
         do {
-            self.jobs = try JobsStore.standard(bundleID: "work.miklos.audio-pipeline")
+            self.jobs = try JobsStore.standard(bundleID: "work.miklos.amanuensis")
         } catch {
             Self.log.error("failed to load jobs (likely stale schema): \(String(describing: error), privacy: .public)")
             // Pre-release recovery: move the unreadable jobs.json aside to a
@@ -79,14 +79,14 @@ final class AppCoordinator {
                                                        in: .userDomainMask,
                                                        appropriateFor: nil, create: false)
             if let url = support?
-                .appendingPathComponent("work.miklos.audio-pipeline", isDirectory: true)
+                .appendingPathComponent("work.miklos.amanuensis", isDirectory: true)
                 .appendingPathComponent("jobs.json") {
                 let backup = url.appendingPathExtension("bak")
                 try? FileManager.default.removeItem(at: backup)
                 try? FileManager.default.moveItem(at: url, to: backup)
             }
             // Try once more from the standard location; fall back to a temp file if even that fails.
-            self.jobs = (try? JobsStore.standard(bundleID: "work.miklos.audio-pipeline")) ?? {
+            self.jobs = (try? JobsStore.standard(bundleID: "work.miklos.amanuensis")) ?? {
                 let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
                     .appendingPathComponent("jobs-fallback.json")
                 return (try? JobsStore(fileURL: tmp)) ?? {
@@ -95,7 +95,7 @@ final class AppCoordinator {
             }()
         }
         do {
-            self.providers = try ProvidersStore.standard(bundleID: "work.miklos.audio-pipeline")
+            self.providers = try ProvidersStore.standard(bundleID: "work.miklos.amanuensis")
         } catch {
             Self.log.error("failed to load providers: \(String(describing: error), privacy: .public)")
             let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -105,7 +105,7 @@ final class AppCoordinator {
             }()
         }
         do {
-            self.logs = try LogStore.standard(bundleID: "work.miklos.audio-pipeline")
+            self.logs = try LogStore.standard(bundleID: "work.miklos.amanuensis")
         } catch {
             Self.log.error("failed to init logs store: \(String(describing: error), privacy: .public)")
             let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -312,5 +312,5 @@ final class AppCoordinator {
         case presetMissing
     }
 
-    private static let log = Logger(subsystem: "work.miklos.audio-pipeline", category: "coordinator")
+    private static let log = Logger(subsystem: "work.miklos.amanuensis", category: "coordinator")
 }

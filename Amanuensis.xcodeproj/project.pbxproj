@@ -28,19 +28,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		15CF6A5696D76A63A88920B3 /* audio-pipelineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "audio-pipelineTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		15CF6A5696D76A63A88920B3 /* AmanuensisTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AmanuensisTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2869FCC8825AFD91DAD850C7 /* MainWindowViewTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainWindowViewTests.swift; sourceTree = "<group>"; };
 		530554F5DA0383ED728291F5 /* RecordingFormattersTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordingFormattersTests.swift; sourceTree = "<group>"; };
-		64F04E712FBDBC4A00B58BE7 /* audio-pipeline.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "audio-pipeline.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		64F04E712FBDBC4A00B58BE7 /* Amanuensis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Amanuensis.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F83379B555813CEE20BE895F /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		64F04E732FBDBC4A00B58BE7 /* audio-pipeline */ = {
+		64F04E732FBDBC4A00B58BE7 /* Amanuensis */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
-			path = "audio-pipeline";
+			path = Amanuensis;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -77,30 +75,30 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		3429CFC1A5D3A42954B56D3A /* audio-pipelineTests */ = {
+		3429CFC1A5D3A42954B56D3A /* AmanuensisTests */ = {
 			isa = PBXGroup;
 			children = (
 				530554F5DA0383ED728291F5 /* RecordingFormattersTests.swift */,
 				2869FCC8825AFD91DAD850C7 /* MainWindowViewTests.swift */,
 			);
-			path = "audio-pipelineTests";
+			path = AmanuensisTests;
 			sourceTree = SOURCE_ROOT;
 		};
 		64F04E682FBDBC4A00B58BE7 = {
 			isa = PBXGroup;
 			children = (
-				64F04E732FBDBC4A00B58BE7 /* audio-pipeline */,
+				64F04E732FBDBC4A00B58BE7 /* Amanuensis */,
 				64F04E722FBDBC4A00B58BE7 /* Products */,
 				064ADC1B724CD061BBA1EADA /* Frameworks */,
-				3429CFC1A5D3A42954B56D3A /* audio-pipelineTests */,
+				3429CFC1A5D3A42954B56D3A /* AmanuensisTests */,
 			);
 			sourceTree = "<group>";
 		};
 		64F04E722FBDBC4A00B58BE7 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				64F04E712FBDBC4A00B58BE7 /* audio-pipeline.app */,
-				15CF6A5696D76A63A88920B3 /* audio-pipelineTests.xctest */,
+				64F04E712FBDBC4A00B58BE7 /* Amanuensis.app */,
+				15CF6A5696D76A63A88920B3 /* AmanuensisTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -116,9 +114,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		64F04E702FBDBC4A00B58BE7 /* audio-pipeline */ = {
+		64F04E702FBDBC4A00B58BE7 /* Amanuensis */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 64F04E7C2FBDBC4C00B58BE7 /* Build configuration list for PBXNativeTarget "audio-pipeline" */;
+			buildConfigurationList = 64F04E7C2FBDBC4C00B58BE7 /* Build configuration list for PBXNativeTarget "Amanuensis" */;
 			buildPhases = (
 				64F04E6D2FBDBC4A00B58BE7 /* Sources */,
 				64F04E6E2FBDBC4A00B58BE7 /* Frameworks */,
@@ -129,9 +127,9 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				64F04E732FBDBC4A00B58BE7 /* audio-pipeline */,
+				64F04E732FBDBC4A00B58BE7 /* Amanuensis */,
 			);
-			name = "audio-pipeline";
+			name = Amanuensis;
 			packageProductDependencies = (
 				DDADBEADF4CFB28174A18CD6 /* AppSettings */,
 				C81DE0068215EFA9C64A00DA /* RecordingStorage */,
@@ -140,12 +138,12 @@
 				2D7BB706295DFD7293887750 /* AppLog */,
 			);
 			productName = "audio-pipeline";
-			productReference = 64F04E712FBDBC4A00B58BE7 /* audio-pipeline.app */;
+			productReference = 64F04E712FBDBC4A00B58BE7 /* Amanuensis.app */;
 			productType = "com.apple.product-type.application";
 		};
-		833E0F427B9A6971A775E4C9 /* audio-pipelineTests */ = {
+		833E0F427B9A6971A775E4C9 /* AmanuensisTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 94DE8AAA6E7E5E715074EF86 /* Build configuration list for PBXNativeTarget "audio-pipelineTests" */;
+			buildConfigurationList = 94DE8AAA6E7E5E715074EF86 /* Build configuration list for PBXNativeTarget "AmanuensisTests" */;
 			buildPhases = (
 				119A573F56C0774BE29A7749 /* Sources */,
 				877C8CE2B947169700554471 /* Frameworks */,
@@ -156,9 +154,9 @@
 			dependencies = (
 				0B230F562B061A390E8A2C4F /* PBXTargetDependency */,
 			);
-			name = "audio-pipelineTests";
+			name = AmanuensisTests;
 			productName = "audio-pipelineTests";
-			productReference = 15CF6A5696D76A63A88920B3 /* audio-pipelineTests.xctest */;
+			productReference = 15CF6A5696D76A63A88920B3 /* AmanuensisTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -176,7 +174,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 64F04E6C2FBDBC4A00B58BE7 /* Build configuration list for PBXProject "audio-pipeline" */;
+			buildConfigurationList = 64F04E6C2FBDBC4A00B58BE7 /* Build configuration list for PBXProject "Amanuensis" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -186,15 +184,15 @@
 			mainGroup = 64F04E682FBDBC4A00B58BE7;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				0301059DB260F61893F0428E /* XCLocalSwiftPackageReference "AudioPipeline" */,
+				0301059DB260F61893F0428E /* XCLocalSwiftPackageReference "Packages/AudioPipeline" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 64F04E722FBDBC4A00B58BE7 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				64F04E702FBDBC4A00B58BE7 /* audio-pipeline */,
-				833E0F427B9A6971A775E4C9 /* audio-pipelineTests */,
+				64F04E702FBDBC4A00B58BE7 /* Amanuensis */,
+				833E0F427B9A6971A775E4C9 /* AmanuensisTests */,
 			);
 		};
 /* End PBXProject section */
@@ -239,7 +237,7 @@
 		0B230F562B061A390E8A2C4F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = "audio-pipeline";
-			target = 64F04E702FBDBC4A00B58BE7 /* audio-pipeline */;
+			target = 64F04E702FBDBC4A00B58BE7 /* Amanuensis */;
 			targetProxy = 298D066AE547F4A69E78EE2F /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -278,7 +276,9 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "";
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -303,6 +303,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -341,7 +342,9 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "";
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -359,6 +362,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -368,10 +372,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "audio-pipeline/audio-pipeline.entitlements";
+				CODE_SIGN_ENTITLEMENTS = Amanuensis/Amanuensis.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -380,16 +385,16 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_LSUIElement = NO;
-				INFOPLIST_KEY_NSAudioCaptureUsageDescription = "audio-pipeline captures system audio output to your local recordings folder.";
+				INFOPLIST_KEY_NSAudioCaptureUsageDescription = "Amanuensis captures system audio output to your local recordings folder.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "audio-pipeline records microphone audio to your local recordings folder.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Amanuensis records microphone audio to your local recordings folder.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "work.miklos.audio-pipeline";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = work.miklos.amanuensis;
+				PRODUCT_NAME = Amanuensis;
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -405,10 +410,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "audio-pipeline/audio-pipeline.entitlements";
+				CODE_SIGN_ENTITLEMENTS = Amanuensis/Amanuensis.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -417,16 +423,16 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_LSUIElement = NO;
-				INFOPLIST_KEY_NSAudioCaptureUsageDescription = "audio-pipeline captures system audio output to your local recordings folder.";
+				INFOPLIST_KEY_NSAudioCaptureUsageDescription = "Amanuensis captures system audio output to your local recordings folder.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "audio-pipeline records microphone audio to your local recordings folder.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Amanuensis records microphone audio to your local recordings folder.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "work.miklos.audio-pipeline";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = work.miklos.amanuensis;
+				PRODUCT_NAME = Amanuensis;
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -442,14 +448,15 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.3;
-				PRODUCT_BUNDLE_IDENTIFIER = "work.miklos.audio-pipeline.tests";
+				PRODUCT_BUNDLE_IDENTIFIER = work.miklos.amanuensis.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/audio-pipeline.app/Contents/MacOS/audio-pipeline";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Amanuensis.app/Contents/MacOS/Amanuensis";
 			};
 			name = Release;
 		};
@@ -458,21 +465,22 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.3;
-				PRODUCT_BUNDLE_IDENTIFIER = "work.miklos.audio-pipeline.tests";
+				PRODUCT_BUNDLE_IDENTIFIER = work.miklos.amanuensis.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/audio-pipeline.app/Contents/MacOS/audio-pipeline";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Amanuensis.app/Contents/MacOS/Amanuensis";
 			};
 			name = Debug;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		64F04E6C2FBDBC4A00B58BE7 /* Build configuration list for PBXProject "audio-pipeline" */ = {
+		64F04E6C2FBDBC4A00B58BE7 /* Build configuration list for PBXProject "Amanuensis" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				64F04E7A2FBDBC4C00B58BE7 /* Debug */,
@@ -481,7 +489,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		64F04E7C2FBDBC4C00B58BE7 /* Build configuration list for PBXNativeTarget "audio-pipeline" */ = {
+		64F04E7C2FBDBC4C00B58BE7 /* Build configuration list for PBXNativeTarget "Amanuensis" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				64F04E7D2FBDBC4C00B58BE7 /* Debug */,
@@ -490,7 +498,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		94DE8AAA6E7E5E715074EF86 /* Build configuration list for PBXNativeTarget "audio-pipelineTests" */ = {
+		94DE8AAA6E7E5E715074EF86 /* Build configuration list for PBXNativeTarget "AmanuensisTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				871DE529D6EFD03CBD7E761A /* Release */,
@@ -502,7 +510,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		0301059DB260F61893F0428E /* XCLocalSwiftPackageReference "AudioPipeline" */ = {
+		0301059DB260F61893F0428E /* XCLocalSwiftPackageReference "Packages/AudioPipeline" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/AudioPipeline;
 		};

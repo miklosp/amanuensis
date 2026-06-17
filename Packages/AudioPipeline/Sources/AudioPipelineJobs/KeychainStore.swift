@@ -11,7 +11,7 @@ public actor KeychainStore {
         case osStatus(OSStatus)
     }
 
-    public static let defaultService = "work.miklos.audio-pipeline.api-keys"
+    public static let defaultService = "work.miklos.amanuensis.api-keys"
 
     private let service: String
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # Idempotently:
 #   (1) ensures Packages/AudioPipeline is registered as a local SPM package
-#       reference on audio-pipeline.xcodeproj;
-#   (2) ensures the named library product is linked into the `audio-pipeline`
+#       reference on Amanuensis.xcodeproj;
+#   (2) ensures the named library product is linked into the `Amanuensis`
 #       app target's package_product_dependencies and Frameworks build phase.
 #
 # Usage: ruby scripts/setup-spm-package.rb <ProductName>
@@ -10,8 +10,8 @@
 
 require 'xcodeproj'
 
-PROJECT_PATH = 'audio-pipeline.xcodeproj'
-APP_TARGET   = 'audio-pipeline'
+PROJECT_PATH = 'Amanuensis.xcodeproj'
+APP_TARGET   = 'Amanuensis'
 PACKAGE_PATH = 'Packages/AudioPipeline'
 
 product = ARGV.first

@@ -62,5 +62,5 @@ public final class ProvidersStore {
         }
     }
 
-    private static let log = Logger(subsystem: "work.miklos.audio-pipeline", category: "store")
+    private static let log = Logger(subsystem: "work.miklos.amanuensis", category: "store")
 }

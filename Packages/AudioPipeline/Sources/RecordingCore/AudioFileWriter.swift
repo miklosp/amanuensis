@@ -25,7 +25,7 @@ final class AudioFileWriter: @unchecked Sendable {
         self.url = url
         self.processingFormat = format
         self.queue = DispatchQueue(
-            label: "work.miklos.audio-pipeline.writer.\(label)",
+            label: "work.miklos.amanuensis.writer.\(label)",
             qos: .userInitiated
         )
         self.file = try AVAudioFile(
@@ -84,5 +84,5 @@ final class AudioFileWriter: @unchecked Sendable {
         ]
     }
 
-    private static let log = Logger(subsystem: "work.miklos.audio-pipeline", category: "writer")
+    private static let log = Logger(subsystem: "work.miklos.amanuensis", category: "writer")
 }

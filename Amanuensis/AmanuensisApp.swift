@@ -2,8 +2,8 @@ import AppSettings
 import SwiftUI
 
 @main
-struct AudioPipelineApp: App {
-    @NSApplicationDelegateAdaptor(AudioPipelineAppDelegate.self) private var appDelegate
+struct AmanuensisApp: App {
+    @NSApplicationDelegateAdaptor(AmanuensisAppDelegate.self) private var appDelegate
     @State private var coordinator = AppCoordinator()
 
     var body: some Scene {
@@ -17,7 +17,7 @@ struct AudioPipelineApp: App {
         }
         .menuBarExtraStyle(.menu)
 
-        Window("Audio Pipeline", id: "main") {
+        Window("Amanuensis", id: "main") {
             MainWindowView(coordinator: coordinator)
         }
         .defaultSize(width: 880, height: 540)

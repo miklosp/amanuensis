@@ -59,7 +59,7 @@ final class MicRecorder {
         )
     }
 
-    private static let log = Logger(subsystem: "work.miklos.audio-pipeline", category: "mic")
+    private static let log = Logger(subsystem: "work.miklos.amanuensis", category: "mic")
 }
 
 public enum MicRecorderError: Error, LocalizedError {

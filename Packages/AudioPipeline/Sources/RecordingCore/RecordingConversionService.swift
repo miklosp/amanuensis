@@ -91,7 +91,7 @@ public actor RecordingConversionService {
     }
 
     nonisolated private static let log = Logger(
-        subsystem: "work.miklos.audio-pipeline",
+        subsystem: "work.miklos.amanuensis",
         category: "conversion-service"
     )
 }

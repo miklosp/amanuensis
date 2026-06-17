@@ -7,7 +7,7 @@ import Testing
 // broken deleteAll never goes silent again; on the failure path we still
 // attempt cleanup but don't mask the original error.
 private func withFreshKeychain(_ body: (KeychainStore) async throws -> Void) async throws {
-    let service = "work.miklos.audio-pipeline.test-\(UUID().uuidString)"
+    let service = "work.miklos.amanuensis.test-\(UUID().uuidString)"
     let store = KeychainStore(service: service)
     do {
         try await body(store)

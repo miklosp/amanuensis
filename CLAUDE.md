@@ -1,28 +1,28 @@
 # CLAUDE.md
 
-macOS SwiftUI app. Bundle identifier `work.miklos.audio-pipeline`, deployment target macOS 26.3, Swift 6.2. M1 (menu-bar recorder, mic + system audio capture via Core Audio process tap, FLAC conversion) is complete. Source for the audio + storage + settings layers lives in a local SPM umbrella package at `Packages/AudioPipeline/`; the app target keeps UI, the app entry point, and `AppCoordinator` as the composition root.
+macOS SwiftUI app named **Amanuensis** (bundle identifier `work.miklos.amanuensis`), deployment target macOS 26.3, Swift 6.2. The app ships as *Amanuensis* — display name and `Amanuensis.app` come from `PRODUCT_NAME`. The Xcode project, target, and scheme are all named `Amanuensis` too; only the internal SPM package and its modules keep the original `AudioPipeline*` names (deliberately — that's the implementation library, e.g. `import AudioPipelineJobs`). The git repo directory is still `audio-pipeline/` (cosmetic only). M1 (menu-bar recorder, mic + system audio capture via Core Audio process tap, FLAC conversion) is complete. Source for the audio + storage + settings layers lives in a local SPM umbrella package at `Packages/AudioPipeline/`; the app target keeps UI, the app entry point, and `AppCoordinator` as the composition root.
 
 ## Build & run
 
 There is no Xcode workspace, only the `.xcodeproj`. Outside the Claude Code sandbox (regular terminal, Xcode):
 
 ```bash
-xcodebuild -project audio-pipeline.xcodeproj -scheme audio-pipeline -configuration Debug build
-xcodebuild -project audio-pipeline.xcodeproj -scheme audio-pipeline clean
-xcodebuild -project audio-pipeline.xcodeproj -scheme audio-pipeline -configuration Debug -showBuildSettings | rg '^\s+BUILT_PRODUCTS_DIR'
+xcodebuild -project Amanuensis.xcodeproj -scheme Amanuensis -configuration Debug build
+xcodebuild -project Amanuensis.xcodeproj -scheme Amanuensis clean
+xcodebuild -project Amanuensis.xcodeproj -scheme Amanuensis -configuration Debug -showBuildSettings | rg '^\s+BUILT_PRODUCTS_DIR'
 ```
-To launch the built app: `open <BUILT_PRODUCTS_DIR>/audio-pipeline.app`. For interactive development, opening the `.xcodeproj` in Xcode and using ⌘R is faster.
+To launch the built app: `open <BUILT_PRODUCTS_DIR>/Amanuensis.app`. For interactive development, opening the `.xcodeproj` in Xcode and using ⌘R is faster.
 
 ## Tests
 
 Two test surfaces:
 
 - **SPM tests** (autonomous, run via `swift test --disable-sandbox --package-path Packages/AudioPipeline`): deterministic logic in `AppSettingsTests`, `RecordingStorageTests`, `RecordingCoreTests`. The `--disable-sandbox` flag is required because SwiftPM's manifest compilation would otherwise call `sandbox_apply` and hit the nested-sandbox blocker; with the flag the suite runs inside the Claude Code sandbox without further workarounds.
-- **App-hosted XCTest** (`audio-pipelineTests` target): integration smoke for code that needs a real audio device, the TCC private SPI, or a running `NSApp`. Run via `./scripts/xcode-build-helper.sh -project audio-pipeline.xcodeproj -scheme audio-pipeline -destination 'platform=macOS' test`, or from Xcode (⌘U). The daemon runs `xcodebuild` outside the sandbox so the codesign path works — verified end-to-end (compile → codesign → launch → run → coverage).
+- **App-hosted XCTest** (`AmanuensisTests` target): integration smoke for code that needs a real audio device, the TCC private SPI, or a running `NSApp`. Run via `./scripts/xcode-build-helper.sh -project Amanuensis.xcodeproj -scheme Amanuensis -destination 'platform=macOS' test`, or from Xcode (⌘U). The daemon runs `xcodebuild` outside the sandbox so the codesign path works — verified end-to-end (compile → codesign → launch → run → coverage).
 
 The SPM scaffolding script for adding new library products is `scripts/run-setup-spm-package.sh <ProductName>`.
 
-**After SPM tests pass, always rebuild the app target** to confirm the app still compiles: `./scripts/xcode-build-helper.sh -project audio-pipeline.xcodeproj -scheme audio-pipeline -configuration Debug build` (via the xcode-build skill's daemon). `swift test` only compiles the SPM package, not the app target, so a green SPM suite is not proof the app builds.
+**After SPM tests pass, always rebuild the app target** to confirm the app still compiles: `./scripts/xcode-build-helper.sh -project Amanuensis.xcodeproj -scheme Amanuensis -configuration Debug build` (via the xcode-build skill's daemon). `swift test` only compiles the SPM package, not the app target, so a green SPM suite is not proof the app builds.
 
 ## Project structure quirks
 

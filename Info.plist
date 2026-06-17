@@ -23,8 +23,8 @@
 	<key>LSUIElement</key>
 	<false/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>audio-pipeline records microphone audio to your local recordings folder.</string>
+	<string>Amanuensis records microphone audio to your local recordings folder.</string>
 	<key>NSAudioCaptureUsageDescription</key>
-	<string>audio-pipeline captures system audio output to your local recordings folder.</string>
+	<string>Amanuensis captures system audio output to your local recordings folder.</string>
 </dict>
 </plist>

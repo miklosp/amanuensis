@@ -1,6 +1,6 @@
 import AppKit
 
-final class AudioPipelineAppDelegate: NSObject, NSApplicationDelegate {
+final class AmanuensisAppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
     }

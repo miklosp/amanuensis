@@ -3,8 +3,8 @@
 # Routes `log show` / `log stream` through the same outbox queue as builds.
 #
 # Usage:
-#   ./scripts/log-helper.sh show --last 5m --info --predicate 'process == "audio-pipeline"'
-#   ./scripts/log-helper.sh stream --info --predicate 'process == "audio-pipeline"'
+#   ./scripts/log-helper.sh show --last 5m --info --predicate 'process == "Amanuensis"'
+#   ./scripts/log-helper.sh stream --info --predicate 'process == "Amanuensis"'
 #   ./scripts/log-helper.sh --help
 #
 # Allowed subcommands: show, stream.
@@ -30,9 +30,9 @@ Usage:
 
 Examples:
   log-helper.sh show --last 5m --info \
-      --predicate 'process == "audio-pipeline"'
+      --predicate 'process == "Amanuensis"'
   log-helper.sh show --last 30s --style ndjson \
-      --predicate 'subsystem == "work.miklos.audio-pipeline"'
+      --predicate 'subsystem == "work.miklos.amanuensis"'
 EOF
 }
 
