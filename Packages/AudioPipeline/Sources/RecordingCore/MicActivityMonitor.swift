@@ -82,12 +82,13 @@ public final class MicActivityMonitor {
             let running = Self.isRunningSomewhere(device)
             Task { @MainActor in self?.onChange?(running) }
         }
-        deviceListenerBlock = block
         let status = AudioObjectAddPropertyListenerBlock(device, &address, queue, block)
-        if status != noErr {
+        guard status == noErr else {
             Self.log.error("add IsRunningSomewhere listener failed: \(status, privacy: .public)")
+            deviceID = AudioObjectID(kAudioObjectUnknown)
             return
         }
+        deviceListenerBlock = block
 
         // Report the current state (the baseline on first attach, or the new
         // device's state after a default-device change).
