@@ -7,7 +7,7 @@ import Testing
     // `true` is a genuine rising edge, not the baseline).
     private func seededFalse(enabled: Bool = true) -> MicCuePolicy {
         var p = MicCuePolicy(enabled: enabled)
-        #expect(p.micRunningChanged(false) == .none)  // baseline
+        _ = p.micRunningChanged(false)   // baseline: micRunning=false, phase=idle
         return p
     }
 
@@ -89,5 +89,19 @@ import Testing
         #expect(p.micRunningChanged(true) == .none)        // consumed while disabled
         #expect(p.enabledChanged(true) == .none)           // no edge → no arm
         #expect(p.debounceElapsed() == .none)
+    }
+
+    @Test func micFalls_whileArmed_abortsWithoutAction() {
+        var p = seededFalse()
+        #expect(p.micRunningChanged(true) == .startDebounce)
+        #expect(p.micRunningChanged(false) == .none)   // abort mid-debounce; not shown → no hide
+        #expect(p.debounceElapsed() == .none)           // late timer fires; guard blocks it
+    }
+
+    @Test func disabling_whileArmed_returnsNoneAndSelfHeals() {
+        var p = seededFalse()
+        #expect(p.micRunningChanged(true) == .startDebounce)
+        #expect(p.enabledChanged(false) == .none)   // armed → idle; no visible cue to hide
+        #expect(p.debounceElapsed() == .none)        // late timer fires; guard blocks the show
     }
 }

@@ -1,5 +1,3 @@
-import Foundation
-
 // Pure decision state machine for the mic-in-use recording cue. Holds no
 // timers and performs no IO: the driver (AppCoordinator) feeds events and
 // executes the returned Action (start a debounce timer, show/hide the HUD).
@@ -38,7 +36,9 @@ public struct MicCuePolicy: Sendable {
 
     public mutating func enabledChanged(_ value: Bool) -> Action {
         enabled = value
-        guard !value else { return .none }   // enabling never retro-arms (no edge)
+        // Enabling never retro-arms: no mic edge has occurred, so return early.
+        guard !value else { return .none }
+        // Disabling: reset phase and hide any visible cue.
         let wasShown = (phase == .shown)
         phase = .idle
         return wasShown ? .hideCue : .none
@@ -84,6 +84,8 @@ public struct MicCuePolicy: Sendable {
         return .none
     }
 
+    // Returns Action for interface uniformity with the other events; always
+    // .none (dismissal needs no follow-up effect — the controller self-hides).
     public mutating func cueDismissed() -> Action {
         guard phase == .shown else { return .none }
         phase = .consumed
