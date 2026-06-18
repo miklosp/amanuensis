@@ -28,7 +28,7 @@ struct AmanuensisApp: App {
         }
 
         Settings {
-            SettingsView(settings: coordinator.settings)
+            SettingsView(settings: coordinator.settings, coordinator: coordinator)
         }
     }
 }

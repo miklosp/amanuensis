@@ -21,6 +21,16 @@ public final class AppSettings {
         didSet { defaults.set(keepOriginalCAF, forKey: Keys.keepOriginalCAF) }
     }
 
+    // When true, Amanuensis watches the default input device and shows a cue
+    // offering to start recording whenever another app begins using the mic
+    // (a likely meeting). Default true.
+    public var suggestRecordingWhenMicInUse: Bool {
+        didSet {
+            defaults.set(suggestRecordingWhenMicInUse,
+                         forKey: Keys.suggestRecordingWhenMicInUse)
+        }
+    }
+
     @ObservationIgnored private let defaults: UserDefaults
 
     public static let defaultRecordingsDirectory: URL = URL.musicDirectory
@@ -40,10 +50,17 @@ public final class AppSettings {
         } else {
             keepOriginalCAF = true
         }
+
+        if defaults.object(forKey: Keys.suggestRecordingWhenMicInUse) != nil {
+            suggestRecordingWhenMicInUse = defaults.bool(forKey: Keys.suggestRecordingWhenMicInUse)
+        } else {
+            suggestRecordingWhenMicInUse = true
+        }
     }
 
     private enum Keys {
         static let recordingsDirectory = "recordingsDirectory"
         static let keepOriginalCAF = "keepOriginalCAF"
+        static let suggestRecordingWhenMicInUse = "suggestRecordingWhenMicInUse"
     }
 }

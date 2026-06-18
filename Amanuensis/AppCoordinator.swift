@@ -57,6 +57,13 @@ final class AppCoordinator {
     private var session: RecordingSession?
     private let conversionService = RecordingConversionService()
 
+    // Mic-in-use cue (auto-detect a likely meeting → offer to record).
+    private let micMonitor = MicActivityMonitor()
+    private var micCuePolicy = MicCuePolicy()
+    private let micCueController = MicCueController()
+    private var micDebounceTask: Task<Void, Never>?
+    private var lastReportedCoordinatorIdle = true
+
     init() {
         let settings = AppSettings()
         self.settings = settings
@@ -112,6 +119,12 @@ final class AppCoordinator {
                 .appendingPathComponent("logs-fallback.json")
             self.logs = LogStore(fileURL: tmp)
         }
+
+        // Start the mic-in-use cue if enabled in settings.
+        _ = micCuePolicy.enabledChanged(settings.suggestRecordingWhenMicInUse)
+        if settings.suggestRecordingWhenMicInUse {
+            micMonitor.start { [weak self] running in self?.handleMicRunning(running) }
+        }
     }
 
     func toggleRecording() {
@@ -125,7 +138,12 @@ final class AppCoordinator {
     }
 
     func startRecording() async {
+        defer { notifyRecordingActivity() }
         guard machine.start() == .requestPermissionsAndStart else { return }
+        // Sync the cue policy to "busy" the moment we enter .starting — not only
+        // at the exit defer — so an external mic edge during the permission
+        // awaits can't arm the cue while our own recording is starting up.
+        notifyRecordingActivity()
 
         let micGranted = await MicrophonePermission.requestIfNeeded()
         _ = machine.permissionsResolved(micGranted: micGranted)
@@ -166,6 +184,7 @@ final class AppCoordinator {
     }
 
     func stopRecording() async {
+        defer { notifyRecordingActivity() }
         guard machine.stop() == .stopSession, let active = session else { return }
 
         let folder = active.folder
@@ -304,6 +323,65 @@ final class AppCoordinator {
             guard self?.recordingActivity == snapshot else { return }
             withAnimation { self?.recordingActivity = nil }
         }
+    }
+
+    // MARK: - Mic-in-use cue
+
+    func setMicCueEnabled(_ enabled: Bool) {
+        apply(micCuePolicy.enabledChanged(enabled))
+        if enabled {
+            micMonitor.start { [weak self] running in self?.handleMicRunning(running) }
+        } else {
+            micDebounceTask?.cancel()
+            micDebounceTask = nil
+            micMonitor.stop()
+            micCueController.hide()
+        }
+    }
+
+    private func handleMicRunning(_ running: Bool) {
+        apply(micCuePolicy.micRunningChanged(running))
+    }
+
+    // Keeps the policy's idle/busy view in sync with the recorder lifecycle.
+    // Called explicitly on entry to .starting and from defers on every exit path
+    // (including early returns); only feeds the policy when idleness flips.
+    private func notifyRecordingActivity() {
+        let idle = (status == .idle)
+        guard idle != lastReportedCoordinatorIdle else { return }
+        lastReportedCoordinatorIdle = idle
+        apply(micCuePolicy.recordingActivityChanged(isIdle: idle))
+    }
+
+    // Executes a MicCuePolicy.Action. May recurse (debounce → debounceElapsed).
+    private func apply(_ action: MicCuePolicy.Action) {
+        switch action {
+        case .none:
+            break
+        case .startDebounce:
+            micDebounceTask?.cancel()
+            micDebounceTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(1500))
+                guard let self, !Task.isCancelled else { return }
+                self.apply(self.micCuePolicy.debounceElapsed())
+            }
+        case .showCue:
+            micCueController.show(
+                onStart: { [weak self] in self?.startFromMicCue() },
+                onDismiss: { [weak self] in
+                    guard let self else { return }
+                    self.apply(self.micCuePolicy.cueDismissed())
+                }
+            )
+        case .hideCue:
+            micDebounceTask?.cancel()
+            micDebounceTask = nil
+            micCueController.hide()
+        }
+    }
+
+    private func startFromMicCue() {
+        Task { @MainActor in await self.startRecording() }
     }
 
     enum JobRunError: Error {
