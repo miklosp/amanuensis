@@ -71,6 +71,10 @@ public final class MicActivityMonitor {
     // MARK: - per-device IsRunningSomewhere listener
 
     private func attachToCurrentDefaultInput() {
+        // Bail if monitoring has been stopped — a default-device-change callback
+        // can be delivered late (after stop()); without this it would re-register
+        // a per-device listener that nothing would ever remove.
+        guard onChange != nil else { return }
         guard let device = Self.defaultInputDeviceID() else {
             Self.log.error("no default input device")
             return

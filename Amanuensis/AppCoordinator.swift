@@ -140,6 +140,10 @@ final class AppCoordinator {
     func startRecording() async {
         defer { notifyRecordingActivity() }
         guard machine.start() == .requestPermissionsAndStart else { return }
+        // Sync the cue policy to "busy" the moment we enter .starting — not only
+        // at the exit defer — so an external mic edge during the permission
+        // awaits can't arm the cue while our own recording is starting up.
+        notifyRecordingActivity()
 
         let micGranted = await MicrophonePermission.requestIfNeeded()
         _ = machine.permissionsResolved(micGranted: micGranted)
@@ -340,7 +344,7 @@ final class AppCoordinator {
     }
 
     // Keeps the policy's idle/busy view in sync with the recorder lifecycle.
-    // Called from defers in start/stopRecording so it runs on every exit path
+    // Called explicitly on entry to .starting and from defers on every exit path
     // (including early returns); only feeds the policy when idleness flips.
     private func notifyRecordingActivity() {
         let idle = (status == .idle)
