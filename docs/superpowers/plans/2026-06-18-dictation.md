@@ -951,7 +951,9 @@ public final class DictationRecorder {
         engine.inputNode.installTap(
             onBus: 0, bufferSize: 4_096, format: input
         ) { @Sendable [writer] buffer, _ in
-            writer.enqueue(buffer)
+            // Deep-copy: the tap buffer is framework-owned and reused after this
+            // callback returns; the writer reads it later on its own queue.
+            if let copy = buffer.deepCopy() { writer.enqueue(copy) }
         }
         engine.prepare()
         try engine.start()
