@@ -14,6 +14,10 @@ private struct FakeKeychain: KeychainProviding {
     func get(account: String) async throws -> String { "fake-key" }
 }
 
+/// Reference box so the `@Sendable onFinal` closure can record its result
+/// without mutating a captured local (a Swift 6 concurrency error otherwise).
+private final class ResultBox: @unchecked Sendable { var value: String? }
+
 final class BatchTranscriberTests: XCTestCase {
     func testReturnsHandlerTextAsFinal() async throws {
         let provider = Provider(
@@ -28,10 +32,10 @@ final class BatchTranscriberTests: XCTestCase {
             keychain: FakeKeychain(),
             handlers: [.transcriptionMultipart: StubHandler(reply: "hello there")])
 
-        var final: String?
+        let result = ResultBox()
         try await sut.transcribe(
             audioFile: URL(fileURLWithPath: "/dev/null"),
-            onPartial: { _ in }, onFinal: { final = $0 })
-        XCTAssertEqual(final, "hello there")
+            onPartial: { _ in }, onFinal: { result.value = $0 })
+        XCTAssertEqual(result.value, "hello there")
     }
 }
