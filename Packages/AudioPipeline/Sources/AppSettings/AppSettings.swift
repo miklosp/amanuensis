@@ -64,3 +64,19 @@ public final class AppSettings {
         static let suggestRecordingWhenMicInUse = "suggestRecordingWhenMicInUse"
     }
 }
+
+extension AppSettings {
+    // Pure policy: true iff `folder` is outside the Music folder and therefore
+    // needs a security-scoped bookmark under App Sandbox. Paths at or under
+    // ~/Music are covered directly by com.apple.security.assets.music.read-write.
+    // Lexical comparison on standardized paths (no symlink resolution).
+    nonisolated public static func needsSecurityScope(
+        for folder: URL,
+        musicDirectory: URL = .musicDirectory
+    ) -> Bool {
+        let f = folder.standardizedFileURL.path
+        let m = musicDirectory.standardizedFileURL.path
+        if f == m { return false }
+        return !f.hasPrefix(m + "/")
+    }
+}

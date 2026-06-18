@@ -92,3 +92,26 @@ private func withIsolatedDefaults(_ body: (UserDefaults) -> Void) {
             == URL.musicDirectory.standardizedFileURL)
     }
 }
+
+@Suite struct NeedsSecurityScopePolicy {
+    private let music = URL(filePath: "/Users/test/Music", directoryHint: .isDirectory)
+
+    @Test func defaultAndMusicPaths_needNoScope() {
+        let amanuensis = music.appending(path: "Amanuensis", directoryHint: .isDirectory)
+        #expect(AppSettings.needsSecurityScope(for: amanuensis, musicDirectory: music) == false)
+        #expect(AppSettings.needsSecurityScope(for: music, musicDirectory: music) == false)
+        let nested = music.appending(path: "a/b", directoryHint: .isDirectory)
+        #expect(AppSettings.needsSecurityScope(for: nested, musicDirectory: music) == false)
+    }
+
+    @Test func outsideMusic_needsScope() {
+        let docs = URL(filePath: "/Users/test/Documents/Rec", directoryHint: .isDirectory)
+        #expect(AppSettings.needsSecurityScope(for: docs, musicDirectory: music) == true)
+    }
+
+    @Test func siblingPrefix_needsScope() {
+        // "/Users/test/MusicStuff" must NOT count as under "/Users/test/Music".
+        let sibling = URL(filePath: "/Users/test/MusicStuff", directoryHint: .isDirectory)
+        #expect(AppSettings.needsSecurityScope(for: sibling, musicDirectory: music) == true)
+    }
+}
