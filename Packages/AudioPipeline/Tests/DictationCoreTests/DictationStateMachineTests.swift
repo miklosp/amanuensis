@@ -60,3 +60,10 @@ import Testing
     #expect(m.failed("x") == .none)
     #expect(m.phase == .idle)
 }
+
+@Test func resetReturnsToIdleFromAnyPhase() {
+    var m = DictationStateMachine()
+    _ = m.startOrToggle(); _ = m.startOrToggle()   // -> .transcribing
+    m.reset()
+    #expect(m.phase == .idle)
+}

@@ -71,4 +71,11 @@ public struct DictationStateMachine: Sendable {
         phase = .idle
         return .none
     }
+
+    /// Force back to idle, abandoning any in-flight capture. Used when the
+    /// coordinator tears a capture down out-of-band (provider removed, dictation
+    /// disabled); the coordinator performs the actual recorder/file teardown.
+    public mutating func reset() {
+        phase = .idle
+    }
 }

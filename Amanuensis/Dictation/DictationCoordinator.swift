@@ -56,6 +56,7 @@ final class DictationCoordinator {
             startMonitor()
         } else {
             stopMonitor()
+            abortCapture(flash: nil)
         }
     }
 
@@ -156,9 +157,33 @@ final class DictationCoordinator {
         }
     }
 
+    /// Tear down any in-flight capture/transcription and return to idle. Used
+    /// when a capture must be abandoned out-of-band (provider unavailable,
+    /// dictation disabled). `flash` shows a user message; nil aborts silently.
+    private func abortCapture(flash: String?) {
+        holdTask?.cancel(); holdTask = nil
+        transcribeTask?.cancel(); transcribeTask = nil
+        if let rec = recorder {
+            recorder = nil
+            Task { _ = await rec.stop() }
+        }
+        if let url = captureURL { tempStore.delete(url); captureURL = nil }
+        machine.reset()
+        level = 0
+        phase = machine.phase
+        if let flash {
+            overlay.flash(flash)
+        } else {
+            overlay.update(phase: phase, enabled: settings.dictation.showOverlay)
+        }
+    }
+
     private func endCaptureAndTranscribe() {
         guard let recorder, let url = captureURL,
-              let inputs = resolveTranscriberInputs() else { return }
+              let inputs = resolveTranscriberInputs() else {
+            abortCapture(flash: "Dictation provider unavailable")
+            return
+        }
         self.recorder = nil
         let transcriber = BatchTranscriber(
             job: inputs.job, provider: inputs.provider,
