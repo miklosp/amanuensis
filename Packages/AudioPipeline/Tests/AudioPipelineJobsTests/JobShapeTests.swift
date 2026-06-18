@@ -26,6 +26,11 @@ import Testing
         #expect(keys.contains("temperature"))
     }
 
+    @Test func chatCompletionsAudio_hasReasoningEffort() {
+        let keys = JobShape.chatCompletionsAudio.fields.map(\.key)
+        #expect(keys.contains("reasoning_effort"))
+    }
+
     @Test func transcriptionMultipart_hasLanguageAndResponseFormat() {
         let keys = JobShape.transcriptionMultipart.fields.map(\.key)
         #expect(keys.contains("language"))

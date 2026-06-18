@@ -35,6 +35,9 @@ extension JobShape {
                 FieldSpec(key: "prompt", label: "Prompt", kind: .longText, required: true,
                           help: "Instructions for the model (system+user)"),
                 FieldSpec(key: "temperature", label: "Temperature", kind: .number, required: false),
+                FieldSpec(key: "reasoning_effort", label: "Reasoning effort",
+                          kind: .picker(["minimal", "low", "medium", "high"]), required: false,
+                          help: "Reasoning models only; lower spends fewer thinking tokens. Leave blank for non-reasoning models (e.g. gpt-4o-audio)."),
                 FieldSpec(key: "audio_format", label: "Audio format hint", kind: .picker(["auto", "flac", "wav", "mp3"]),
                           required: false, help: "Sent as input_audio.format. 'auto' derives from file extension."),
             ]
