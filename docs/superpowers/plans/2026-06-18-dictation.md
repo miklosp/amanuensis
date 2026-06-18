@@ -477,7 +477,10 @@ public struct DictationStateMachine: Sendable {
     }
 
     public mutating func failed(_ message: String) -> Action {
-        guard phase == .transcribing || phase == .inserting else { return .none }
+        // Abort any active phase back to idle (no-op only when already idle) so
+        // the coordinator can recover from a failed beginCapture (no provider /
+        // mic unavailable) which fails while still in `.listening`.
+        guard phase != .idle else { return .none }
         phase = .idle
         return .showError(message)
     }
