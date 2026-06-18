@@ -125,6 +125,7 @@ final class DictationCoordinator {
             overlay.flash("Nothing heard")
         }
         phase = machine.phase
+        if phase == .idle { level = 0 }
         overlay.update(phase: phase, enabled: settings.dictation.showOverlay)
     }
 
@@ -191,4 +192,8 @@ final class DictationCoordinator {
 
 // MARK: - Helpers
 
+/// Single-writer box for the transcript. Safe ONLY because `BatchTranscriber`
+/// calls `onFinal` exactly once, synchronously, before `transcribe` returns —
+/// the `await` is the happens-before barrier. A future streaming transcriber
+/// that calls `onFinal` off-thread would need real synchronization here.
 private final class ResultRef: @unchecked Sendable { nonisolated(unsafe) var value = "" }

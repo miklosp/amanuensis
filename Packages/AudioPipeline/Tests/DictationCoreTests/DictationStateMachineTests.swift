@@ -47,3 +47,16 @@ import Testing
     #expect(m.release() == .none)
     #expect(m.phase == .idle)
 }
+
+@Test func failureFromListeningResetsToIdle() {
+    var m = DictationStateMachine()
+    #expect(m.startOrToggle() == .beginCapture)   // -> .listening
+    #expect(m.failed("no provider") == .showError("no provider"))
+    #expect(m.phase == .idle)
+}
+
+@Test func failedFromIdleIsNoop() {
+    var m = DictationStateMachine()
+    #expect(m.failed("x") == .none)
+    #expect(m.phase == .idle)
+}

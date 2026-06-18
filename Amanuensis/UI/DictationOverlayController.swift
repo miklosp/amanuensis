@@ -7,28 +7,37 @@ import DictationCore
 final class DictationOverlayController {
     private var panel: NSPanel?
     private var phase: DictationStateMachine.Phase = .idle
+    private var enabled = false
     private var level: Float = 0
+    private var flashing = false
     private var flashTask: Task<Void, Never>?
 
     /// Show/hide based on phase + the user's overlay preference.
     func update(phase: DictationStateMachine.Phase, enabled: Bool) {
         self.phase = phase
-        guard enabled, phase != .idle else { hide(); return }
-        render()
+        self.enabled = enabled
+        // A transient flash owns the panel until it expires; don't clobber it.
+        guard !flashing else { return }
+        renderPhase()
     }
 
-    /// Brief transient message (clipboard fallback / errors / empty).
+    /// Brief transient message (clipboard fallback / errors / empty), shown
+    /// regardless of the ambient-overlay preference; reverts to the phase
+    /// display after 2s.
     func flash(_ message: String) {
-        showText(message)
         flashTask?.cancel()
+        flashing = true
+        showText(message)
         flashTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(2))
             guard let self, !Task.isCancelled else { return }
-            if self.phase == .idle { self.hide() }
+            self.flashing = false
+            self.renderPhase()
         }
     }
 
-    private func render() {
+    private func renderPhase() {
+        guard enabled, phase != .idle else { hide(); return }
         present(AnyView(DictationOverlayView(phase: phase, level: level)))
     }
 
