@@ -1,4 +1,4 @@
-import AppKit
+import Foundation
 import AppSettings
 import os
 
@@ -64,6 +64,8 @@ final class RecordingsFolderAccess {
                 settings.recordingsDirectoryBookmark = data
                 if url.startAccessingSecurityScopedResource() {
                     activeScopedURL = url
+                } else {
+                    log.error("startAccessingSecurityScopedResource failed for selected folder")
                 }
             } catch {
                 log.error("bookmark create failed: \(String(describing: error), privacy: .public)")
