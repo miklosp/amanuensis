@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import DictationCore
 
 // User preferences, persisted to UserDefaults. MainActor-isolated by the
 // module's default actor isolation; observed by the Settings UI.
@@ -43,6 +44,10 @@ public final class AppSettings {
         }
     }
 
+    public var dictation: DictationSettings {
+        didSet { persistDictation() }
+    }
+
     @ObservationIgnored private let defaults: UserDefaults
 
     public static let defaultRecordingsDirectory: URL = URL.musicDirectory
@@ -70,6 +75,19 @@ public final class AppSettings {
         } else {
             suggestRecordingWhenMicInUse = true
         }
+
+        if let data = defaults.data(forKey: Keys.dictation),
+           let decoded = try? JSONDecoder().decode(DictationSettings.self, from: data) {
+            dictation = decoded
+        } else {
+            dictation = .default
+        }
+    }
+
+    private func persistDictation() {
+        if let data = try? JSONEncoder().encode(dictation) {
+            defaults.set(data, forKey: Keys.dictation)
+        }
     }
 
     private enum Keys {
@@ -77,6 +95,7 @@ public final class AppSettings {
         static let recordingsDirectoryBookmark = "recordingsDirectoryBookmark"
         static let keepOriginalCAF = "keepOriginalCAF"
         static let suggestRecordingWhenMicInUse = "suggestRecordingWhenMicInUse"
+        static let dictation = "dictation"
     }
 }
 
