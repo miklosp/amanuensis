@@ -32,6 +32,9 @@ final class HotkeyTapMonitor {
     func setTrigger(_ t: TriggerSide) { trigger = t }
 
     func start() {
+        // The tap source is added to the current run loop and the C callback
+        // uses MainActor.assumeIsolated — both rely on start() running on main.
+        assert(Thread.isMainThread, "HotkeyTapMonitor.start() must run on the main thread")
         guard tap == nil else { return }
         let mask = (UInt64(1) << CGEventType.flagsChanged.rawValue)
                  | (UInt64(1) << CGEventType.keyDown.rawValue)
