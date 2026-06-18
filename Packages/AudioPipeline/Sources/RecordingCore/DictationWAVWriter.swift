@@ -38,25 +38,37 @@ final class DictationWAVWriter: @unchecked Sendable {
     }
 
     func enqueue(_ buffer: AVAudioPCMBuffer) {
+        // The buffer is a deep-copy from the tap; ownership hops to the writer
+        // queue via this `@unchecked Sendable` wrapper (mirrors AudioFileWriter).
+        let handoff = BufferHandoff(buffer: buffer)
         queue.async { [self] in
-            self.onLevel?(Self.rms(buffer))
-            let ratio = self.outputFormat.sampleRate / buffer.format.sampleRate
-            let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 1_024
+            self.onLevel?(Self.rms(handoff.buffer))
+            let ratio = self.outputFormat.sampleRate / handoff.buffer.format.sampleRate
+            let capacity = AVAudioFrameCount(Double(handoff.buffer.frameLength) * ratio) + 1_024
             guard let out = AVAudioPCMBuffer(
                 pcmFormat: self.outputFormat, frameCapacity: capacity) else { return }
-            var fed = false
+            // `remaining` starts with the buffer and is cleared after the first
+            // call; the converter input block is called synchronously, so this
+            // is safe — wrapping in a class lets us mutate across the @Sendable
+            // boundary without introducing real concurrency.
+            final class Once: @unchecked Sendable { var buf: AVAudioPCMBuffer? }
+            let once = Once(); once.buf = handoff.buffer
             var err: NSError?
             let status = self.converter.convert(to: out, error: &err) { _, inStatus in
-                if fed { inStatus.pointee = .noDataNow; return nil }
-                fed = true
+                guard let b = once.buf else { inStatus.pointee = .noDataNow; return nil }
+                once.buf = nil
                 inStatus.pointee = .haveData
-                return buffer
+                return b
             }
             if status == .haveData, err == nil {
                 try? self.file.write(from: out)
                 self.frames += Int64(out.frameLength)
             }
         }
+    }
+
+    private struct BufferHandoff: @unchecked Sendable {
+        let buffer: AVAudioPCMBuffer
     }
 
     func close() async -> Int64 {
