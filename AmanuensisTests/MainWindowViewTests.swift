@@ -1,5 +1,5 @@
 import Testing
-@testable import audio_pipeline
+@testable import Amanuensis
 
 @Suite struct MainWindowViewTests {
     @Test func sidebarDestination_hasExpectedCases() {

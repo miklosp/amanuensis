@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		64674FEC558B1BB721E3281B /* RecordingCore in Frameworks */ = {isa = PBXBuildFile; productRef = B237FACF51794DAD4B8B30A6 /* RecordingCore */; };
 		651FA23B038E85E0704E3342 /* AudioPipelineJobs in Frameworks */ = {isa = PBXBuildFile; productRef = 234879DAEC2256F37E40EEBC /* AudioPipelineJobs */; };
+		733C34824F49F23730026748 /* RecordingsFolderAccessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6F619BF651F34883BB8D080 /* RecordingsFolderAccessTests.swift */; };
 		8EFBD6CE8086F36CED3D45FA /* RecordingFormattersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 530554F5DA0383ED728291F5 /* RecordingFormattersTests.swift */; };
 		B41F3CA7F935963EBA8FC7E6 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F83379B555813CEE20BE895F /* Cocoa.framework */; };
 		B613BAFD1C592783FC3934C9 /* MainWindowViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2869FCC8825AFD91DAD850C7 /* MainWindowViewTests.swift */; };
@@ -32,12 +33,15 @@
 		2869FCC8825AFD91DAD850C7 /* MainWindowViewTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainWindowViewTests.swift; sourceTree = "<group>"; };
 		530554F5DA0383ED728291F5 /* RecordingFormattersTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordingFormattersTests.swift; sourceTree = "<group>"; };
 		64F04E712FBDBC4A00B58BE7 /* Amanuensis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Amanuensis.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6F619BF651F34883BB8D080 /* RecordingsFolderAccessTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordingsFolderAccessTests.swift; sourceTree = "<group>"; };
 		F83379B555813CEE20BE895F /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		64F04E732FBDBC4A00B58BE7 /* Amanuensis */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = Amanuensis;
 			sourceTree = "<group>";
 		};
@@ -80,6 +84,7 @@
 			children = (
 				530554F5DA0383ED728291F5 /* RecordingFormattersTests.swift */,
 				2869FCC8825AFD91DAD850C7 /* MainWindowViewTests.swift */,
+				F6F619BF651F34883BB8D080 /* RecordingsFolderAccessTests.swift */,
 			);
 			path = AmanuensisTests;
 			sourceTree = SOURCE_ROOT;
@@ -184,7 +189,7 @@
 			mainGroup = 64F04E682FBDBC4A00B58BE7;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				0301059DB260F61893F0428E /* XCLocalSwiftPackageReference "Packages/AudioPipeline" */,
+				0301059DB260F61893F0428E /* XCLocalSwiftPackageReference "AudioPipeline" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 64F04E722FBDBC4A00B58BE7 /* Products */;
@@ -221,6 +226,7 @@
 			files = (
 				8EFBD6CE8086F36CED3D45FA /* RecordingFormattersTests.swift in Sources */,
 				B613BAFD1C592783FC3934C9 /* MainWindowViewTests.swift in Sources */,
+				733C34824F49F23730026748 /* RecordingsFolderAccessTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -451,8 +457,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
 				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = V378YWVH44;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.3;
 				PRODUCT_BUNDLE_IDENTIFIER = work.miklos.amanuensis.tests;
@@ -468,8 +476,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
 				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = V378YWVH44;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.3;
 				PRODUCT_BUNDLE_IDENTIFIER = work.miklos.amanuensis.tests;
@@ -514,7 +524,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		0301059DB260F61893F0428E /* XCLocalSwiftPackageReference "Packages/AudioPipeline" */ = {
+		0301059DB260F61893F0428E /* XCLocalSwiftPackageReference "AudioPipeline" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/AudioPipeline;
 		};

@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import audio_pipeline
+@testable import Amanuensis
 
 @Suite struct RecordingFormattersTests {
     @Suite struct DurationText {
