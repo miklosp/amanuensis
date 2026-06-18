@@ -13,7 +13,15 @@ import Testing
         #expect(ids.contains("openrouter"))
         #expect(ids.contains("openai-gpt4o-transcribe"))
         #expect(ids.contains("deepgram"))
-        #expect(store.all.count == 13)
+        #expect(ids.contains("gemini-openai"))
+        #expect(store.all.count == 14)
+    }
+
+    @Test func geminiOpenAI_defaultsReasoningEffortLow() throws {
+        let store = try PresetsStore.loadBundled()
+        let p = store.preset(id: "gemini-openai")
+        #expect(p?.shape == .chatCompletionsAudio)
+        #expect(p?.defaults["reasoning_effort"] == "low")
     }
 
     @Test func lookupByID_sonioxAsync_returnsPreset() throws {

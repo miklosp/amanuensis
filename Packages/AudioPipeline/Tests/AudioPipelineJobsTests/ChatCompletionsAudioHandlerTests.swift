@@ -9,10 +9,12 @@ private func makeProvider(baseURL: String = "http://localhost:4444/openai") -> P
 
 private func makeJob(prompt: String, model: String = "gemini-flash",
                      audioFormat: String? = nil,
-                     temperature: String? = nil) -> Job {
+                     temperature: String? = nil,
+                     reasoningEffort: String? = nil) -> Job {
     var fields: [String: String] = ["prompt": prompt]
     if let audioFormat { fields["audio_format"] = audioFormat }
     if let temperature { fields["temperature"] = temperature }
+    if let reasoningEffort { fields["reasoning_effort"] = reasoningEffort }
     return Job(name: "t", providerID: UUID(), model: model,
                fields: fields, outputExt: "txt")
 }
@@ -99,6 +101,28 @@ private func writeAudio(_ bytes: [UInt8], ext: String) throws -> URL {
         let body = try #require(req.httpBody)
         let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         #expect(json?["temperature"] == nil)
+    }
+
+    @Test func reasoningEffort_isIncludedWhenSet() throws {
+        let job = makeJob(prompt: "p", reasoningEffort: "low")
+        let provider = makeProvider()
+        let audio = try writeAudio([0x01], ext: "flac")
+        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, provider: provider,
+                                                               audioURL: audio, apiKey: "k")
+        let body = try #require(req.httpBody)
+        let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+        #expect(json?["reasoning_effort"] as? String == "low")
+    }
+
+    @Test func reasoningEffort_isOmittedWhenAbsent() throws {
+        let job = makeJob(prompt: "p")
+        let provider = makeProvider()
+        let audio = try writeAudio([0x01], ext: "flac")
+        let req = try ChatCompletionsAudioHandler.buildRequest(job: job, provider: provider,
+                                                               audioURL: audio, apiKey: "k")
+        let body = try #require(req.httpBody)
+        let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+        #expect(json?["reasoning_effort"] == nil)
     }
 
     @Test func trailingSlashInBaseURL_isHandled() throws {

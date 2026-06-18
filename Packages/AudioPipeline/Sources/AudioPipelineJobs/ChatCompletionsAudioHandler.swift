@@ -13,7 +13,8 @@ import Foundation
 //        {"type": "input_audio", "input_audio": {"data": "<base64>", "format": "flac"}},
 //        {"type": "text", "text": "<prompt>"}
 //     ]}],
-//     "temperature": 0.3  // optional
+//     "temperature": 0.3,        // optional
+//     "reasoning_effort": "low"  // optional; reasoning models only
 //   }
 public enum ChatCompletionsAudioHandler {
     public enum BuildError: Error, Equatable {
@@ -58,6 +59,11 @@ public enum ChatCompletionsAudioHandler {
         ]
         if let tempStr = job.fields["temperature"], let temp = Double(tempStr) {
             body["temperature"] = temp
+        }
+        // Reasoning models burn thinking tokens by default; this caps that. Sent
+        // only when set — non-reasoning models (e.g. gpt-4o-audio) reject it.
+        if let effort = job.fields["reasoning_effort"], !effort.isEmpty {
+            body["reasoning_effort"] = effort
         }
 
         var req = URLRequest(url: endpoint)
