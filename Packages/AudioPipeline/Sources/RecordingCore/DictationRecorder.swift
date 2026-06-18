@@ -1,4 +1,4 @@
-@preconcurrency import AVFoundation
+import AVFoundation
 
 public enum DictationRecorderError: Error, Sendable {
     case noInput
@@ -24,7 +24,7 @@ public final class DictationRecorder {
         engine.inputNode.installTap(
             onBus: 0, bufferSize: 4_096, format: input
         ) { @Sendable [writer] buffer, _ in
-            writer.enqueue(buffer)
+            if let copy = buffer.deepCopy() { writer.enqueue(copy) }
         }
         engine.prepare()
         try engine.start()

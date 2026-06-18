@@ -1,4 +1,4 @@
-@preconcurrency import AVFoundation
+import AVFoundation
 
 /// Converts incoming hardware-format buffers to 16 kHz mono Int16 and writes
 /// them to a WAV file, on a private serial queue. `@unchecked Sendable` so the
