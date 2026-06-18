@@ -85,6 +85,23 @@ private func withIsolatedDefaults(_ body: (UserDefaults) -> Void) {
         }
     }
 
+    @Test func recordingsDirectoryBookmark_persistsAndClears() {
+        withIsolatedDefaults { defaults in
+            let data = Data([0x01, 0x02, 0x03])
+
+            let first = AppSettings(defaults: defaults)
+            #expect(first.recordingsDirectoryBookmark == nil)
+            first.recordingsDirectoryBookmark = data
+
+            let second = AppSettings(defaults: defaults)
+            #expect(second.recordingsDirectoryBookmark == data)
+
+            second.recordingsDirectoryBookmark = nil
+            let third = AppSettings(defaults: defaults)
+            #expect(third.recordingsDirectoryBookmark == nil)
+        }
+    }
+
     @Test func defaultRecordingsDirectory_isUnderMusicNamedAmanuensis() {
         let dir = AppSettings.defaultRecordingsDirectory
         #expect(dir.lastPathComponent == "Amanuensis")

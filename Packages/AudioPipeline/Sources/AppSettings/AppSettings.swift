@@ -12,6 +12,18 @@ public final class AppSettings {
         }
     }
 
+    // Security-scoped bookmark for a recordings folder outside ~/Music. nil when
+    // the folder is the default or under ~/Music (asset-entitlement covered).
+    public var recordingsDirectoryBookmark: Data? {
+        didSet {
+            if let data = recordingsDirectoryBookmark {
+                defaults.set(data, forKey: Keys.recordingsDirectoryBookmark)
+            } else {
+                defaults.removeObject(forKey: Keys.recordingsDirectoryBookmark)
+            }
+        }
+    }
+
     // When true, the raw mic/system .caf files are kept on disk alongside the
     // combined .flac that is always produced at recording stop. When false,
     // the .caf files are deleted after the combined export succeeds. Default
@@ -45,6 +57,8 @@ public final class AppSettings {
             recordingsDirectory = Self.defaultRecordingsDirectory
         }
 
+        recordingsDirectoryBookmark = defaults.data(forKey: Keys.recordingsDirectoryBookmark)
+
         if defaults.object(forKey: Keys.keepOriginalCAF) != nil {
             keepOriginalCAF = defaults.bool(forKey: Keys.keepOriginalCAF)
         } else {
@@ -60,6 +74,7 @@ public final class AppSettings {
 
     private enum Keys {
         static let recordingsDirectory = "recordingsDirectory"
+        static let recordingsDirectoryBookmark = "recordingsDirectoryBookmark"
         static let keepOriginalCAF = "keepOriginalCAF"
         static let suggestRecordingWhenMicInUse = "suggestRecordingWhenMicInUse"
     }
