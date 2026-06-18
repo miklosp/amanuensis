@@ -34,7 +34,7 @@ public final class AppSettings {
     @ObservationIgnored private let defaults: UserDefaults
 
     public static let defaultRecordingsDirectory: URL = URL.musicDirectory
-        .appending(path: "audio-pipeline", directoryHint: .isDirectory)
+        .appending(path: "Amanuensis", directoryHint: .isDirectory)
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults

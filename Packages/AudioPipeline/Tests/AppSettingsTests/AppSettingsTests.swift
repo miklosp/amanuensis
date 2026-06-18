@@ -84,4 +84,11 @@ private func withIsolatedDefaults(_ body: (UserDefaults) -> Void) {
             #expect(settings.suggestRecordingWhenMicInUse == false)
         }
     }
+
+    @Test func defaultRecordingsDirectory_isUnderMusicNamedAmanuensis() {
+        let dir = AppSettings.defaultRecordingsDirectory
+        #expect(dir.lastPathComponent == "Amanuensis")
+        #expect(dir.deletingLastPathComponent().standardizedFileURL
+            == URL.musicDirectory.standardizedFileURL)
+    }
 }
