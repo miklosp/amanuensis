@@ -37,7 +37,7 @@ final class RecordingsFolderAccess {
             )
             guard url.startAccessingSecurityScopedResource() else {
                 log.error("startAccessingSecurityScopedResource failed; falling back to default")
-                effectiveURL = AppSettings.defaultRecordingsDirectory
+                fallBackToDefault()
                 return
             }
             activeScopedURL = url
@@ -49,7 +49,7 @@ final class RecordingsFolderAccess {
             }
         } catch {
             log.error("bookmark resolve failed: \(String(describing: error), privacy: .public)")
-            effectiveURL = AppSettings.defaultRecordingsDirectory
+            fallBackToDefault()
         }
     }
 
@@ -80,9 +80,11 @@ final class RecordingsFolderAccess {
         effectiveURL = url
     }
 
-    // A non-Music folder the user picked is unusable (bookmark create or scope
-    // start failed). Degrade to the always-writable default rather than leave
-    // effectiveURL on a folder the sandbox will deny writes to (D7).
+    // A non-Music bookmarked folder is unusable (bookmark create/resolve or
+    // scope start failed), on launch or after a pick. Reset bookmark, persisted
+    // directory, and effectiveURL together to the always-writable default —
+    // never leave the Settings UI showing a folder the sandbox denies writes to,
+    // nor retry a dead bookmark next launch (D7).
     private func fallBackToDefault() {
         settings.recordingsDirectoryBookmark = nil
         settings.recordingsDirectory = AppSettings.defaultRecordingsDirectory
