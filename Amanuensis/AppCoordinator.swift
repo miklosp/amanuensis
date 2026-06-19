@@ -43,6 +43,7 @@ final class AppCoordinator {
     var isBusy: Bool { machine.isBusy }
 
     let settings: AppSettings
+    let folderAccess: RecordingsFolderAccess
     let library: RecordingsLibrary
     let keychain: KeychainStore
     let presets: PresetsStore
@@ -67,7 +68,9 @@ final class AppCoordinator {
     init() {
         let settings = AppSettings()
         self.settings = settings
-        self.library = RecordingsLibrary { settings.recordingsDirectory }
+        let folderAccess = RecordingsFolderAccess(settings: settings)
+        self.folderAccess = folderAccess
+        self.library = RecordingsLibrary { folderAccess.effectiveURL }
         self.keychain = KeychainStore()
         do {
             self.presets = try PresetsStore.loadBundled()
@@ -160,7 +163,7 @@ final class AppCoordinator {
 
         let folder: RecordingFolder
         do {
-            let store = RecordingStore(baseURL: settings.recordingsDirectory)
+            let store = RecordingStore(baseURL: folderAccess.effectiveURL)
             folder = try store.makeRecordingFolder(label: nil)
         } catch {
             _ = machine.sessionFailed("Couldn't create recording folder: \(error.localizedDescription)")
@@ -237,8 +240,13 @@ final class AppCoordinator {
         }
     }
 
+    func selectRecordingsFolder(_ url: URL) {
+        folderAccess.select(url)
+        Task { await library.refresh() }
+    }
+
     func openRecordingsFolder() {
-        let url = settings.recordingsDirectory
+        let url = folderAccess.effectiveURL
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         NSWorkspace.shared.open(url)
     }

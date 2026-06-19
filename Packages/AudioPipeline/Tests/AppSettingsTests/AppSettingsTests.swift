@@ -84,4 +84,51 @@ private func withIsolatedDefaults(_ body: (UserDefaults) -> Void) {
             #expect(settings.suggestRecordingWhenMicInUse == false)
         }
     }
+
+    @Test func recordingsDirectoryBookmark_persistsAndClears() {
+        withIsolatedDefaults { defaults in
+            let data = Data([0x01, 0x02, 0x03])
+
+            let first = AppSettings(defaults: defaults)
+            #expect(first.recordingsDirectoryBookmark == nil)
+            first.recordingsDirectoryBookmark = data
+
+            let second = AppSettings(defaults: defaults)
+            #expect(second.recordingsDirectoryBookmark == data)
+
+            second.recordingsDirectoryBookmark = nil
+            let third = AppSettings(defaults: defaults)
+            #expect(third.recordingsDirectoryBookmark == nil)
+        }
+    }
+
+    @Test func defaultRecordingsDirectory_isUnderMusicNamedAmanuensis() {
+        let dir = AppSettings.defaultRecordingsDirectory
+        #expect(dir.lastPathComponent == "Amanuensis")
+        #expect(dir.deletingLastPathComponent().standardizedFileURL
+            == URL.musicDirectory.standardizedFileURL)
+    }
+}
+
+@Suite struct NeedsSecurityScopePolicy {
+    private let music = URL(filePath: "/Users/test/Music", directoryHint: .isDirectory)
+
+    @Test func defaultAndMusicPaths_needNoScope() {
+        let amanuensis = music.appending(path: "Amanuensis", directoryHint: .isDirectory)
+        #expect(AppSettings.needsSecurityScope(for: amanuensis, musicDirectory: music) == false)
+        #expect(AppSettings.needsSecurityScope(for: music, musicDirectory: music) == false)
+        let nested = music.appending(path: "a/b", directoryHint: .isDirectory)
+        #expect(AppSettings.needsSecurityScope(for: nested, musicDirectory: music) == false)
+    }
+
+    @Test func outsideMusic_needsScope() {
+        let docs = URL(filePath: "/Users/test/Documents/Rec", directoryHint: .isDirectory)
+        #expect(AppSettings.needsSecurityScope(for: docs, musicDirectory: music) == true)
+    }
+
+    @Test func siblingPrefix_needsScope() {
+        // "/Users/test/MusicStuff" must NOT count as under "/Users/test/Music".
+        let sibling = URL(filePath: "/Users/test/MusicStuff", directoryHint: .isDirectory)
+        #expect(AppSettings.needsSecurityScope(for: sibling, musicDirectory: music) == true)
+    }
 }

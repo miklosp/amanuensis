@@ -55,7 +55,7 @@ struct SettingsView: View {
         panel.prompt = "Choose"
         panel.directoryURL = settings.recordingsDirectory
         if panel.runModal() == .OK, let url = panel.url {
-            settings.recordingsDirectory = url
+            coordinator.selectRecordingsFolder(url)
         }
     }
 }
