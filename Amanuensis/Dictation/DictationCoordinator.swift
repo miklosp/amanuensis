@@ -150,6 +150,10 @@ final class DictationCoordinator {
             try rec.start()
             recorder = rec
         } catch {
+            // DictationRecorder.init already created the WAV on disk; remove it
+            // and clear captureURL so a failed start leaves no orphan temp file.
+            tempStore.delete(url)
+            captureURL = nil
             log("Dictation capture failed: \(error.localizedDescription)")
             overlay.flash("Mic unavailable")
             _ = machine.failed(error.localizedDescription)
@@ -165,9 +169,18 @@ final class DictationCoordinator {
         transcribeTask?.cancel(); transcribeTask = nil
         if let rec = recorder {
             recorder = nil
-            Task { _ = await rec.stop() }
+            let doomed = captureURL
+            captureURL = nil
+            // Delete only AFTER stop() finishes flushing/finalizing the WAV —
+            // deleting while the writer is still draining races the file write.
+            Task {
+                _ = await rec.stop()
+                if let doomed { tempStore.delete(doomed) }
+            }
+        } else if let url = captureURL {
+            tempStore.delete(url)
+            captureURL = nil
         }
-        if let url = captureURL { tempStore.delete(url); captureURL = nil }
         machine.reset()
         level = 0
         phase = machine.phase
