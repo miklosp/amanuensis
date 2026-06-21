@@ -10,10 +10,7 @@ struct AmanuensisApp: App {
         MenuBarExtra {
             MenuBarContent(coordinator: coordinator)
         } label: {
-            Image(systemName: coordinator.isRecording
-                  ? "record.circle.fill"
-                  : "waveform.circle")
-                .symbolRenderingMode(.hierarchical)
+            DictationMenuBarLabel(coordinator: coordinator)
         }
         .menuBarExtraStyle(.menu)
 

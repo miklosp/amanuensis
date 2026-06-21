@@ -1,10 +1,15 @@
 import AppKit
 import AppSettings
+import AudioPipelineJobs
+import DictationCore
 import SwiftUI
 
 struct SettingsView: View {
     @Bindable var settings: AppSettings
     let coordinator: AppCoordinator
+
+    @State private var inputMonitoringGranted = HotkeyTapMonitor.hasInputMonitoringAccess()
+    @State private var postEventGranted = TextInserter.hasPostEventAccess()
 
     var body: some View {
         Form {
@@ -42,9 +47,62 @@ struct SettingsView: View {
                     coordinator.setMicCueEnabled(newValue)
                 }
             }
+            Section("Dictation") {
+                Toggle("Enable dictation", isOn: $settings.dictation.enabled)
+                    .onChange(of: settings.dictation.enabled) { _, _ in
+                        coordinator.dictation.settingsChanged()
+                    }
+
+                Picker("Trigger key", selection: $settings.dictation.trigger) {
+                    Text("Right ⌘").tag(TriggerSide.rightCommand)
+                    Text("Left ⌘").tag(TriggerSide.leftCommand)
+                }
+                .onChange(of: settings.dictation.trigger) { _, _ in
+                    coordinator.dictation.settingsChanged()
+                }
+
+                LabeledContent("Hold threshold") {
+                    HStack {
+                        Slider(value: holdThresholdBinding, in: 150...600, step: 50)
+                        Text("\(settings.dictation.holdThresholdMs) ms")
+                            .monospacedDigit().foregroundStyle(.secondary)
+                    }
+                }
+
+                Picker("Provider", selection: $settings.dictation.providerID) {
+                    Text("None").tag(UUID?.none)
+                    ForEach(coordinator.allProviders) { provider in
+                        Text(provider.name).tag(UUID?.some(provider.id))
+                    }
+                }
+
+                TextField("Model", text: $settings.dictation.model)
+
+                Picker("On finish", selection: $settings.dictation.insertMode) {
+                    Text("Insert at cursor").tag(InsertMode.autoInsert)
+                    Text("Copy to clipboard").tag(InsertMode.clipboardOnly)
+                }
+
+                Toggle("Show overlay while dictating", isOn: $settings.dictation.showOverlay)
+
+                permissionRow(
+                    title: "Input Monitoring (hotkey)",
+                    granted: inputMonitoringGranted,
+                    grant: {
+                        HotkeyTapMonitor.requestInputMonitoringAccess()
+                        refreshPermissions()
+                    })
+                permissionRow(
+                    title: "Accessibility · post events (auto-insert)",
+                    granted: postEventGranted,
+                    grant: {
+                        TextInserter.requestPostEventAccess()
+                        refreshPermissions()
+                    })
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 360)
+        .frame(width: 480, height: 640)
     }
 
     private func chooseLocation() {
@@ -56,6 +114,29 @@ struct SettingsView: View {
         panel.directoryURL = settings.recordingsDirectory
         if panel.runModal() == .OK, let url = panel.url {
             coordinator.selectRecordingsFolder(url)
+        }
+    }
+
+    private var holdThresholdBinding: Binding<Double> {
+        Binding(
+            get: { Double(settings.dictation.holdThresholdMs) },
+            set: { settings.dictation.holdThresholdMs = Int($0) })
+    }
+
+    private func refreshPermissions() {
+        inputMonitoringGranted = HotkeyTapMonitor.hasInputMonitoringAccess()
+        postEventGranted = TextInserter.hasPostEventAccess()
+    }
+
+    @ViewBuilder
+    private func permissionRow(title: String, granted: Bool, grant: @escaping () -> Void) -> some View {
+        LabeledContent(title) {
+            if granted {
+                Label("Granted", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green).labelStyle(.titleAndIcon)
+            } else {
+                Button("Grant…", action: grant)
+            }
         }
     }
 }

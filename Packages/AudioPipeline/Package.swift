@@ -21,9 +21,10 @@ let package = Package(
         .library(name: "RecordingCore",    targets: ["RecordingCore"]),
         .library(name: "AudioPipelineJobs", targets: ["AudioPipelineJobs"]),
         .library(name: "AppLog",            targets: ["AppLog"]),
+        .library(name: "DictationCore",     targets: ["DictationCore"]),
     ],
     targets: [
-        .target(name: "AppSettings",      swiftSettings: mainActorSettings),
+        .target(name: "AppSettings", dependencies: ["DictationCore"], swiftSettings: mainActorSettings),
         .target(name: "RecordingStorage", swiftSettings: mainActorSettings),
         .target(
             name: "RecordingCore",
@@ -36,6 +37,7 @@ let package = Package(
             swiftSettings: nonisolatedSettings
         ),
         .target(name: "AppLog", swiftSettings: mainActorSettings),
+        .target(name: "DictationCore", swiftSettings: nonisolatedSettings),
         .testTarget(
             name: "AppSettingsTests",
             dependencies: ["AppSettings"],
@@ -60,6 +62,11 @@ let package = Package(
             name: "AppLogTests",
             dependencies: ["AppLog"],
             swiftSettings: mainActorSettings
+        ),
+        .testTarget(
+            name: "DictationCoreTests",
+            dependencies: ["DictationCore"],
+            swiftSettings: nonisolatedSettings
         ),
     ]
 )

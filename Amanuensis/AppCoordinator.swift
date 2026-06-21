@@ -2,6 +2,7 @@ import AppKit
 import AppLog
 import AppSettings
 import AudioPipelineJobs
+import DictationCore
 import Foundation
 import Observation
 import os
@@ -50,6 +51,9 @@ final class AppCoordinator {
     let jobs: JobsStore
     let providers: ProvidersStore
     let logs: LogStore
+    let dictation: DictationCoordinator
+
+    var allProviders: [Provider] { providers.providers }
 
     var jobActivity: String?
     var recordingActivity: String?
@@ -122,6 +126,14 @@ final class AppCoordinator {
                 .appendingPathComponent("logs-fallback.json")
             self.logs = LogStore(fileURL: tmp)
         }
+
+        self.dictation = DictationCoordinator(
+            settings: settings,
+            keychain: keychain,
+            providerLookup: { [providers] id in providers.provider(id: id) },
+            presetLookup: { [presets] id in presets.preset(id: id) },
+            log: { [logs] message in logs.log(.error, message, category: .recording) }
+        )
 
         // Start the mic-in-use cue if enabled in settings.
         _ = micCuePolicy.enabledChanged(settings.suggestRecordingWhenMicInUse)
