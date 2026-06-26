@@ -360,6 +360,8 @@ final class AppCoordinator {
     }
 
     private func handleMicRunning(_ running: Bool) {
+        // Our own dictation opens the mic; don't let that arm the "record this?" cue.
+        guard dictation.phase == .idle else { return }
         apply(micCuePolicy.micRunningChanged(running))
     }
 
