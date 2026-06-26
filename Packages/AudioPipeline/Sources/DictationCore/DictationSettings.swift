@@ -4,7 +4,7 @@ import Foundation
 /// blob (see Task 6).
 public struct DictationSettings: Codable, Equatable, Sendable {
     public var enabled: Bool
-    public var trigger: TriggerSide
+    public var trigger: TriggerModifier
     public var holdThresholdMs: Int
     public var providerID: UUID?
     public var model: String
@@ -14,7 +14,7 @@ public struct DictationSettings: Codable, Equatable, Sendable {
 
     public init(
         enabled: Bool = false,
-        trigger: TriggerSide = .rightCommand,
+        trigger: TriggerModifier = .rightCommand,
         holdThresholdMs: Int = 250,
         providerID: UUID? = nil,
         model: String = "whisper-large-v3-turbo",
