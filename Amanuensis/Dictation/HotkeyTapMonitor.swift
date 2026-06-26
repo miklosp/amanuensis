@@ -10,16 +10,12 @@ import DictationCore
 final class HotkeyTapMonitor {
     enum Event: Equatable { case triggerDown, triggerUp, foreignInput }
 
-    // Device-dependent modifier bits (IOKit NX_DEVICE*CMDKEYMASK).
-    private static let leftCmdBit: UInt64 = 0x0000_0008
-    private static let rightCmdBit: UInt64 = 0x0000_0010
-
-    private var trigger: TriggerSide
+    private var trigger: TriggerModifier
     private let onEvent: (Event) -> Void
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
 
-    init(trigger: TriggerSide, onEvent: @escaping (Event) -> Void) {
+    init(trigger: TriggerModifier, onEvent: @escaping (Event) -> Void) {
         self.trigger = trigger
         self.onEvent = onEvent
     }
@@ -29,7 +25,7 @@ final class HotkeyTapMonitor {
     @discardableResult
     static func requestInputMonitoringAccess() -> Bool { CGRequestListenEventAccess() }
 
-    func setTrigger(_ t: TriggerSide) { trigger = t }
+    func setTrigger(_ t: TriggerModifier) { trigger = t }
 
     func start() {
         // The tap source is added to the current run loop and the C callback
@@ -76,8 +72,10 @@ final class HotkeyTapMonitor {
         case .flagsChanged:
             let keycode = event.getIntegerValueField(.keyboardEventKeycode)
             if keycode == trigger.keyCode {
-                let bit = trigger == .leftCommand ? Self.leftCmdBit : Self.rightCmdBit
-                onEvent((event.flags.rawValue & bit) != 0 ? .triggerDown : .triggerUp)
+                // Down vs up from the key's device-specific flag bit
+                // (Fn uses maskSecondaryFn).
+                let down = (event.flags.rawValue & trigger.deviceFlagBit) != 0
+                onEvent(down ? .triggerDown : .triggerUp)
             } else {
                 onEvent(.foreignInput)
             }

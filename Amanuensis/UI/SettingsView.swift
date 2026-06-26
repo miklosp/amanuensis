@@ -54,11 +54,16 @@ struct SettingsView: View {
                     }
 
                 Picker("Trigger key", selection: $settings.dictation.trigger) {
-                    Text("Right ⌘").tag(TriggerSide.rightCommand)
-                    Text("Left ⌘").tag(TriggerSide.leftCommand)
+                    ForEach(TriggerModifier.allCases, id: \.self) { modifier in
+                        Text(modifier.displayName).tag(modifier)
+                    }
                 }
                 .onChange(of: settings.dictation.trigger) { _, _ in
                     coordinator.dictation.settingsChanged()
+                }
+                if settings.dictation.trigger == .function {
+                    Text("Fn may also trigger a macOS action (System Settings ▸ Keyboard ▸ “Press 🌐 to”).")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
 
                 LabeledContent("Hold threshold") {

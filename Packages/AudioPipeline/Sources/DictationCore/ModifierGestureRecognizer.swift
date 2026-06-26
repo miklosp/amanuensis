@@ -11,11 +11,11 @@ public struct ModifierGestureRecognizer: Sendable {
         case cancel
     }
 
-    public var trigger: TriggerSide
+    public var trigger: TriggerModifier
     private var tracking = false
     private var holdEngaged = false
 
-    public init(trigger: TriggerSide) {
+    public init(trigger: TriggerModifier) {
         self.trigger = trigger
     }
 
