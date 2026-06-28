@@ -1,48 +1,69 @@
+<p align="center">
+  <img src="Screenshots/mac512.png" alt="Amanuensis app icon" width="128" height="128">
+</p>
+
 # Amanuensis
 
-A menu-bar audio recorder and transcription pipeline for macOS. It captures your
-microphone and other apps' system audio at the same time — no virtual audio
-driver — saves the recording locally, and (optionally) routes it through a
-transcription or audio-understanding provider of your choice.
+> **amanuensis** · /əˌmæn.juˈen.sɪs/ · *noun*
+>
+> a person whose job is to write down what another person says or to copy what another person has written
+
+A menu-bar audio recorder and transcription pipeline for macOS. It records your
+microphone and other apps' system audio at once, with no virtual audio driver,
+and saves everything locally. From there, a recording can optionally go to a
+transcription or audio-capable model of your choice.
 
 ## Why Amanuensis?
 
-- **Cloud-first — no multi-gigabyte local model.** Most Mac "Whisper apps" make
-  you download a local model before you can transcribe anything. Amanuensis
-  bundles none: point it at the cloud provider you want (or an OpenAI-compatible
-  endpoint you host yourself) and get the latest, best models without the local
-  compute and disk tax — never locked into a single vendor.
+- **Cloud-first, no multi-gigabyte local model.** Most Mac "Whisper apps" make
+  you download a model before you can transcribe anything. Amanuensis bundles
+  none. Point it at whatever cloud provider you want, or an OpenAI-compatible
+  endpoint you run yourself, and you get the latest models without the local
+  compute and disk cost. You're not tied to one vendor.
 - **Minimal privileges.** It runs under the App Sandbox with the Hardened
   Runtime and asks only for what it needs. API keys live in your macOS Keychain,
   recordings and settings stay on disk under your control, and nothing leaves
   your machine unless you configure a job that sends it. See
   [Permissions](#permissions-the-app-requests) for the full breakdown.
-- **Free and open source (MIT).** No subscription, no account, no telemetry —
-  auditable end to end. **PRs and feature requests welcome.**
+- **Free and open source (MIT).** No subscription, no account, no telemetry, and
+  you can audit the whole thing. PRs and feature requests welcome.
 
 A few more things that make it pleasant:
 
 - **Recording is the product.** Transcription is one optional pipeline stage, not
   the point of the app.
-- **No kernel extension, no BlackHole.** Your mic and other apps' system audio
-  are captured together, natively, via the macOS Core Audio process-tap API.
+- **No kernel extension, no BlackHole.** Your mic and other apps' audio are
+  captured together through the macOS Core Audio process-tap API.
 - **Push-to-talk dictation.** Hold a modifier key, speak, and the transcript is
   inserted at your cursor.
 - **Signed and notarized.** Release builds are Developer ID–signed and notarized
-  by Apple, so Gatekeeper opens them without warnings — no right-click-to-open,
-  no "unidentified developer" prompt.
+  by Apple, so they open straight from Gatekeeper, without the usual right-click
+  workaround or "unidentified developer" warning.
 
-> Naming note: the app ships as **Amanuensis** (`work.miklos.amanuensis`). The
-> Xcode project/target/scheme and the internal SPM modules keep their original
-> `Amanuensis`/`AudioPipeline` names; the git repo directory is still
-> `audio-pipeline/`. This is cosmetic.
+> Naming note: the app ships as **Amanuensis** (`work.miklos.amanuensis`), but the
+> internal SPM package and its modules keep their original `AudioPipeline` names
+> (e.g. `import AudioPipelineJobs`). Intentional, and purely cosmetic.
+
+## Screenshots
+
+The Recordings library, with each capture's date, duration, size, and format:
+
+<p align="center">
+  <img src="Screenshots/recordings.png" alt="Recordings list view" width="900">
+</p>
+
+Settings: where recordings are saved, what happens after a recording stops, the meeting record cue, and dictation:
+
+<p align="center">
+  <img src="Screenshots/settings.png" alt="Settings window" width="460">
+</p>
 
 ## Requirements
 
-- macOS 26.3 (Tahoe) or later — the system-audio process-tap API needs a recent
+- macOS 26.3 (Tahoe) or later. The system-audio process-tap API needs a recent
   macOS, and the build targets 26.3.
-- Apple Silicon or Intel — releases ship a separate `arm64` and `x86_64` build;
-  download the one that matches your Mac.
+- Apple Silicon or Intel. Releases ship separate `arm64` and `x86_64` builds, so
+  grab the one that matches your Mac.
 - Xcode 26 / Swift 6.2 to build from source.
 
 ## Build & run
@@ -57,7 +78,7 @@ Or open `Amanuensis.xcodeproj` in Xcode and press ⌘R. To find the built app:
 
 ```bash
 xcodebuild -project Amanuensis.xcodeproj -scheme Amanuensis -configuration Debug \
-  -showBuildSettings | rg '^\s+BUILT_PRODUCTS_DIR'
+  -showBuildSettings | grep BUILT_PRODUCTS_DIR
 open <BUILT_PRODUCTS_DIR>/Amanuensis.app
 ```
 
@@ -65,10 +86,9 @@ See [`CLAUDE.md`](CLAUDE.md) for the test surfaces and project structure details
 
 ## Permissions the app requests
 
-Amanuensis runs under the **App Sandbox** with the **Hardened Runtime**. It asks
-only for what it needs, and the full breakdown — with the exact entitlement keys
-and the source file each one is requested from — lives in
-[`docs/permissions.md`](docs/permissions.md). Summary:
+Amanuensis runs under the **App Sandbox** with the **Hardened Runtime**, and asks
+only for what it needs. For the full breakdown, with the exact entitlement keys
+and where each one is declared, see [`docs/permissions.md`](docs/permissions.md).
 
 ### Entitlements (granted at build/install time)
 
@@ -96,10 +116,10 @@ App-Store-compatible.
 ## Providers supported out of the box
 
 Amanuensis ships with the providers below preconfigured (base URLs, suggested
-models, and field hints). They're all **bring-your-own-key** — you add your own
-API key, stored in the Keychain. The two "OpenAI-compatible" entries are generic:
-point them at any endpoint that speaks the OpenAI API (a self-hosted server,
-LM Studio, a gateway, etc.). Providers are defined as data in
+models, field hints). They're all bring-your-own-key: you add your API key, and
+it lives in the Keychain. The two "OpenAI-compatible" entries are generic, so you
+can point them at any endpoint that speaks the OpenAI API (a self-hosted server,
+LM Studio, a gateway). Providers are defined as plain data in
 [`presets.json`](Packages/AudioPipeline/Sources/AudioPipelineJobs/Resources/presets.json),
 and you can add your own from the in-app Providers UI.
 
@@ -132,7 +152,7 @@ These take the audio plus a free-text instruction and return Markdown (e.g.
 
 ## Contributing
 
-PRs and feature requests are welcome — open an issue or a pull request.
+PRs and feature requests are welcome. Open an issue or a pull request.
 
 ## License
 
