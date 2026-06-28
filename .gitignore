@@ -16,8 +16,9 @@ Packages/**/.build/
 # Brainstorming visual companion (per-session mockups)
 .superpowers/
 
-# Local Claude Code state — user-installed skills (from Dimillian/Skills)
-# and XcodeBuildMCP per-machine session config. Not vendored.
-.claude/skills/swift-*/
-.claude/skills/swiftui-*/
+# Local Claude Code state — not vendored (skills, settings, daemon config)
+.claude/
 .xcodebuildmcp/
+
+# Local Hammerspoon build daemon (machine-specific)
+build-daemon.lua

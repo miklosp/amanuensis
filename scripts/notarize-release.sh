@@ -39,7 +39,8 @@ echo "Signing identity: $IDENTITY"
 # so Xcode signs with --options runtime; --timestamp adds the secure timestamp the
 # notary requires. CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO drops the get-task-allow
 # debugger entitlement (a plain `build` injects it, and the notary rejects it) —
-# the app's own entitlements file (audio-input, sandbox off) is still applied.
+# the app's own entitlements file (App Sandbox on, audio-input, network, music)
+# is still applied.
 # Letting xcodebuild sign also signs any nested frameworks/dylibs correctly.
 rm -rf "$DERIVED" "$ZIP"
 xcodebuild build \
