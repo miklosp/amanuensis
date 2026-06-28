@@ -39,10 +39,15 @@ final class MicCueController {
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = true
+        panel.alphaValue = 0
         panel.contentView = hosting
         position(panel)
         panel.orderFrontRegardless()
         self.panel = panel
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            panel.animator().alphaValue = 1
+        }
 
         dismissTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -60,8 +65,14 @@ final class MicCueController {
     func hide() {
         dismissTask?.cancel()
         dismissTask = nil
-        panel?.orderOut(nil)
-        panel = nil
+        guard let panel else { return }
+        self.panel = nil   // release immediately; single-instance stays enforced
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            panel.animator().alphaValue = 0
+        } completionHandler: {
+            panel.orderOut(nil)
+        }
     }
 
     private func position(_ panel: NSPanel) {
