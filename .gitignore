@@ -10,6 +10,9 @@ build/
 DerivedData/
 Packages/**/.build/
 
+# Notarized release artifact — CI publishes release zips; don't track a local one
+Amanuensis.zip
+
 # Git worktrees
 .worktrees/
 
