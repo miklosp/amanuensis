@@ -3,12 +3,18 @@ import SwiftUI
 import DictationCore
 
 /// Optional bottom-center HUD. Non-activating panel; mirrors MicCueController.
+///
+/// Holds one persistent hosting view bound to `model` for the panel's lifetime,
+/// so phase changes cross-fade in SwiftUI (a per-change hosting rebuild can't
+/// animate). The panel tracks the pill's animated size via the view's
+/// `onResize` callback, and fades in/out on show/hide.
 @MainActor
 final class DictationOverlayController {
     private var panel: NSPanel?
+    private let model = DictationOverlayModel()
     private var phase: DictationStateMachine.Phase = .idle
     private var enabled = false
-    private var level: Float = 0
+    private var shown = false
     private var flashing = false
     private var flashTask: Task<Void, Never>?
 
@@ -27,7 +33,7 @@ final class DictationOverlayController {
     func flash(_ message: String) {
         flashTask?.cancel()
         flashing = true
-        showText(message)
+        show(.flash(message))
         flashTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(2))
             guard let self, !Task.isCancelled else { return }
@@ -37,44 +43,74 @@ final class DictationOverlayController {
     }
 
     private func renderPhase() {
-        guard enabled, phase != .idle else { hide(); return }
-        present(AnyView(DictationOverlayView(phase: phase, level: level)))
+        guard enabled, let state = Self.state(for: phase) else { hide(); return }
+        show(state)
     }
 
-    private func showText(_ message: String) {
-        present(AnyView(
-            Text(message)
-                .font(.callout)
-                .padding(.horizontal, 14).padding(.vertical, 8)
-                .background(.ultraThinMaterial, in: Capsule())))
-    }
-
-    private func present(_ root: AnyView) {
-        let hosting = NSHostingView(rootView: root)
-        hosting.layout()
-        if panel == nil {
-            let p = NSPanel(
-                contentRect: NSRect(origin: .zero, size: hosting.fittingSize),
-                styleMask: [.nonactivatingPanel, .borderless],
-                backing: .buffered, defer: false)
-            p.isFloatingPanel = true
-            p.level = .statusBar
-            p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            p.hidesOnDeactivate = false
-            p.backgroundColor = .clear
-            p.isOpaque = false
-            p.hasShadow = true
-            panel = p
+    private static func state(for phase: DictationStateMachine.Phase) -> DictationOverlayState? {
+        switch phase {
+        case .idle: return nil
+        case .listening: return .listening
+        case .transcribing: return .transcribing
+        case .inserting: return .inserted
         }
-        guard let panel else { return }
-        panel.contentView = hosting
-        panel.setContentSize(hosting.fittingSize)
-        position(panel)
+    }
+
+    private func show(_ state: DictationOverlayState) {
+        let panel = ensurePanel()
+        model.state = state
+        guard !shown else { return }
+        shown = true
+        position(panel)   // best-effort initial placement; fit(to:) refines it
         panel.orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.22
+            panel.animator().alphaValue = 1
+        }
     }
 
     private func hide() {
-        panel?.orderOut(nil)
+        guard shown, let panel else { return }
+        shown = false
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            panel.animator().alphaValue = 0
+        }
+        // Order out once the fade finishes — unless a new show re-claimed the
+        // panel mid-fade (shown flips back to true), in which case leave it up.
+        Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(220))
+            guard let self, !self.shown, let panel = self.panel else { return }
+            panel.orderOut(nil)
+        }
+    }
+
+    /// Resize + reposition the panel to track the pill's (animated) size.
+    private func fit(to size: CGSize) {
+        guard let panel, size.width > 0, size.height > 0 else { return }
+        panel.setContentSize(size)
+        position(panel)
+    }
+
+    private func ensurePanel() -> NSPanel {
+        if let panel { return panel }
+        let hosting = NSHostingView(
+            rootView: DictationOverlayView(model: model, onResize: { [weak self] in self?.fit(to: $0) }))
+        let p = NSPanel(
+            contentRect: NSRect(origin: .zero, size: hosting.fittingSize),
+            styleMask: [.nonactivatingPanel, .borderless],
+            backing: .buffered, defer: false)
+        p.isFloatingPanel = true
+        p.level = .statusBar
+        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        p.hidesOnDeactivate = false
+        p.backgroundColor = .clear
+        p.isOpaque = false
+        p.hasShadow = true
+        p.alphaValue = 0
+        p.contentView = hosting
+        panel = p
+        return p
     }
 
     private func position(_ panel: NSPanel) {
