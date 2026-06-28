@@ -1,0 +1,146 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  # Build one Developer-ID-signed, notarized .app per architecture and upload
+  # each as an artifact. Apple Silicon and Intel ship as separate downloads (not
+  # a single universal binary), so users grab the slice that matches their Mac.
+  #
+  # Required repo secrets:
+  #   APPLE_CERTIFICATE_P12_BASE64  base64 of the exported "Developer ID
+  #                                 Application" cert + private key (.p12)
+  #   APPLE_CERTIFICATE_PASSWORD    password set when exporting the .p12
+  #   APPLE_API_KEY_P8_BASE64       base64 of the App Store Connect API key (.p8)
+  #   APPLE_API_KEY_ID              the API key's Key ID
+  #   APPLE_API_ISSUER_ID           the API key's Issuer ID
+  build:
+    runs-on: macos-15
+    strategy:
+      matrix:
+        arch: [arm64, x86_64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26'
+
+      # Import the Developer ID cert into a throwaway keychain so codesign can
+      # use the private key non-interactively. The keychain dies with the runner.
+      - name: Import Developer ID certificate
+        env:
+          CERT_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PW="$(openssl rand -base64 24)"
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+
+          echo "$CERT_P12_BASE64" | base64 --decode > "$CERT_PATH"
+          security create-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          security import "$CERT_PATH" -k "$KEYCHAIN" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PW" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" "login.keychain-db"
+          rm "$CERT_PATH"
+
+      - name: Build & sign Release (${{ matrix.arch }})
+        run: |
+          V="${GITHUB_REF_NAME#v}"   # v1.0.1 -> 1.0.1
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" \
+            | awk '/Developer ID Application/ {print $2; exit}')"
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::No 'Developer ID Application' identity in the keychain"; exit 1
+          fi
+
+          # Hardened Runtime comes from the project (ENABLE_HARDENED_RUNTIME=YES),
+          # so Xcode signs with --options runtime automatically; --timestamp adds
+          # the secure timestamp notarization requires.
+          # CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO stops a plain `build` from adding
+          # com.apple.security.get-task-allow (the debugger-attach entitlement),
+          # which notarization rejects. Amanuensis's own entitlements file
+          # (App Sandbox, audio-input, network, music) is still applied via the
+          # project's CODE_SIGN_ENTITLEMENTS setting, so the app signs clean.
+          xcodebuild build \
+            -project Amanuensis.xcodeproj -scheme Amanuensis \
+            -configuration Release -destination 'generic/platform=macOS' \
+            -derivedDataPath build \
+            ARCHS="${{ matrix.arch }}" ONLY_ACTIVE_ARCH=NO \
+            MARKETING_VERSION="${V}" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="$IDENTITY" \
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
+            OTHER_CODE_SIGN_FLAGS="--timestamp" \
+            CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES
+
+      # Notarize the signed app, then staple the ticket so it launches offline.
+      # stapler is the gate: a rejected build has no ticket and fails here.
+      - name: Notarize & staple (${{ matrix.arch }})
+        env:
+          API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          APP="build/Build/Products/Release/Amanuensis.app"
+          ZIP="Amanuensis-${{ matrix.arch }}.zip"
+          KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          SUBMIT_OUT="$RUNNER_TEMP/submit.json"
+
+          echo "$API_KEY_BASE64" | base64 --decode > "$KEY_PATH"
+          ditto -c -k --keepParent "$APP" "$ZIP"
+
+          # Submit and capture the submission id + final status. notarytool exits
+          # 0 even when the result is Invalid, so we check the status ourselves.
+          xcrun notarytool submit "$ZIP" \
+            --key "$KEY_PATH" --key-id "$API_KEY_ID" --issuer "$API_ISSUER_ID" \
+            --wait --output-format json | tee "$SUBMIT_OUT"
+          SUB_ID="$(jq -r '.id' "$SUBMIT_OUT")"
+          STATUS="$(jq -r '.status' "$SUBMIT_OUT")"
+
+          # Apple's per-issue breakdown — the only place a rejection is explained.
+          echo "--- Notary log for $SUB_ID ---"
+          xcrun notarytool log "$SUB_ID" \
+            --key "$KEY_PATH" --key-id "$API_KEY_ID" --issuer "$API_ISSUER_ID" || true
+
+          if [ "$STATUS" != "Accepted" ]; then
+            echo "::error::Notarization failed with status: $STATUS"; exit 1
+          fi
+
+          xcrun stapler staple "$APP"
+          rm "$KEY_PATH"
+
+          # Re-zip the stapled app for distribution.
+          ditto -c -k --keepParent "$APP" "$ZIP"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Amanuensis-${{ matrix.arch }}
+          path: Amanuensis-${{ matrix.arch }}.zip
+
+  # Collect both slices and publish a single GitHub release for the tag with
+  # both zips attached. Splitting build/publish avoids two matrix legs racing
+  # to create the same release.
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Collect artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true

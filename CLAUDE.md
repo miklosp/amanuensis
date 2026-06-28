@@ -33,7 +33,7 @@ The SPM scaffolding script for adding new library products is `scripts/run-setup
 
 ## Tooling
 
-### `swift-modules-and-gotchas.md`
+### `docs/swift-modules-and-gotchas.md`
 
 Project-specific cheatsheet of every framework this app uses (Core Audio tap, AVAudioEngine, MenuBarExtra, Keychain, SQLite, Carbon hotkey, Accessibility, etc.) and the traps to watch for under strict concurrency and App Sandbox. Tagged `[M1]/[M2]/[M4]` so you can skip what isn't yet in scope. Read it before adding code in a new module area.
 
