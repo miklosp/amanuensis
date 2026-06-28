@@ -22,3 +22,10 @@ Packages/**/.build/
 
 # Local Hammerspoon build daemon (machine-specific)
 build-daemon.lua
+
+# Machine-local Claude instructions (sandbox / daemon specifics)
+CLAUDE.local.md
+
+# Outside-sandbox daemon helper scripts (only meaningful with the local daemon)
+scripts/xcode-build-helper.sh
+scripts/log-helper.sh
