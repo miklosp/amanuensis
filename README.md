@@ -40,10 +40,9 @@ A few more things that make it pleasant:
   by Apple, so they open straight from Gatekeeper, without the usual right-click
   workaround or "unidentified developer" warning.
 
-> Naming note: the app ships as **Amanuensis** (`work.miklos.amanuensis`). The
-> Xcode project/target/scheme and the internal SPM modules keep their original
-> `Amanuensis`/`AudioPipeline` names; the git repo directory is still
-> `audio-pipeline/`. This is cosmetic.
+> Naming note: the app ships as **Amanuensis** (`work.miklos.amanuensis`), but the
+> internal SPM package and its modules keep their original `AudioPipeline` names
+> (e.g. `import AudioPipelineJobs`). Intentional, and purely cosmetic.
 
 ## Screenshots
 
