@@ -65,7 +65,7 @@ final class AppCoordinator {
     // Mic-in-use cue (auto-detect a likely meeting → offer to record).
     private let micMonitor = MicActivityMonitor()
     private var micCuePolicy = MicCuePolicy()
-    private let micCueController = MicCueController()
+    private let cueController = FloatingCueController()
     private var micDebounceTask: Task<Void, Never>?
     private var lastReportedCoordinatorIdle = true
 
@@ -355,7 +355,7 @@ final class AppCoordinator {
             micDebounceTask?.cancel()
             micDebounceTask = nil
             micMonitor.stop()
-            micCueController.hide()
+            cueController.hide()
         }
     }
 
@@ -388,17 +388,26 @@ final class AppCoordinator {
                 self.apply(self.micCuePolicy.debounceElapsed())
             }
         case .showCue:
-            micCueController.show(
-                onStart: { [weak self] in self?.startFromMicCue() },
-                onDismiss: { [weak self] in
-                    guard let self else { return }
-                    self.apply(self.micCuePolicy.cueDismissed())
-                }
-            )
+            cueController.show(onAutoDismiss: { [weak self] in
+                guard let self else { return }
+                self.apply(self.micCuePolicy.cueDismissed())
+            }) {
+                MicCueView(
+                    onStart: { [weak self] in
+                        self?.cueController.hide()
+                        self?.startFromMicCue()
+                    },
+                    onDismiss: { [weak self] in
+                        guard let self else { return }
+                        self.cueController.hide()
+                        self.apply(self.micCuePolicy.cueDismissed())
+                    }
+                )
+            }
         case .hideCue:
             micDebounceTask?.cancel()
             micDebounceTask = nil
-            micCueController.hide()
+            cueController.hide()
         }
     }
 

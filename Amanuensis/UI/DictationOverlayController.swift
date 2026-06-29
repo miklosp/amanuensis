@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import DictationCore
 
-/// Optional bottom-center HUD. Non-activating panel; mirrors MicCueController.
+/// Optional bottom-center HUD. Non-activating panel; mirrors FloatingCueController.
 ///
 /// Holds one persistent hosting view bound to `model` for the panel's lifetime,
 /// so phase changes cross-fade in SwiftUI (a per-change hosting rebuild can't
