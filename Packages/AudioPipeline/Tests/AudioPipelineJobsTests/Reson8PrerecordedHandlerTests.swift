@@ -123,6 +123,14 @@ private func writeAudio(_ bytes: [UInt8], name: String = "combined.flac") throws
         #expect(out.contains("\n"))   // pretty-printed
     }
 
+    @Test func diarized_attachesMidSpeakerlessSegment_andDropsLeadingOrphan() throws {
+        // Leading speaker-less "x" is dropped (no run yet); mid "b" attaches to
+        // the current speaker's run; consecutive same-speaker segments merge.
+        let json = #"{"text":"x a b c d","segments":[{"text":"x"},{"text":"a","speaker_id":0},{"text":"b"},{"text":"c","speaker_id":0},{"text":"d","speaker_id":1}]}"#
+        let out = try Reson8PrerecordedHandler.format(data: Data(json.utf8), outputExt: "txt")
+        #expect(out == "Speaker 1: a b c\nSpeaker 2: d")
+    }
+
     @Test func malformedJSON_throwsMalformedResponse() throws {
         do {
             _ = try Reson8PrerecordedHandler.format(data: Data("not json".utf8), outputExt: "txt")

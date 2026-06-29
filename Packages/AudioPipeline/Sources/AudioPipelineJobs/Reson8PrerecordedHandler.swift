@@ -109,7 +109,7 @@ public enum Reson8PrerecordedHandler {
 
     struct Response: Decodable {
         struct Segment: Decodable {
-            let text: String
+            let text: String?
             let speakerID: Int?
             enum CodingKeys: String, CodingKey {
                 case text
@@ -129,14 +129,18 @@ public enum Reson8PrerecordedHandler {
             var runs: [(speaker: Int, parts: [String])] = []
             for seg in segments {
                 guard let sid = seg.speakerID else {
-                    // Segment with no speaker — attach to the current run if any.
-                    if !runs.isEmpty { runs[runs.count - 1].parts.append(seg.text) }
+                    // Segment with no speaker — attach to the current run if text is non-empty.
+                    if !runs.isEmpty, let t = seg.text, !t.isEmpty {
+                        runs[runs.count - 1].parts.append(t)
+                    }
                     continue
                 }
                 if runs.last?.speaker != sid {
-                    runs.append((sid, [seg.text]))
+                    var parts: [String] = []
+                    if let t = seg.text, !t.isEmpty { parts = [t] }
+                    runs.append((sid, parts))
                 } else {
-                    runs[runs.count - 1].parts.append(seg.text)
+                    if let t = seg.text, !t.isEmpty { runs[runs.count - 1].parts.append(t) }
                 }
             }
             var order: [Int: Int] = [:]
