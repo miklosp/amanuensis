@@ -172,8 +172,8 @@ public final class OtherInputActivityMonitor {
         )
         var value: Unmanaged<CFString>?
         var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
-        let status = withUnsafeMutablePointer(to: &value) {
-            AudioObjectGetPropertyData(process, &address, 0, nil, &size, $0)
+        let status = withUnsafeMutablePointer(to: &value) { valuePointer in
+            AudioObjectGetPropertyData(process, &address, 0, nil, &size, valuePointer)
         }
         guard status == noErr, let cf = value?.takeRetainedValue() else { return "" }
         return cf as String

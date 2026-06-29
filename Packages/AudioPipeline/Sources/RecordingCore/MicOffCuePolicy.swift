@@ -10,7 +10,7 @@
 // another app grabs the mic again. Stopping the recording resets the machine.
 public struct MicOffCuePolicy: Sendable {
     public enum Action: Equatable, Sendable {
-        case none
+        case noop
         case startDebounce
         case showCue
         case hideCue
@@ -36,20 +36,20 @@ public struct MicOffCuePolicy: Sendable {
 
     public mutating func enabledChanged(_ value: Bool) -> Action {
         enabled = value
-        guard !value else { return .none }
+        guard !value else { return .noop }
         let wasShown = (phase == .shown)
         phase = .idle
-        return wasShown ? .hideCue : .none
+        return wasShown ? .hideCue : .noop
     }
 
     public mutating func recordingChanged(isRecording: Bool) -> Action {
         recording = isRecording
-        guard !isRecording else { return .none }  // becoming recording needs an edge
+        guard !isRecording else { return .noop }  // becoming recording needs an edge
         // Recording over: reset for the next session, re-baseline, hide if shown.
         let wasShown = (phase == .shown)
         phase = .idle
         othersUsingMic = nil
-        return wasShown ? .hideCue : .none
+        return wasShown ? .hideCue : .noop
     }
 
     public mutating func othersUsingMicChanged(_ others: Bool) -> Action {
@@ -61,11 +61,11 @@ public struct MicOffCuePolicy: Sendable {
             // cue (the meeting resumed). Mirror of MicCuePolicy's "mic fell".
             let wasShown = (phase == .shown)
             phase = .idle
-            return wasShown ? .hideCue : .none
+            return wasShown ? .hideCue : .noop
         }
 
-        if was == nil { return .none }    // baseline seed, no edge
-        if was == false { return .none }  // dedup, no edge
+        if was == nil { return .noop }    // baseline seed, no edge
+        if was == false { return .noop }  // dedup, no edge
 
         // Falling edge (true → false): everyone else stopped using the mic.
         if enabled && recording && phase == .idle {
@@ -73,24 +73,24 @@ public struct MicOffCuePolicy: Sendable {
             return .startDebounce
         }
         phase = .consumed
-        return .none
+        return .noop
     }
 
     public mutating func debounceElapsed() -> Action {
-        guard phase == .armed else { return .none }
+        guard phase == .armed else { return .noop }
         if enabled && recording && othersUsingMic == false {
             phase = .shown
             return .showCue
         }
         phase = .consumed
-        return .none
+        return .noop
     }
 
-    // Returns Action for interface uniformity; always .none (dismissal needs no
+    // Returns Action for interface uniformity; always .noop (dismissal needs no
     // follow-up effect — the controller self-hides).
     public mutating func cueDismissed() -> Action {
-        guard phase == .shown else { return .none }
+        guard phase == .shown else { return .noop }
         phase = .consumed
-        return .none
+        return .noop
     }
 }

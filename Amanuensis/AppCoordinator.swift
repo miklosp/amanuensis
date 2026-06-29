@@ -382,32 +382,41 @@ final class AppCoordinator {
     // .starting→.recording is not an idleness flip) and gates its per-process
     // poll monitor to the recording window.
     private func notifyRecordingActivity() {
-        let idle = (status == .idle)
-        if idle != lastReportedCoordinatorIdle {
-            lastReportedCoordinatorIdle = idle
-            apply(micCuePolicy.recordingActivityChanged(isIdle: idle))
-        }
+        syncOnCueIdleness()
+        syncOffCueRecordingWindow()
+    }
 
+    // On-cue: tracks the idle edge.
+    private func syncOnCueIdleness() {
+        let idle = (status == .idle)
+        guard idle != lastReportedCoordinatorIdle else { return }
+        lastReportedCoordinatorIdle = idle
+        apply(micCuePolicy.recordingActivityChanged(isIdle: idle))
+    }
+
+    // Off-cue: tracks the .recording edge (distinct from idleness —
+    // .starting→.recording is not an idleness flip) and gates the per-process
+    // poll monitor to the recording window.
+    private func syncOffCueRecordingWindow() {
         let recording: Bool
         if case .recording = status { recording = true } else { recording = false }
-        if recording != lastReportedRecording {
-            lastReportedRecording = recording
-            applyOffCue(micOffCuePolicy.recordingChanged(isRecording: recording))
-            if recording && settings.suggestStoppingWhenMeetingEnds {
-                otherInputMonitor.start { [weak self] others in
-                    guard let self else { return }
-                    self.applyOffCue(self.micOffCuePolicy.othersUsingMicChanged(others))
-                }
-            } else {
-                otherInputMonitor.stop()
+        guard recording != lastReportedRecording else { return }
+        lastReportedRecording = recording
+        applyOffCue(micOffCuePolicy.recordingChanged(isRecording: recording))
+        if recording && settings.suggestStoppingWhenMeetingEnds {
+            otherInputMonitor.start { [weak self] others in
+                guard let self else { return }
+                self.applyOffCue(self.micOffCuePolicy.othersUsingMicChanged(others))
             }
+        } else {
+            otherInputMonitor.stop()
         }
     }
 
     // Executes a MicCuePolicy.Action. May recurse (debounce → debounceElapsed).
     private func apply(_ action: MicCuePolicy.Action) {
         switch action {
-        case .none:
+        case .noop:
             break
         case .startDebounce:
             micDebounceTask?.cancel()
@@ -417,26 +426,30 @@ final class AppCoordinator {
                 self.apply(self.micCuePolicy.debounceElapsed())
             }
         case .showCue:
-            cueController.show(onAutoDismiss: { [weak self] in
-                guard let self else { return }
-                self.apply(self.micCuePolicy.cueDismissed())
-            }) {
-                MicCueView(
-                    onStart: { [weak self] in
-                        self?.cueController.hide()
-                        self?.startFromMicCue()
-                    },
-                    onDismiss: { [weak self] in
-                        guard let self else { return }
-                        self.cueController.hide()
-                        self.apply(self.micCuePolicy.cueDismissed())
-                    }
-                )
-            }
+            showOnCue()
         case .hideCue:
             micDebounceTask?.cancel()
             micDebounceTask = nil
             cueController.hide()
+        }
+    }
+
+    private func showOnCue() {
+        cueController.show(onAutoDismiss: { [weak self] in
+            guard let self else { return }
+            self.apply(self.micCuePolicy.cueDismissed())
+        }) {
+            MicCueView(
+                onStart: { [weak self] in
+                    self?.cueController.hide()
+                    self?.startFromMicCue()
+                },
+                onDismiss: { [weak self] in
+                    guard let self else { return }
+                    self.cueController.hide()
+                    self.apply(self.micCuePolicy.cueDismissed())
+                }
+            )
         }
     }
 
@@ -464,7 +477,7 @@ final class AppCoordinator {
     // Executes a MicOffCuePolicy.Action. Mirrors apply(_:) for the on-cue.
     private func applyOffCue(_ action: MicOffCuePolicy.Action) {
         switch action {
-        case .none:
+        case .noop:
             break
         case .startDebounce:
             micOffDebounceTask?.cancel()
@@ -474,26 +487,30 @@ final class AppCoordinator {
                 self.applyOffCue(self.micOffCuePolicy.debounceElapsed())
             }
         case .showCue:
-            cueController.show(onAutoDismiss: { [weak self] in
-                guard let self else { return }
-                self.applyOffCue(self.micOffCuePolicy.cueDismissed())
-            }) {
-                MicOffCueView(
-                    onStop: { [weak self] in
-                        self?.cueController.hide()
-                        self?.stopFromMicOffCue()
-                    },
-                    onDismiss: { [weak self] in
-                        guard let self else { return }
-                        self.cueController.hide()
-                        self.applyOffCue(self.micOffCuePolicy.cueDismissed())
-                    }
-                )
-            }
+            showOffCue()
         case .hideCue:
             micOffDebounceTask?.cancel()
             micOffDebounceTask = nil
             cueController.hide()
+        }
+    }
+
+    private func showOffCue() {
+        cueController.show(onAutoDismiss: { [weak self] in
+            guard let self else { return }
+            self.applyOffCue(self.micOffCuePolicy.cueDismissed())
+        }) {
+            MicOffCueView(
+                onStop: { [weak self] in
+                    self?.cueController.hide()
+                    self?.stopFromMicOffCue()
+                },
+                onDismiss: { [weak self] in
+                    guard let self else { return }
+                    self.cueController.hide()
+                    self.applyOffCue(self.micOffCuePolicy.cueDismissed())
+                }
+            )
         }
     }
 
