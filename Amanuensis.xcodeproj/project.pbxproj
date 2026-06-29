@@ -14,6 +14,7 @@
 		B41F3CA7F935963EBA8FC7E6 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F83379B555813CEE20BE895F /* Cocoa.framework */; };
 		B613BAFD1C592783FC3934C9 /* MainWindowViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2869FCC8825AFD91DAD850C7 /* MainWindowViewTests.swift */; };
 		C30715B2C425CA0BDDF2BC88 /* RecordingStorage in Frameworks */ = {isa = PBXBuildFile; productRef = C81DE0068215EFA9C64A00DA /* RecordingStorage */; };
+		D4944A1F203176790C851F5C /* OtherInputActivityMonitorSandboxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BD8C5C20B4F621E868F9A1E /* OtherInputActivityMonitorSandboxTests.swift */; };
 		DC7A7A1000000000DEAD0002 /* DictationCore in Frameworks */ = {isa = PBXBuildFile; productRef = DC7A7A1000000000DEAD0001 /* DictationCore */; };
 		E74C324A87BEC59AA8FBC2A1 /* AppSettings in Frameworks */ = {isa = PBXBuildFile; productRef = DDADBEADF4CFB28174A18CD6 /* AppSettings */; };
 		EDD09D52AABBE7C1F59C03C3 /* AppLog in Frameworks */ = {isa = PBXBuildFile; productRef = 2D7BB706295DFD7293887750 /* AppLog */; };
@@ -35,6 +36,7 @@
 		2C7C9535F59A0C34F7816F65 /* BatchTranscriberTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BatchTranscriberTests.swift; sourceTree = "<group>"; };
 		530554F5DA0383ED728291F5 /* RecordingFormattersTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordingFormattersTests.swift; sourceTree = "<group>"; };
 		64F04E712FBDBC4A00B58BE7 /* Amanuensis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Amanuensis.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6BD8C5C20B4F621E868F9A1E /* OtherInputActivityMonitorSandboxTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OtherInputActivityMonitorSandboxTests.swift; sourceTree = "<group>"; };
 		F83379B555813CEE20BE895F /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
@@ -87,6 +89,7 @@
 				530554F5DA0383ED728291F5 /* RecordingFormattersTests.swift */,
 				2869FCC8825AFD91DAD850C7 /* MainWindowViewTests.swift */,
 				2C7C9535F59A0C34F7816F65 /* BatchTranscriberTests.swift */,
+				6BD8C5C20B4F621E868F9A1E /* OtherInputActivityMonitorSandboxTests.swift */,
 			);
 			path = AmanuensisTests;
 			sourceTree = SOURCE_ROOT;
@@ -230,6 +233,7 @@
 				8EFBD6CE8086F36CED3D45FA /* RecordingFormattersTests.swift in Sources */,
 				B613BAFD1C592783FC3934C9 /* MainWindowViewTests.swift in Sources */,
 				6A2C3F578C1FD67551B1173A /* BatchTranscriberTests.swift in Sources */,
+				D4944A1F203176790C851F5C /* OtherInputActivityMonitorSandboxTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

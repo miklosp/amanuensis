@@ -65,9 +65,15 @@ final class AppCoordinator {
     // Mic-in-use cue (auto-detect a likely meeting → offer to record).
     private let micMonitor = MicActivityMonitor()
     private var micCuePolicy = MicCuePolicy()
-    private let micCueController = MicCueController()
+    private let cueController = FloatingCueController()
     private var micDebounceTask: Task<Void, Never>?
     private var lastReportedCoordinatorIdle = true
+
+    // Mic-off cue (offer to stop recording when the meeting ends).
+    private let otherInputMonitor = OtherInputActivityMonitor()
+    private var micOffCuePolicy = MicOffCuePolicy()
+    private var micOffDebounceTask: Task<Void, Never>?
+    private var lastReportedRecording = false
 
     init() {
         let settings = AppSettings()
@@ -140,6 +146,10 @@ final class AppCoordinator {
         if settings.suggestRecordingWhenMicInUse {
             micMonitor.start { [weak self] running in self?.handleMicRunning(running) }
         }
+
+        // Seed the mic-off cue policy. Its monitor starts only when recording
+        // begins (see notifyRecordingActivity), so nothing to start here.
+        _ = micOffCuePolicy.enabledChanged(settings.suggestStoppingWhenMeetingEnds)
     }
 
     func toggleRecording() {
@@ -355,30 +365,58 @@ final class AppCoordinator {
             micDebounceTask?.cancel()
             micDebounceTask = nil
             micMonitor.stop()
-            micCueController.hide()
         }
     }
 
-    private func handleMicRunning(_ running: Bool) {
-        // Our own dictation opens the mic; don't let that arm the "record this?" cue.
-        guard dictation.phase == .idle else { return }
-        apply(micCuePolicy.micRunningChanged(running))
+    private func handleMicRunning(_ deviceRunning: Bool) {
+        // A process OTHER than us is using the mic — exclude our own PID so our
+        // own dictation/recording never arms the cue. (Replaces the former
+        // `dictation.phase == .idle` guard.)
+        let others = deviceRunning && OtherInputActivityMonitor.othersUsingMic()
+        apply(micCuePolicy.micRunningChanged(others))
     }
 
-    // Keeps the policy's idle/busy view in sync with the recorder lifecycle.
-    // Called explicitly on entry to .starting and from defers on every exit path
-    // (including early returns); only feeds the policy when idleness flips.
+    // Keeps both cue policies in sync with the recorder lifecycle. Called on
+    // entry to .starting and from defers on every exit path. The on-cue tracks
+    // idleness; the off-cue tracks the .recording state (a separate edge —
+    // .starting→.recording is not an idleness flip) and gates its per-process
+    // poll monitor to the recording window.
     private func notifyRecordingActivity() {
+        syncOnCueIdleness()
+        syncOffCueRecordingWindow()
+    }
+
+    // On-cue: tracks the idle edge.
+    private func syncOnCueIdleness() {
         let idle = (status == .idle)
         guard idle != lastReportedCoordinatorIdle else { return }
         lastReportedCoordinatorIdle = idle
         apply(micCuePolicy.recordingActivityChanged(isIdle: idle))
     }
 
+    // Off-cue: tracks the .recording edge (distinct from idleness —
+    // .starting→.recording is not an idleness flip) and gates the per-process
+    // poll monitor to the recording window.
+    private func syncOffCueRecordingWindow() {
+        let recording: Bool
+        if case .recording = status { recording = true } else { recording = false }
+        guard recording != lastReportedRecording else { return }
+        lastReportedRecording = recording
+        applyOffCue(micOffCuePolicy.recordingChanged(isRecording: recording))
+        if recording && settings.suggestStoppingWhenMeetingEnds {
+            otherInputMonitor.start { [weak self] others in
+                guard let self else { return }
+                self.applyOffCue(self.micOffCuePolicy.othersUsingMicChanged(others))
+            }
+        } else {
+            otherInputMonitor.stop()
+        }
+    }
+
     // Executes a MicCuePolicy.Action. May recurse (debounce → debounceElapsed).
     private func apply(_ action: MicCuePolicy.Action) {
         switch action {
-        case .none:
+        case .noop:
             break
         case .startDebounce:
             micDebounceTask?.cancel()
@@ -388,22 +426,96 @@ final class AppCoordinator {
                 self.apply(self.micCuePolicy.debounceElapsed())
             }
         case .showCue:
-            micCueController.show(
-                onStart: { [weak self] in self?.startFromMicCue() },
-                onDismiss: { [weak self] in
-                    guard let self else { return }
-                    self.apply(self.micCuePolicy.cueDismissed())
-                }
-            )
+            showOnCue()
         case .hideCue:
             micDebounceTask?.cancel()
             micDebounceTask = nil
-            micCueController.hide()
+            cueController.hide()
+        }
+    }
+
+    private func showOnCue() {
+        cueController.show(onAutoDismiss: { [weak self] in
+            guard let self else { return }
+            self.apply(self.micCuePolicy.cueDismissed())
+        }) {
+            MicCueView(
+                onStart: { [weak self] in
+                    self?.cueController.hide()
+                    self?.startFromMicCue()
+                },
+                onDismiss: { [weak self] in
+                    guard let self else { return }
+                    self.cueController.hide()
+                    self.apply(self.micCuePolicy.cueDismissed())
+                }
+            )
         }
     }
 
     private func startFromMicCue() {
         Task { @MainActor in await self.startRecording() }
+    }
+
+    func setMicOffCueEnabled(_ enabled: Bool) {
+        applyOffCue(micOffCuePolicy.enabledChanged(enabled))
+        if enabled {
+            // Start the monitor immediately if we are already recording.
+            if case .recording = status {
+                otherInputMonitor.start { [weak self] others in
+                    guard let self else { return }
+                    self.applyOffCue(self.micOffCuePolicy.othersUsingMicChanged(others))
+                }
+            }
+        } else {
+            micOffDebounceTask?.cancel()
+            micOffDebounceTask = nil
+            otherInputMonitor.stop()
+        }
+    }
+
+    // Executes a MicOffCuePolicy.Action. Mirrors apply(_:) for the on-cue.
+    private func applyOffCue(_ action: MicOffCuePolicy.Action) {
+        switch action {
+        case .noop:
+            break
+        case .startDebounce:
+            micOffDebounceTask?.cancel()
+            micOffDebounceTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(1500))
+                guard let self, !Task.isCancelled else { return }
+                self.applyOffCue(self.micOffCuePolicy.debounceElapsed())
+            }
+        case .showCue:
+            showOffCue()
+        case .hideCue:
+            micOffDebounceTask?.cancel()
+            micOffDebounceTask = nil
+            cueController.hide()
+        }
+    }
+
+    private func showOffCue() {
+        cueController.show(onAutoDismiss: { [weak self] in
+            guard let self else { return }
+            self.applyOffCue(self.micOffCuePolicy.cueDismissed())
+        }) {
+            MicOffCueView(
+                onStop: { [weak self] in
+                    self?.cueController.hide()
+                    self?.stopFromMicOffCue()
+                },
+                onDismiss: { [weak self] in
+                    guard let self else { return }
+                    self.cueController.hide()
+                    self.applyOffCue(self.micOffCuePolicy.cueDismissed())
+                }
+            )
+        }
+    }
+
+    private func stopFromMicOffCue() {
+        Task { @MainActor in await self.stopRecording() }
     }
 
     enum JobRunError: Error {

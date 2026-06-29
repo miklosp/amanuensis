@@ -10,6 +10,7 @@ private enum PersistedKey {
     static let recordingsDirectory = "recordingsDirectory"
     static let keepOriginalCAF = "keepOriginalCAF"
     static let suggestRecordingWhenMicInUse = "suggestRecordingWhenMicInUse"
+    static let suggestStoppingWhenMeetingEnds = "suggestStoppingWhenMeetingEnds"
 }
 
 // Runs `body` with a fresh `UserDefaults` suite that's removed on exit, so no
@@ -82,6 +83,32 @@ private func withIsolatedDefaults(_ body: (UserDefaults) -> Void) {
 
             let settings = AppSettings(defaults: defaults)
             #expect(settings.suggestRecordingWhenMicInUse == false)
+        }
+    }
+
+    @Test func suggestStoppingWhenMeetingEnds_defaultsTrue() {
+        withIsolatedDefaults { defaults in
+            let settings = AppSettings(defaults: defaults)
+            #expect(settings.suggestStoppingWhenMeetingEnds == true)
+        }
+    }
+
+    @Test func suggestStoppingWhenMeetingEnds_persistsAcrossInstances() {
+        withIsolatedDefaults { defaults in
+            let first = AppSettings(defaults: defaults)
+            first.suggestStoppingWhenMeetingEnds = false
+
+            let second = AppSettings(defaults: defaults)
+            #expect(second.suggestStoppingWhenMeetingEnds == false)
+        }
+    }
+
+    @Test func suggestStoppingWhenMeetingEnds_persistedFalse_loadsAsFalse() {
+        withIsolatedDefaults { defaults in
+            defaults.set(false, forKey: PersistedKey.suggestStoppingWhenMeetingEnds)
+
+            let settings = AppSettings(defaults: defaults)
+            #expect(settings.suggestStoppingWhenMeetingEnds == false)
         }
     }
 

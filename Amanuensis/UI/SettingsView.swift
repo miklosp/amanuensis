@@ -46,6 +46,17 @@ struct SettingsView: View {
                 .onChange(of: settings.suggestRecordingWhenMicInUse) { _, newValue in
                     coordinator.setMicCueEnabled(newValue)
                 }
+                Toggle(isOn: $settings.suggestStoppingWhenMeetingEnds) {
+                    VStack(alignment: .leading) {
+                        Text("Offer to stop recording when the meeting ends")
+                        Text("While recording, when the app that was using the microphone releases it, Amanuensis shows a cue to stop recording. Watches running processes other than itself.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .onChange(of: settings.suggestStoppingWhenMeetingEnds) { _, newValue in
+                    coordinator.setMicOffCueEnabled(newValue)
+                }
             }
             Section("Dictation") {
                 Toggle("Enable dictation", isOn: $settings.dictation.enabled)

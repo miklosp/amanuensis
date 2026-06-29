@@ -1,13 +1,14 @@
 import AppKit
 import SwiftUI
 
-// Owns a single non-activating floating NSPanel that hosts MicCueView, pinned
-// top-right under the menu bar. Auto-dismisses after `autoDismissAfter`
-// seconds. Both auto-dismiss and the ✕ button invoke the caller's onDismiss;
-// the Start button invokes onStart. The panel never activates the app (it's a
-// menu-bar accessory), so it won't steal focus from the meeting.
+// Owns a single non-activating floating NSPanel pinned top-right under the menu
+// bar, hosting an injected SwiftUI cue view. Auto-dismisses after
+// `autoDismissAfter` seconds, invoking onAutoDismiss. The panel never activates
+// the app (it's a menu-bar accessory), so it won't steal focus from a meeting.
+// Shared by the mic-on and mic-off cues — they never overlap in time (idle vs
+// recording), so one shared instance also guarantees at most one cue is visible.
 @MainActor
-final class MicCueController {
+final class FloatingCueController {
     private var panel: NSPanel?
     private var dismissTask: Task<Void, Never>?
     private let autoDismissAfter: TimeInterval
@@ -16,15 +17,17 @@ final class MicCueController {
         self.autoDismissAfter = autoDismissAfter
     }
 
-    func show(onStart: @escaping () -> Void, onDismiss: @escaping () -> Void) {
+    // Shows `content`. The caller wires the content's buttons to call hide()
+    // plus their own handlers. onAutoDismiss runs when the auto-dismiss timer
+    // fires (mirror the ✕ path so the driving policy stays in sync). Enforces a
+    // single instance.
+    func show<Content: View>(
+        onAutoDismiss: @escaping () -> Void,
+        @ViewBuilder content: () -> Content
+    ) {
         hide()   // enforce a single instance
 
-        let view = MicCueView(
-            onStart: { [weak self] in self?.hide(); onStart() },
-            onDismiss: { [weak self] in self?.hide(); onDismiss() }
-        )
-        let hosting = NSHostingView(rootView: view)
-
+        let hosting = NSHostingView(rootView: content())
         let panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: hosting.fittingSize),
             styleMask: [.nonactivatingPanel, .borderless],
@@ -58,7 +61,7 @@ final class MicCueController {
             }
             guard self.panel != nil else { return }
             self.hide()
-            onDismiss()
+            onAutoDismiss()
         }
     }
 
