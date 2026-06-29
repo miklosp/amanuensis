@@ -87,6 +87,12 @@ extension JobShape {
                 FieldSpec(key: "keyterm", label: "Keyterm biasing", kind: .text, required: false,
                           help: "Comma-separated terms (Nova-3)"),
             ]
+        case .cohereTranscribe:
+            return [
+                FieldSpec(key: "language", label: "Language", kind: .language, required: true,
+                          help: "ISO-639-1; required by Cohere"),
+                FieldSpec(key: "temperature", label: "Temperature", kind: .number, required: false),
+            ]
         }
     }
 }

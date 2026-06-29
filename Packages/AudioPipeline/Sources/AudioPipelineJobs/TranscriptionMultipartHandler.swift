@@ -21,11 +21,12 @@ public enum TranscriptionMultipartHandler {
     // Optional form fields copied straight from job.fields when present & non-empty.
     private static let optionalFields = ["language", "prompt", "temperature", "response_format"]
 
-    public static func buildRequest(job: Job, provider: Provider, audioURL: URL, apiKey: String) throws -> URLRequest {
+    public static func buildRequest(job: Job, provider: Provider, audioURL: URL, apiKey: String,
+                                    path: String = "/v1/audio/transcriptions") throws -> URLRequest {
         guard !job.model.isEmpty else { throw BuildError.missingModel }
 
         let trimmedBase = provider.baseURL.hasSuffix("/") ? String(provider.baseURL.dropLast()) : provider.baseURL
-        guard let endpoint = URL(string: trimmedBase + "/v1/audio/transcriptions") else {
+        guard let endpoint = URL(string: trimmedBase + path) else {
             throw BuildError.invalidBaseURL
         }
 
@@ -156,10 +157,11 @@ public enum TranscriptionMultipartHandler {
         provider: Provider,
         audioURL: URL,
         apiKey: String,
-        session: URLSession = TranscriptionMultipartHandler.defaultSession
+        session: URLSession = TranscriptionMultipartHandler.defaultSession,
+        path: String = "/v1/audio/transcriptions"
     ) async throws -> String {
         try await send(job: job, provider: provider, audioURL: audioURL, apiKey: apiKey,
-                       session: session, maxBytes: maxUploadBytes, compress: defaultCompress)
+                       session: session, maxBytes: maxUploadBytes, compress: defaultCompress, path: path)
     }
 
     // Internal seam: lets tests drive the size threshold + compressor without
@@ -171,11 +173,12 @@ public enum TranscriptionMultipartHandler {
         apiKey: String,
         session: URLSession,
         maxBytes: Int,
-        compress: Compress
+        compress: Compress,
+        path: String = "/v1/audio/transcriptions"
     ) async throws -> String {
         let prepared = try await prepareUpload(audioURL: audioURL, maxBytes: maxBytes, compress: compress)
         defer { if prepared.isTemporary { try? FileManager.default.removeItem(at: prepared.url) } }
-        let request = try buildRequest(job: job, provider: provider, audioURL: prepared.url, apiKey: apiKey)
+        let request = try buildRequest(job: job, provider: provider, audioURL: prepared.url, apiKey: apiKey, path: path)
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw SendError.malformedResponse(body: data)

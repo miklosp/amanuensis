@@ -17,6 +17,14 @@ import Testing
         #expect(store.all.count == 14)
     }
 
+    @Test func cohere_usesCohereTranscribeShape_andDropsPromptOverrides() throws {
+        let store = try PresetsStore.loadBundled()
+        let p = store.preset(id: "cohere")
+        #expect(p?.shape == .cohereTranscribe)
+        #expect(p?.fieldLabels?["prompt"] == nil)
+        #expect(p?.suggestedModels == ["cohere-transcribe-03-2026"])
+    }
+
     @Test func geminiOpenAI_defaultsReasoningEffortLow() throws {
         let store = try PresetsStore.loadBundled()
         let p = store.preset(id: "gemini-openai")
