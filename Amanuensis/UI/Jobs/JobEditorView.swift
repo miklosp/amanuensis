@@ -107,15 +107,17 @@ struct JobEditorView: View {
                             outputExt = newPreset?.defaultOutputExt ?? "txt"
                         }
                     }
-                    HStack {
-                        TextField("Model", text: $model)
-                        if let suggestions = preset?.suggestedModels, !suggestions.isEmpty {
-                            Menu("Suggested") {
-                                ForEach(suggestions, id: \.self) { s in
-                                    Button(s) { model = s }
+                    if preset?.shape.requiresModel ?? true {
+                        HStack {
+                            TextField("Model", text: $model)
+                            if let suggestions = preset?.suggestedModels, !suggestions.isEmpty {
+                                Menu("Suggested") {
+                                    ForEach(suggestions, id: \.self) { s in
+                                        Button(s) { model = s }
+                                    }
                                 }
+                                .frame(width: 110)
                             }
-                            .frame(width: 110)
                         }
                     }
                     Picker("Output extension", selection: $outputExt) {
@@ -161,7 +163,15 @@ struct JobEditorView: View {
         // provider != nil (not just providerID != nil) — guards against the
         // repair-pane case where providerID still holds the dangling UUID of
         // a deleted Provider and the user hits Save without touching the Picker.
-        return !name.isEmpty && provider != nil && !model.isEmpty && folderOK
+        let modelOK = !(preset?.shape.requiresModel ?? true) || !model.isEmpty
+        // Required shape fields (e.g. Cohere's language) must be non-empty —
+        // FieldSpec.required is otherwise only a label, so without this the
+        // provider could dispatch a request the API rejects.
+        let requiredFieldsOK = preset?.shape.fields
+            .filter(\.required)
+            .allSatisfy { !(fields[$0.key] ?? "").trimmingCharacters(in: .whitespaces).isEmpty }
+            ?? true
+        return !name.isEmpty && provider != nil && modelOK && folderOK && requiredFieldsOK
     }
 
     // A preset that suggests exactly one model pre-fills it; otherwise the user

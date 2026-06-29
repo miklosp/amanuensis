@@ -87,6 +87,20 @@ extension JobShape {
                 FieldSpec(key: "keyterm", label: "Keyterm biasing", kind: .text, required: false,
                           help: "Comma-separated terms (Nova-3)"),
             ]
+        case .cohereTranscribe:
+            return [
+                FieldSpec(key: "language", label: "Language", kind: .language, required: true,
+                          help: "ISO-639-1; required by Cohere"),
+                FieldSpec(key: "temperature", label: "Temperature", kind: .number, required: false),
+            ]
+        case .reson8Prerecorded:
+            return [
+                FieldSpec(key: "language", label: "Language", kind: .language, required: false,
+                          help: "ISO-639-1; omit to auto-detect"),
+                FieldSpec(key: "diarize", label: "Speaker diarization", kind: .checkbox, required: false),
+                FieldSpec(key: "max_speakers", label: "Max speakers", kind: .number, required: false,
+                          help: "Upper bound for diarization"),
+            ]
         }
     }
 }

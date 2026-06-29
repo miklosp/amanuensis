@@ -19,6 +19,8 @@ public struct JobRunner: Sendable {
         .elevenLabsScribe: DefaultElevenLabsScribeSender(),
         .sonioxAsync: DefaultSonioxAsyncSender(),
         .deepgramListen: DefaultDeepgramListenSender(),
+        .cohereTranscribe: DefaultCohereSender(),
+        .reson8Prerecorded: DefaultReson8PrerecordedSender(),
     ]
 
     public init(

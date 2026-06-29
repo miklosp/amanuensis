@@ -8,6 +8,8 @@ public enum JobShape: String, Codable, CaseIterable, Hashable, Sendable {
     case geminiGenerateContent      // Gemini File API + generateContent
     case sonioxAsync                // Soniox async: upload → create → poll → fetch transcript
     case deepgramListen             // Deepgram /v1/listen, raw body + query-param options
+    case cohereTranscribe           // Cohere /v2/audio/transcriptions (multipart, v2 path)
+    case reson8Prerecorded          // Reson8 prerecorded STT: raw body + query-param options
 
     // The path the handler appends to the provider's Base URL. Shown as a hint
     // in the provider editor so users know not to include it themselves. Must
@@ -22,6 +24,22 @@ public enum JobShape: String, Codable, CaseIterable, Hashable, Sendable {
         case .geminiGenerateContent: return "/models/{model}:generateContent"
         case .sonioxAsync:           return "/v1/transcriptions"
         case .deepgramListen:        return "/v1/listen"
+        case .cohereTranscribe:      return "/v2/audio/transcriptions"
+        case .reson8Prerecorded:     return "/v1/speech-to-text/prerecorded"
+        }
+    }
+
+    // Whether a Job for this shape needs a model identifier. False only for
+    // shapes whose endpoint uses a server-side default with no required model
+    // (Reson8). The Job editor hides the Model field and drops it from the Save
+    // gate when this is false.
+    public var requiresModel: Bool {
+        switch self {
+        case .chatCompletionsAudio, .transcriptionMultipart, .cohereTranscribe,
+             .elevenLabsScribe, .geminiGenerateContent, .sonioxAsync, .deepgramListen:
+            return true
+        case .reson8Prerecorded:
+            return false
         }
     }
 }

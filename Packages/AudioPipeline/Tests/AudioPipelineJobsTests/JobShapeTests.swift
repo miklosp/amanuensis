@@ -71,3 +71,12 @@ import Testing
         #expect(JobShape.geminiGenerateContent.baseURLPathHint == "/models/{model}:generateContent")
     }
 }
+
+@Suite struct JobShapeRequiresModel {
+    @Test func onlyReson8_doesNotRequireModel() {
+        for shape in JobShape.allCases {
+            #expect(shape.requiresModel == (shape != .reson8Prerecorded),
+                    "unexpected requiresModel for \(shape)")
+        }
+    }
+}

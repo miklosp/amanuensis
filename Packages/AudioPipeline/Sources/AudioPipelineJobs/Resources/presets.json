@@ -30,12 +30,9 @@
    "baseURL":"https://api.groq.com/openai","suggestedModels":["whisper-large-v3","whisper-large-v3-turbo"],
    "defaults":{},"docsURL":"https://console.groq.com/docs/speech-text","defaultOutputExt":"txt",
    "fieldHelp":{"prompt":"Groq runs Whisper: biases spelling/style (final ~224 tokens), not instructions. Max upload 25 MB (free) / 100 MB (paid)."}},
-  {"id":"cohere","displayName":"Cohere","shape":"transcriptionMultipart",
+  {"id":"cohere","displayName":"Cohere","shape":"cohereTranscribe",
    "baseURL":"https://api.cohere.com","suggestedModels":["cohere-transcribe-03-2026"],"defaults":{},
-   "docsURL":"https://docs.cohere.com/reference/create-audio-transcription","defaultOutputExt":"txt",
-   "fieldLabels":{"prompt":"Prompt (unused)"},
-   "fieldHints":{"prompt":"Cohere ignores this field"},
-   "fieldHelp":{"prompt":"Cohere has no prompt parameter — this field is ignored. Cohere also requires a language code on every request."}},
+   "docsURL":"https://docs.cohere.com/reference/create-audio-transcription","defaultOutputExt":"txt"},
   {"id":"openai-compat-transcribe","displayName":"OpenAI-compatible Transcription","shape":"transcriptionMultipart",
    "baseURL":"","suggestedModels":[],"defaults":{},"defaultOutputExt":"txt",
    "fieldLabels":{"prompt":"Prompt / biasing"},
@@ -62,5 +59,8 @@
    "baseURL":"https://api.deepgram.com","suggestedModels":["nova-3","nova-2"],
    "defaults":{"smart_format":"true"},"defaultOutputExt":"json",
    "docsURL":"https://developers.deepgram.com/docs/pre-recorded-audio",
-   "fieldHelp":{"keyterm":"Keyterm Prompting (Nova-3): biases toward names/jargon — up to ~100 terms, 500 tokens/request, comma-separated. Not free-text instructions. (Nova-2 and earlier use keywords instead.)"}}
+   "fieldHelp":{"keyterm":"Keyterm Prompting (Nova-3): biases toward names/jargon — up to ~100 terms, 500 tokens/request, comma-separated. Not free-text instructions. (Nova-2 and earlier use keywords instead.)"}},
+  {"id":"reson8","displayName":"Reson8","shape":"reson8Prerecorded",
+   "baseURL":"https://api.reson8.dev","suggestedModels":[],"defaults":{},
+   "docsURL":"https://docs.reson8.dev/documentation/speech-to-text/prerecorded/","defaultOutputExt":"txt"}
 ]
