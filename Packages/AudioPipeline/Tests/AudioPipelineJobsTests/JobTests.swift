@@ -7,13 +7,13 @@ import Testing
         let id = UUID()
         let providerID = UUID()
         let job = Job(
-            id: id,
             name: "Swedish lesson transcription",
             providerID: providerID,
             model: "gemini-flash",
             fields: ["prompt": "Transcribe...", "temperature": "0.2"],
             outputExt: "txt",
-            outputFolderPath: "/Users/x/Documents/transcripts"
+            outputFolderPath: "/Users/x/Documents/transcripts",
+            id: id
         )
         let data = try JSONEncoder().encode(job)
         let decoded = try JSONDecoder().decode(Job.self, from: data)
@@ -32,8 +32,8 @@ import Testing
 
     @Test func id_isStable_acrossEdits() {
         let id = UUID()
-        var job = Job(id: id, name: "a", providerID: nil, model: "",
-                      fields: [:], outputExt: "txt")
+        var job = Job(name: "a", providerID: nil, model: "",
+                      fields: [:], outputExt: "txt", id: id)
         job.name = "b"
         #expect(job.id == id)
     }

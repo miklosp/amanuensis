@@ -19,11 +19,11 @@ public struct LogEntry: Identifiable, Codable, Sendable, Equatable {
     public let message: String
 
     public init(
-        id: UUID = UUID(),
         date: Date,
         level: Level,
         category: Category,
-        message: String
+        message: String,
+        id: UUID = UUID()
     ) {
         self.id = id
         self.date = date

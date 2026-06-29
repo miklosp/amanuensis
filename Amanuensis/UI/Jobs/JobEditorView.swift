@@ -191,10 +191,11 @@ struct JobEditorView: View {
 
     private func save() {
         let job = Job(
-            id: initialID, name: name, providerID: providerID,
+            name: name, providerID: providerID,
             model: model, fields: fields, outputExt: outputExt,
             outputFolderPath: customOutputFolder && !outputFolderPath.isEmpty
-                ? outputFolderPath : nil
+                ? outputFolderPath : nil,
+            id: initialID
         )
         onSave(job)
     }

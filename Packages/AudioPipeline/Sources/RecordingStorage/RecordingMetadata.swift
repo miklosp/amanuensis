@@ -14,9 +14,9 @@ public struct RecordingMetadata: Sendable {
     public var notes: String?
 
     public init(
-        schemaVersion: Int = 1,
         folderName: String,
         startedAt: Date,
+        schemaVersion: Int = 1,
         stoppedAt: Date? = nil,
         durationSeconds: Double? = nil,
         mic: TrackMetadata? = nil,

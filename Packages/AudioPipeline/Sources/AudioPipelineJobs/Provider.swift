@@ -11,8 +11,8 @@ public struct Provider: Identifiable, Codable, Hashable, Sendable {
     public var baseURL: String
     public var apiKeyRef: KeychainRef
 
-    public init(id: UUID = UUID(), name: String, presetID: String,
-                baseURL: String, apiKeyRef: KeychainRef) {
+    public init(name: String, presetID: String,
+                baseURL: String, apiKeyRef: KeychainRef, id: UUID = UUID()) {
         self.id = id
         self.name = name
         self.presetID = presetID

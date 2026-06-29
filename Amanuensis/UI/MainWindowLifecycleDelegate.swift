@@ -2,7 +2,7 @@ import AppKit
 
 @MainActor
 final class MainWindowLifecycleDelegate: NSObject, NSWindowDelegate {
-    private var previousDelegate: NSWindowDelegate?
+    private weak var previousDelegate: NSWindowDelegate?
 
     func install(on window: NSWindow) {
         // Re-install whenever we're not already the delegate on this window.
