@@ -14,7 +14,8 @@ import Testing
         #expect(ids.contains("openai-gpt4o-transcribe"))
         #expect(ids.contains("deepgram"))
         #expect(ids.contains("gemini-openai"))
-        #expect(store.all.count == 14)
+        #expect(ids.contains("reson8"))
+        #expect(store.all.count == 15)
     }
 
     @Test func cohere_usesCohereTranscribeShape_andDropsPromptOverrides() throws {
@@ -118,5 +119,14 @@ import Testing
         #expect(p?.shape == .deepgramListen)
         #expect(p?.suggestedModels.contains("nova-3") == true)
         #expect(p?.fieldHelp?["keyterm"]?.isEmpty == false)
+    }
+
+    @Test func reson8_presetExists() throws {
+        let store = try PresetsStore.loadBundled()
+        let p = store.preset(id: "reson8")
+        #expect(p?.shape == .reson8Prerecorded)
+        #expect(p?.baseURL == "https://api.reson8.dev")
+        #expect(p?.suggestedModels.isEmpty == true)
+        #expect(p?.defaultOutputExt == "txt")
     }
 }

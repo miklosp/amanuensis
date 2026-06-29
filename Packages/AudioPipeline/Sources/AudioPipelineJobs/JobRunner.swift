@@ -20,6 +20,7 @@ public struct JobRunner: Sendable {
         .sonioxAsync: DefaultSonioxAsyncSender(),
         .deepgramListen: DefaultDeepgramListenSender(),
         .cohereTranscribe: DefaultCohereSender(),
+        .reson8Prerecorded: DefaultReson8PrerecordedSender(),
     ]
 
     public init(

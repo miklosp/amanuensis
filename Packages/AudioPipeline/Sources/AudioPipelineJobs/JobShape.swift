@@ -9,6 +9,7 @@ public enum JobShape: String, Codable, CaseIterable, Hashable, Sendable {
     case sonioxAsync                // Soniox async: upload → create → poll → fetch transcript
     case deepgramListen             // Deepgram /v1/listen, raw body + query-param options
     case cohereTranscribe           // Cohere /v2/audio/transcriptions (multipart, v2 path)
+    case reson8Prerecorded          // Reson8 prerecorded STT: raw body + query-param options
 
     // The path the handler appends to the provider's Base URL. Shown as a hint
     // in the provider editor so users know not to include it themselves. Must
@@ -24,6 +25,7 @@ public enum JobShape: String, Codable, CaseIterable, Hashable, Sendable {
         case .sonioxAsync:           return "/v1/transcriptions"
         case .deepgramListen:        return "/v1/listen"
         case .cohereTranscribe:      return "/v2/audio/transcriptions"
+        case .reson8Prerecorded:     return "/v1/speech-to-text/prerecorded"
         }
     }
 }
