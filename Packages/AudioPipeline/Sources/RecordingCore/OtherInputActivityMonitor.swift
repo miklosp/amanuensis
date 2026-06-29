@@ -28,12 +28,14 @@ public final class OtherInputActivityMonitor {
     public func start(onChange: @escaping @Sendable @MainActor (Bool) -> Void) {
         guard pollTask == nil else { return }
         let interval = pollInterval
+        Self.log.info("off-cue monitor started; input now: \(Self.inputAppsDescription(), privacy: .public)")
         pollTask = Task { @MainActor in
             var last: Bool?
             while !Task.isCancelled {
                 let others = Self.othersUsingMic()
                 if others != last {
                     last = others
+                    Self.log.info("off-cue: another app on mic → \(others, privacy: .public) [\(Self.inputAppsDescription(), privacy: .public)]")
                     onChange(others)
                 }
                 try? await Task.sleep(for: interval)
@@ -42,17 +44,32 @@ public final class OtherInputActivityMonitor {
     }
 
     public func stop() {
+        if pollTask != nil { Self.log.info("off-cue monitor stopped") }
         pollTask?.cancel()
         pollTask = nil
     }
 
     // MARK: - Stateless probe (shared with the mic-ON cue)
 
-    // True iff some process other than `pid` is currently running audio input.
+    // Always-on system speech/assistant daemons that hold a microphone input
+    // continuously (Siri / dictation), independent of any meeting. They must be
+    // excluded, or "another app is using the mic" would be permanently true and
+    // neither cue could ever see an edge. com.apple.CoreSpeech is the confirmed
+    // offender (it stays "running input" even with no app recording).
+    private nonisolated static let alwaysOnInputDaemons: Set<String> = [
+        "com.apple.CoreSpeech",
+    ]
+
+    // True iff some process other than `pid` — and other than an always-on
+    // system speech daemon — is currently running audio input. The bundle id is
+    // only read for processes actually holding input, so the denylist check is
+    // cheap.
     public nonisolated static func othersUsingMic(excludingPID pid: pid_t = getpid()) -> Bool {
         for process in processObjectIDs() {
             guard processPID(process) != pid else { continue }
-            if isRunningInput(process) { return true }
+            guard isRunningInput(process) else { continue }
+            if alwaysOnInputDaemons.contains(processBundleID(process)) { continue }
+            return true
         }
         return false
     }
@@ -80,6 +97,22 @@ public final class OtherInputActivityMonitor {
         )
         let count = status == noErr ? Int(dataSize) / MemoryLayout<AudioObjectID>.size : 0
         return ProcessListReachability(status: status, count: count)
+    }
+
+    // Compact list of processes OTHER than us currently running audio input, as
+    // "pid:bundleID" ("(daemon)" marks a denylisted always-on one). Logged when
+    // the monitor starts and when its verdict flips, so an unexpected always-on
+    // input holder (like CoreSpeech) stays diagnosable from the log.
+    nonisolated private static func inputAppsDescription() -> String {
+        let me = getpid()
+        let apps = processObjectIDs().compactMap { obj -> String? in
+            let pid = processPID(obj)
+            guard pid != me, isRunningInput(obj) else { return nil }
+            let bundle = processBundleID(obj)
+            let mark = alwaysOnInputDaemons.contains(bundle) ? " (daemon)" : ""
+            return "\(pid):\(bundle)\(mark)"
+        }
+        return apps.isEmpty ? "none" : apps.joined(separator: ", ")
     }
 
     // MARK: - nonisolated Core Audio helpers
@@ -126,6 +159,24 @@ public final class OtherInputActivityMonitor {
         let status = AudioObjectGetPropertyData(process, &address, 0, nil, &size, &pid)
         guard status == noErr else { return -1 }
         return pid
+    }
+
+    // The process's bundle id (empty string if unreadable). Used by the
+    // always-on-daemon denylist and the diagnostic log. Uses Unmanaged +
+    // takeRetainedValue to balance the Copy-rule CFString the HAL returns.
+    nonisolated private static func processBundleID(_ process: AudioObjectID) -> String {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioProcessPropertyBundleID,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var value: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        let status = withUnsafeMutablePointer(to: &value) {
+            AudioObjectGetPropertyData(process, &address, 0, nil, &size, $0)
+        }
+        guard status == noErr, let cf = value?.takeRetainedValue() else { return "" }
+        return cf as String
     }
 
     nonisolated private static func isRunningInput(_ process: AudioObjectID) -> Bool {
