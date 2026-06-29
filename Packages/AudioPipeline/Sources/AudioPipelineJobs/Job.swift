@@ -13,9 +13,9 @@ public struct Job: Identifiable, Codable, Hashable, Sendable {
     public var outputExt: String            // "txt", "json", "srt"
     public var outputFolderPath: String?    // nil = next to recording; set = absolute path to folder
 
-    public init(id: UUID = UUID(), name: String, providerID: UUID?,
+    public init(name: String, providerID: UUID?,
                 model: String, fields: [String: String], outputExt: String,
-                outputFolderPath: String? = nil) {
+                outputFolderPath: String? = nil, id: UUID = UUID()) {
         self.id = id
         self.name = name
         self.providerID = providerID

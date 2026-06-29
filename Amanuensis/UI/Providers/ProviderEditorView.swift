@@ -86,9 +86,10 @@ struct ProviderEditorView: View {
     }
 
     private func save() {
-        let provider = Provider(id: initialID, name: name, presetID: presetID,
+        let provider = Provider(name: name, presetID: presetID,
                                 baseURL: baseURL,
-                                apiKeyRef: KeychainRef(account: apiKeyAccount))
+                                apiKeyRef: KeychainRef(account: apiKeyAccount),
+                                id: initialID)
         onSave(provider)
     }
 }

@@ -6,11 +6,11 @@ import Testing
     @Test func roundTrip_preservesAllFields() throws {
         let id = UUID()
         let provider = Provider(
-            id: id,
             name: "OpenAI (chat audio)",
             presetID: "openai-chat-audio",
             baseURL: "https://api.openai.com",
-            apiKeyRef: KeychainRef(account: "openai-personal")
+            apiKeyRef: KeychainRef(account: "openai-personal"),
+            id: id
         )
         let data = try JSONEncoder().encode(provider)
         let decoded = try JSONDecoder().decode(Provider.self, from: data)
@@ -19,8 +19,8 @@ import Testing
 
     @Test func id_isStable_acrossEdits() {
         let id = UUID()
-        var p = Provider(id: id, name: "a", presetID: "x",
-                         baseURL: "", apiKeyRef: KeychainRef(account: ""))
+        var p = Provider(name: "a", presetID: "x",
+                         baseURL: "", apiKeyRef: KeychainRef(account: ""), id: id)
         p.name = "b"
         #expect(p.id == id)
     }
