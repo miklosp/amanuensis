@@ -37,35 +37,22 @@ public enum TranscriptionMultipartHandler {
             throw BuildError.audioReadFailed
         }
 
-        let boundary = "Boundary-\(UUID().uuidString)"
-        var body = Data()
-
-        func appendField(_ name: String, _ value: String) {
-            body.append("--\(boundary)\r\n")
-            body.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
-            body.append("\(value)\r\n")
-        }
-
-        appendField("model", job.model)
+        var form = MultipartFormBody()
+        form.addField("model", job.model)
         for key in optionalFields {
             if let value = job.fields[key], !value.isEmpty {
-                appendField(key, value)
+                form.addField(key, value)
             }
         }
-
         // File part last.
-        body.append("--\(boundary)\r\n")
-        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(audioURL.lastPathComponent)\"\r\n")
-        body.append("Content-Type: \(mimeType(for: audioURL))\r\n\r\n")
-        body.append(audioData)
-        body.append("\r\n")
-        body.append("--\(boundary)--\r\n")
+        form.addFile(name: "file", filename: audioURL.lastPathComponent,
+                     contentType: mimeType(for: audioURL), data: audioData)
 
         var req = URLRequest(url: endpoint)
         req.httpMethod = "POST"
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        req.httpBody = body
+        req.setValue(form.contentTypeHeader, forHTTPHeaderField: "Content-Type")
+        req.httpBody = form.finished()
         return req
     }
 
@@ -187,13 +174,6 @@ public enum TranscriptionMultipartHandler {
             throw SendError.httpError(status: http.statusCode, body: data)
         }
         return try parseResponse(data: data, responseFormat: job.fields["response_format"])
-    }
-}
-
-// File-local: append a String's UTF-8 bytes to Data (Foundation has no helper).
-private extension Data {
-    mutating func append(_ string: String) {
-        append(Data(string.utf8))
     }
 }
 

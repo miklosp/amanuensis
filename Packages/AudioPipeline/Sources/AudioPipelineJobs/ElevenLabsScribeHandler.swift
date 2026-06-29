@@ -38,35 +38,22 @@ public enum ElevenLabsScribeHandler {
             throw BuildError.audioReadFailed
         }
 
-        let boundary = "Boundary-\(UUID().uuidString)"
-        var body = Data()
-
-        func appendField(_ name: String, _ value: String) {
-            body.append("--\(boundary)\r\n")
-            body.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
-            body.append("\(value)\r\n")
-        }
-
-        appendField("model_id", job.model)
+        var form = MultipartFormBody()
+        form.addField("model_id", job.model)
         for key in optionalFields {
             if let value = job.fields[key], !value.isEmpty {
-                appendField(key, value)
+                form.addField(key, value)
             }
         }
-
         // File part last.
-        body.append("--\(boundary)\r\n")
-        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(audioURL.lastPathComponent)\"\r\n")
-        body.append("Content-Type: audio/flac\r\n\r\n")
-        body.append(audioData)
-        body.append("\r\n")
-        body.append("--\(boundary)--\r\n")
+        form.addFile(name: "file", filename: audioURL.lastPathComponent,
+                     contentType: "audio/flac", data: audioData)
 
         var req = URLRequest(url: endpoint)
         req.httpMethod = "POST"
         req.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
-        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        req.httpBody = body
+        req.setValue(form.contentTypeHeader, forHTTPHeaderField: "Content-Type")
+        req.httpBody = form.finished()
         return req
     }
 
@@ -153,28 +140,10 @@ public enum ElevenLabsScribeHandler {
                 // preamble (e.g. a leading audio event) — drop them rather than
                 // invent a phantom "Speaker 1".
             }
-            var order: [String: Int] = [:]
-            var next = 1
-            let lines = runs.map { run -> String in
-                let n: Int
-                if let existing = order[run.speaker] {
-                    n = existing
-                } else {
-                    n = next
-                    order[run.speaker] = next
-                    next += 1
-                }
-                return "Speaker \(n): \(run.text.trimmingCharacters(in: .whitespacesAndNewlines))"
-            }
-            return lines.joined(separator: "\n")
+            return formatSpeakerRuns(runs.map {
+                (speaker: $0.speaker, text: $0.text.trimmingCharacters(in: .whitespacesAndNewlines))
+            })
         }
-    }
-}
-
-// File-local: append a String's UTF-8 bytes to Data (Foundation has no helper).
-private extension Data {
-    mutating func append(_ string: String) {
-        append(Data(string.utf8))
     }
 }
 

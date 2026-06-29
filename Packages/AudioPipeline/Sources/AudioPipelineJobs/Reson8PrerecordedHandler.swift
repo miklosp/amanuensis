@@ -147,20 +147,7 @@ public enum Reson8PrerecordedHandler {
             // content to label; fall back to the flat transcript rather than
             // emitting bare "Speaker N:" lines.
             guard runs.contains(where: { !$0.parts.isEmpty }) else { return text }
-            var order: [Int: Int] = [:]
-            var next = 1
-            let lines = runs.map { run -> String in
-                let n: Int
-                if let existing = order[run.speaker] {
-                    n = existing
-                } else {
-                    n = next
-                    order[run.speaker] = next
-                    next += 1
-                }
-                return "Speaker \(n): \(run.parts.joined(separator: " "))"
-            }
-            return lines.joined(separator: "\n")
+            return formatSpeakerRuns(runs.map { (speaker: $0.speaker, text: $0.parts.joined(separator: " ")) })
         }
     }
 }

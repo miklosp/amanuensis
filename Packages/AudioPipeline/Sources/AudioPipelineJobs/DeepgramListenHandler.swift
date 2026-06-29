@@ -155,20 +155,7 @@ public enum DeepgramListenHandler {
                                 runs[runs.count - 1].words.append(t)
                             }
                         }
-                        var order: [Int: Int] = [:]
-                        var next = 1
-                        let lines = runs.map { run -> String in
-                            let n: Int
-                            if let existing = order[run.speaker] {
-                                n = existing
-                            } else {
-                                n = next
-                                order[run.speaker] = next
-                                next += 1
-                            }
-                            return "Speaker \(n): \(run.words.joined(separator: " "))"
-                        }
-                        return lines.joined(separator: "\n")
+                        return formatSpeakerRuns(runs.map { (speaker: $0.speaker, text: $0.words.joined(separator: " ")) })
                     }
                 }
                 let alternatives: [Alternative]

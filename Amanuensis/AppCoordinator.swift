@@ -82,56 +82,10 @@ final class AppCoordinator {
         self.folderAccess = folderAccess
         self.library = RecordingsLibrary { folderAccess.effectiveURL }
         self.keychain = KeychainStore()
-        do {
-            self.presets = try PresetsStore.loadBundled()
-        } catch {
-            Self.log.error("failed to load presets: \(String(describing: error), privacy: .public)")
-            self.presets = PresetsStore(presets: [])
-        }
-        do {
-            self.jobs = try JobsStore.standard(bundleID: "work.miklos.amanuensis")
-        } catch {
-            Self.log.error("failed to load jobs (likely stale schema): \(String(describing: error), privacy: .public)")
-            // Pre-release recovery: move the unreadable jobs.json aside to a
-            // .bak so the next launch starts clean without destroying the only
-            // copy — the stale file stays recoverable for inspection/migration.
-            let support = try? FileManager.default.url(for: .applicationSupportDirectory,
-                                                       in: .userDomainMask,
-                                                       appropriateFor: nil, create: false)
-            if let url = support?
-                .appendingPathComponent("work.miklos.amanuensis", isDirectory: true)
-                .appendingPathComponent("jobs.json") {
-                let backup = url.appendingPathExtension("bak")
-                try? FileManager.default.removeItem(at: backup)
-                try? FileManager.default.moveItem(at: url, to: backup)
-            }
-            // Try once more from the standard location; fall back to a temp file if even that fails.
-            self.jobs = (try? JobsStore.standard(bundleID: "work.miklos.amanuensis")) ?? {
-                let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
-                    .appendingPathComponent("jobs-fallback.json")
-                return (try? JobsStore(fileURL: tmp)) ?? {
-                    preconditionFailure("could not initialise JobsStore even at temp path")
-                }()
-            }()
-        }
-        do {
-            self.providers = try ProvidersStore.standard(bundleID: "work.miklos.amanuensis")
-        } catch {
-            Self.log.error("failed to load providers: \(String(describing: error), privacy: .public)")
-            let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
-                .appendingPathComponent("providers-fallback.json")
-            self.providers = (try? ProvidersStore(fileURL: tmp)) ?? {
-                preconditionFailure("could not initialise ProvidersStore even at temp path")
-            }()
-        }
-        do {
-            self.logs = try LogStore.standard(bundleID: "work.miklos.amanuensis")
-        } catch {
-            Self.log.error("failed to init logs store: \(String(describing: error), privacy: .public)")
-            let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
-                .appendingPathComponent("logs-fallback.json")
-            self.logs = LogStore(fileURL: tmp)
-        }
+        self.presets = Self.loadPresets()
+        self.jobs = Self.loadJobs(bundleID: "work.miklos.amanuensis")
+        self.providers = Self.loadProviders(bundleID: "work.miklos.amanuensis")
+        self.logs = Self.loadLogs(bundleID: "work.miklos.amanuensis")
 
         self.dictation = DictationCoordinator(
             settings: settings,
@@ -150,6 +104,76 @@ final class AppCoordinator {
         // Seed the mic-off cue policy. Its monitor starts only when recording
         // begins (see notifyRecordingActivity), so nothing to start here.
         _ = micOffCuePolicy.enabledChanged(settings.suggestStoppingWhenMeetingEnds)
+    }
+
+    // MARK: - Store loading
+    //
+    // Each store loads from its standard on-disk location and degrades to a
+    // safe fallback rather than letting a corrupt/stale file crash launch.
+    // Kept as separate functions (not one generic helper) because the fallback
+    // differs per store: jobs rescues the unreadable file to a .bak first, logs
+    // can't throw on temp init, presets have no temp path at all.
+
+    private static func loadPresets() -> PresetsStore {
+        do {
+            return try PresetsStore.loadBundled()
+        } catch {
+            log.error("failed to load presets: \(String(describing: error), privacy: .public)")
+            return PresetsStore(presets: [])
+        }
+    }
+
+    private static func loadJobs(bundleID: String) -> JobsStore {
+        do {
+            return try JobsStore.standard(bundleID: bundleID)
+        } catch {
+            log.error("failed to load jobs (likely stale schema): \(String(describing: error), privacy: .public)")
+            // Pre-release recovery: move the unreadable jobs.json aside to a
+            // .bak so the next launch starts clean without destroying the only
+            // copy — the stale file stays recoverable for inspection/migration.
+            let support = try? FileManager.default.url(for: .applicationSupportDirectory,
+                                                       in: .userDomainMask,
+                                                       appropriateFor: nil, create: false)
+            if let url = support?
+                .appendingPathComponent(bundleID, isDirectory: true)
+                .appendingPathComponent("jobs.json") {
+                let backup = url.appendingPathExtension("bak")
+                try? FileManager.default.removeItem(at: backup)
+                try? FileManager.default.moveItem(at: url, to: backup)
+            }
+            // Try once more from the standard location; fall back to a temp file if even that fails.
+            return (try? JobsStore.standard(bundleID: bundleID)) ?? {
+                let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+                    .appendingPathComponent("jobs-fallback.json")
+                return (try? JobsStore(fileURL: tmp)) ?? {
+                    preconditionFailure("could not initialise JobsStore even at temp path")
+                }()
+            }()
+        }
+    }
+
+    private static func loadProviders(bundleID: String) -> ProvidersStore {
+        do {
+            return try ProvidersStore.standard(bundleID: bundleID)
+        } catch {
+            log.error("failed to load providers: \(String(describing: error), privacy: .public)")
+            let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("providers-fallback.json")
+            return (try? ProvidersStore(fileURL: tmp)) ?? {
+                preconditionFailure("could not initialise ProvidersStore even at temp path")
+            }()
+        }
+    }
+
+    private static func loadLogs(bundleID: String) -> LogStore {
+        do {
+            return try LogStore.standard(bundleID: bundleID)
+        } catch {
+            log.error("failed to init logs store: \(String(describing: error), privacy: .public)")
+            let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("logs-fallback.json")
+            return LogStore(fileURL: tmp)
+        }
     }
 
     func toggleRecording() {
