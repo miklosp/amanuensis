@@ -57,14 +57,43 @@ public final class OtherInputActivityMonitor {
         return false
     }
 
+    // MARK: - Diagnostics
+
+    // Reachability of the per-process audio API under the current sandbox.
+    // `status == noErr` means kAudioHardwarePropertyProcessObjectList is
+    // readable, so the mic cues' per-process detection works; a non-zero status
+    // means App Sandbox is blocking it and both cues would be inert. `count` is
+    // the number of audio process objects reported (informational).
+    public struct ProcessListReachability: Sendable {
+        public let status: OSStatus
+        public let count: Int
+        public var isReachable: Bool { status == noErr }
+    }
+
+    // Reads only the process-list size, so it needs no audio device or
+    // permission — it just establishes whether the HAL property is reachable.
+    public nonisolated static func probeProcessListReachability() -> ProcessListReachability {
+        var address = processListAddress
+        var dataSize: UInt32 = 0
+        let status = AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &dataSize
+        )
+        let count = status == noErr ? Int(dataSize) / MemoryLayout<AudioObjectID>.size : 0
+        return ProcessListReachability(status: status, count: count)
+    }
+
     // MARK: - nonisolated Core Audio helpers
 
-    nonisolated private static func processObjectIDs() -> [AudioObjectID] {
-        var address = AudioObjectPropertyAddress(
+    nonisolated private static var processListAddress: AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyProcessObjectList,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
+    }
+
+    nonisolated private static func processObjectIDs() -> [AudioObjectID] {
+        var address = processListAddress
         var dataSize: UInt32 = 0
         let sizeStatus = AudioObjectGetPropertyDataSize(
             AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &dataSize
