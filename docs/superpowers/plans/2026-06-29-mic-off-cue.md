@@ -40,12 +40,14 @@
 - `Packages/AudioPipeline/Sources/RecordingCore/MicOffCuePolicy.swift` — pure decision state machine.
 - `Packages/AudioPipeline/Sources/RecordingCore/OtherInputActivityMonitor.swift` — per-process mic-use probe + poll monitor.
 - `Packages/AudioPipeline/Tests/RecordingCoreTests/MicOffCuePolicyTests.swift` — policy tests.
-- `Amanuensis/UI/MicOffCueView.swift` — the off-cue card.
+- `Amanuensis/UI/CueCard.swift` — shared styled cue tile (the glass capsule + action button + close badge), parameterized by icon/title/subtitle/actions.
+- `Amanuensis/UI/MicOffCueView.swift` — off-cue: a thin `CueCard` wrapper.
 - `Amanuensis/UI/FloatingCueController.swift` — generalized panel controller (renamed from `MicCueController`).
 
 **Modified:**
 - `Packages/AudioPipeline/Sources/AppSettings/AppSettings.swift` — new toggle.
 - `Packages/AudioPipeline/Tests/AppSettingsTests/AppSettingsTests.swift` — toggle tests.
+- `Amanuensis/UI/MicCueView.swift` — rebuilt as a thin `CueCard` wrapper (interface unchanged).
 - `Amanuensis/AppCoordinator.swift` — off-cue wiring + on-cue guard removal + controller rename.
 - `Amanuensis/UI/SettingsView.swift` — second toggle.
 
@@ -590,32 +592,44 @@ EOF
 
 ---
 
-## Task 4: `MicOffCueView`
+## Task 4: Shared `CueCard` + rebuild `MicCueView` + add `MicOffCueView`
+
+Extract the duplicated cue-tile styling into one parameterized `CueCard`, rebuild the existing `MicCueView` on it (interface unchanged), and add `MicOffCueView` on it. No styling is duplicated — `CueCard` is the single styled component; the two cue views are 4-line wrappers.
 
 **Files:**
+- Create: `Amanuensis/UI/CueCard.swift`
 - Create: `Amanuensis/UI/MicOffCueView.swift`
+- Modify: `Amanuensis/UI/MicCueView.swift`
 
 **Interfaces:**
-- Consumes: `glassTile(in:)` view modifier from `Amanuensis/UI/GlassPanel.swift` (already used by `MicCueView`).
-- Produces: `struct MicOffCueView: View` with `let onStop: () -> Void` and `let onDismiss: () -> Void`.
+- Consumes: `glassTile(in:)` view modifier from `Amanuensis/UI/GlassPanel.swift` (already used by the current `MicCueView`).
+- Produces:
+  - `struct CueCard: View` with `let systemImage: String`, `let title: String`, `let subtitle: String`, `let onAction: () -> Void`, `let onDismiss: () -> Void`.
+  - `struct MicCueView: View` — unchanged interface: `let onStart: () -> Void`, `let onDismiss: () -> Void`.
+  - `struct MicOffCueView: View` with `let onStop: () -> Void`, `let onDismiss: () -> Void`.
 
-> App-target file (no logic to unit-test). The gate is the app-target build (Step 2), which requires the Hammerspoon daemon — run it on the user's machine if absent here.
+> App-target files (no logic to unit-test). Build verification is controller-handled via the xcode-build daemon (the helper scripts are gone — see "Build & test commands"). Implement, commit, and self-review for compile-correctness by inspection; report build as controller-verified.
 
-- [ ] **Step 1: Create the view**
+- [ ] **Step 1: Create the shared `CueCard`**
 
-Create `Amanuensis/UI/MicOffCueView.swift`:
+Create `Amanuensis/UI/CueCard.swift` — this is the existing `MicCueView` body, generalized over icon/title/subtitle/action:
 
 ```swift
 import SwiftUI
 
-// The floating cue shown when the app that was using the mic (a meeting)
-// releases it while we are recording. Mirror of MicCueView: the same glassy,
-// pointer-reactive Liquid Glass capsule and hover close-badge, but with a red
-// stop button and "Meeting ended" / "Stop recording" copy. Clicking the red
-// button stops recording; clicking the close badge or anywhere on the capsule
-// dismisses it. Rendered inside FloatingCueController's NSPanel.
-struct MicOffCueView: View {
-    let onStop: () -> Void
+// The shared Control-Center-style cue tile used by both the mic-on and mic-off
+// cues: a glassy, pointer-reactive Liquid Glass capsule with a red circular
+// action button on the left and a two-line label on the right. The tint and
+// text follow the system appearance, flipping together between light and dark.
+// Hovering reveals a notification-style close badge in the top-left corner and
+// pulses the action button. Tapping the action button invokes onAction; the
+// close badge or anywhere else on the capsule invokes onDismiss. Rendered
+// inside FloatingCueController's NSPanel.
+struct CueCard: View {
+    let systemImage: String
+    let title: String
+    let subtitle: String
+    let onAction: () -> Void
     let onDismiss: () -> Void
 
     @State private var hovering = false
@@ -623,13 +637,13 @@ struct MicOffCueView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            stopButton
+            actionButton
 
             VStack(alignment: .leading, spacing: 0) {
-                Text("Meeting ended")
+                Text(title)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
-                Text("Stop recording")
+                Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -652,9 +666,9 @@ struct MicOffCueView: View {
         }
     }
 
-    private var stopButton: some View {
-        Button(action: onStop) {
-            Image(systemName: "stop.fill")
+    private var actionButton: some View {
+        Button(action: onAction) {
+            Image(systemName: systemImage)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 34, height: 34)
@@ -689,17 +703,72 @@ struct MicOffCueView: View {
 }
 ```
 
-- [ ] **Step 2: Build the app target**
+- [ ] **Step 2: Rebuild `MicCueView` as a thin wrapper**
 
-Run: `./scripts/xcode-build-helper.sh -project Amanuensis.xcodeproj -scheme Amanuensis -configuration Debug build`
-Expected: Build succeeds. (`MicOffCueView` is unused so far — that's fine; it's wired up in Task 6. New `.swift` files under `Amanuensis/` are auto-picked-up by the synchronized group, no pbxproj edit needed.)
+Replace the entire contents of `Amanuensis/UI/MicCueView.swift` with:
 
-- [ ] **Step 3: Commit**
+```swift
+import SwiftUI
+
+// The floating cue shown when another app starts using the mic (a likely
+// meeting), offering to start recording. A thin CueCard wrapper — see CueCard
+// for the styling. Rendered inside FloatingCueController's NSPanel.
+struct MicCueView: View {
+    let onStart: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        CueCard(
+            systemImage: "mic.fill",
+            title: "Mic in use",
+            subtitle: "Start recording",
+            onAction: onStart,
+            onDismiss: onDismiss
+        )
+    }
+}
+```
+
+- [ ] **Step 3: Create `MicOffCueView` as a thin wrapper**
+
+Create `Amanuensis/UI/MicOffCueView.swift`:
+
+```swift
+import SwiftUI
+
+// The floating cue shown when the app that was using the mic (a meeting)
+// releases it while we are recording, offering to stop recording. A thin
+// CueCard wrapper — see CueCard for the styling. Rendered inside
+// FloatingCueController's NSPanel.
+struct MicOffCueView: View {
+    let onStop: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        CueCard(
+            systemImage: "stop.fill",
+            title: "Meeting ended",
+            subtitle: "Stop recording",
+            onAction: onStop,
+            onDismiss: onDismiss
+        )
+    }
+}
+```
+
+- [ ] **Step 4: Build the app target**
+
+Build verification is controller-handled (see "Build & test commands"). Expected: build succeeds; the on-cue renders identically to before (same `CueCard` styling), and `MicOffCueView` is available for Task 6 to wire up.
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add Amanuensis/UI/MicOffCueView.swift
+git add Amanuensis/UI/CueCard.swift Amanuensis/UI/MicCueView.swift Amanuensis/UI/MicOffCueView.swift
 git commit -m "$(cat <<'EOF'
-feat: add MicOffCueView (meeting-ended / stop-recording cue card)
+feat: extract shared CueCard; add MicOffCueView
+
+CueCard holds the cue-tile styling once; MicCueView (unchanged interface)
+and the new MicOffCueView are thin wrappers over it.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 EOF
