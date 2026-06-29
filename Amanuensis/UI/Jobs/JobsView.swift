@@ -92,8 +92,7 @@ struct JobsView: View {
 
     private func addJob() {
         let firstProvider = providers.providers
-            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-            .first
+            .min { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         guard let firstProvider else { return }
         var draft = Job.makeDraft()
         draft.providerID = firstProvider.id
