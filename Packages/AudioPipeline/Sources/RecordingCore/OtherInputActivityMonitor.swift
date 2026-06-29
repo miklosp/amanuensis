@@ -69,13 +69,20 @@ public final class OtherInputActivityMonitor {
         let sizeStatus = AudioObjectGetPropertyDataSize(
             AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &dataSize
         )
-        guard sizeStatus == noErr, dataSize > 0 else { return [] }
+        guard sizeStatus == noErr else {
+            Self.log.error("process-object-list size query failed: \(sizeStatus, privacy: .public)")
+            return []
+        }
+        guard dataSize > 0 else { return [] }
         let count = Int(dataSize) / MemoryLayout<AudioObjectID>.size
         var ids = [AudioObjectID](repeating: AudioObjectID(kAudioObjectUnknown), count: count)
         let dataStatus = AudioObjectGetPropertyData(
             AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &dataSize, &ids
         )
-        guard dataStatus == noErr else { return [] }
+        guard dataStatus == noErr else {
+            Self.log.error("process-object-list query failed: \(dataStatus, privacy: .public)")
+            return []
+        }
         return ids
     }
 

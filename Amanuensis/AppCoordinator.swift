@@ -365,7 +365,6 @@ final class AppCoordinator {
             micDebounceTask?.cancel()
             micDebounceTask = nil
             micMonitor.stop()
-            cueController.hide()
         }
     }
 
@@ -459,7 +458,6 @@ final class AppCoordinator {
             micOffDebounceTask?.cancel()
             micOffDebounceTask = nil
             otherInputMonitor.stop()
-            cueController.hide()
         }
     }
 
