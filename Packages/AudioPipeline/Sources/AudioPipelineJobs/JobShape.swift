@@ -28,4 +28,18 @@ public enum JobShape: String, Codable, CaseIterable, Hashable, Sendable {
         case .reson8Prerecorded:     return "/v1/speech-to-text/prerecorded"
         }
     }
+
+    // Whether a Job for this shape needs a model identifier. False only for
+    // shapes whose endpoint uses a server-side default with no required model
+    // (Reson8). The Job editor hides the Model field and drops it from the Save
+    // gate when this is false.
+    public var requiresModel: Bool {
+        switch self {
+        case .chatCompletionsAudio, .transcriptionMultipart, .cohereTranscribe,
+             .elevenLabsScribe, .geminiGenerateContent, .sonioxAsync, .deepgramListen:
+            return true
+        case .reson8Prerecorded:
+            return false
+        }
+    }
 }
