@@ -206,8 +206,8 @@ public enum SonioxAsyncHandler {
                 // Tokens before the first identified speaker are dropped, matching
                 // the ElevenLabs handler — no phantom "Speaker 1".
             }
-            return formatSpeakerRuns(runs.map {
-                (speaker: $0.speaker, text: $0.text.trimmingCharacters(in: .whitespacesAndNewlines))
+            return formatSpeakerRuns(runs.map { run in
+                (speaker: run.speaker, text: run.text.trimmingCharacters(in: .whitespacesAndNewlines))
             })
         }
     }
