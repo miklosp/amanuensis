@@ -29,8 +29,7 @@
   `swift test --disable-sandbox --package-path Packages/AudioPipeline --filter <Suite>`
   `swift build --disable-sandbox --package-path Packages/AudioPipeline`
   (Drop `--disable-sandbox` outside the sandbox.)
-- **App-target build:** `./scripts/xcode-build-helper.sh -project Amanuensis.xcodeproj -scheme Amanuensis -configuration Debug build`.
-  ⚠️ `/usr/bin/xcodebuild` self-refuses inside this sandbox; the helper routes it through the outside-sandbox Hammerspoon daemon. **In the current environment the helper scripts are absent**, so app-target build/compile verification (Tasks 4–7) must run on a machine with the daemon (the user's machine). The RecordingCore/AppSettings tasks (1–3) verify autonomously via `swift`.
+- **App-target build (Tasks 4–7):** `/usr/bin/xcodebuild` self-refuses inside this sandbox. The (now-removed) helper scripts have been replaced by a file-based daemon at `~/.local/state/xcode-build/`: write a request `{"bin":"xcodebuild","cwd":"<worktree-abs-path>","args":["-project","Amanuensis.xcodeproj","-scheme","Amanuensis","-configuration","Debug","build"]}` to `inbox/<uuid>.json`, then poll `outbox/<uuid>.json` for `{"exit","log",...}` (the `log` path holds the full build output). **The controller drives these builds (in a background command, since foreground `sleep` is blocked) and reports the result** — Task 4–7 implementers implement + commit and leave the app build to the controller. Tasks 1–3 verify autonomously via `swift … --disable-sandbox`.
 
 ---
 
