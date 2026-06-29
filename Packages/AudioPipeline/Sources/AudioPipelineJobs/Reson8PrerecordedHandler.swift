@@ -143,6 +143,10 @@ public enum Reson8PrerecordedHandler {
                     if let t = seg.text, !t.isEmpty { runs[runs.count - 1].parts.append(t) }
                 }
             }
+            // All speaker-tagged segments had empty/missing text → no real
+            // content to label; fall back to the flat transcript rather than
+            // emitting bare "Speaker N:" lines.
+            guard runs.contains(where: { !$0.parts.isEmpty }) else { return text }
             var order: [Int: Int] = [:]
             var next = 1
             let lines = runs.map { run -> String in

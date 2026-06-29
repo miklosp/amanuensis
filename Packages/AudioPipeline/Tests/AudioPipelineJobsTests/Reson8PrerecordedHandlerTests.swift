@@ -116,6 +116,14 @@ private func writeAudio(_ bytes: [UInt8], name: String = "combined.flac") throws
         #expect(out == "flat text here")
     }
 
+    @Test func diarized_allSegmentTextsEmpty_fallsBackToFlatText() throws {
+        // Segments carry speaker_id but no usable text → don't emit bare
+        // "Speaker N:" lines; fall back to the top-level transcript.
+        let json = #"{"text":"hello world","segments":[{"speaker_id":0},{"text":"","speaker_id":1},{"speaker_id":0}]}"#
+        let out = try Reson8PrerecordedHandler.format(data: Data(json.utf8), outputExt: "txt")
+        #expect(out == "hello world")
+    }
+
     @Test func jsonOutput_returnsPrettyRawResponse() throws {
         let json = #"{"text":"hi"}"#
         let out = try Reson8PrerecordedHandler.format(data: Data(json.utf8), outputExt: "json")
