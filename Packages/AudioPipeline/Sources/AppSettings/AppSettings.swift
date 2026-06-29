@@ -44,6 +44,16 @@ public final class AppSettings {
         }
     }
 
+    // When true, while recording, Amanuensis watches for the app that was using
+    // the mic to release it (meeting ended) and shows a cue offering to stop
+    // recording. Default true.
+    public var suggestStoppingWhenMeetingEnds: Bool {
+        didSet {
+            defaults.set(suggestStoppingWhenMeetingEnds,
+                         forKey: Keys.suggestStoppingWhenMeetingEnds)
+        }
+    }
+
     public var dictation: DictationSettings {
         didSet { persistDictation() }
     }
@@ -76,6 +86,12 @@ public final class AppSettings {
             suggestRecordingWhenMicInUse = true
         }
 
+        if defaults.object(forKey: Keys.suggestStoppingWhenMeetingEnds) != nil {
+            suggestStoppingWhenMeetingEnds = defaults.bool(forKey: Keys.suggestStoppingWhenMeetingEnds)
+        } else {
+            suggestStoppingWhenMeetingEnds = true
+        }
+
         if let data = defaults.data(forKey: Keys.dictation),
            let decoded = try? JSONDecoder().decode(DictationSettings.self, from: data) {
             dictation = decoded
@@ -95,6 +111,7 @@ public final class AppSettings {
         static let recordingsDirectoryBookmark = "recordingsDirectoryBookmark"
         static let keepOriginalCAF = "keepOriginalCAF"
         static let suggestRecordingWhenMicInUse = "suggestRecordingWhenMicInUse"
+        static let suggestStoppingWhenMeetingEnds = "suggestStoppingWhenMeetingEnds"
         static let dictation = "dictation"
     }
 }
