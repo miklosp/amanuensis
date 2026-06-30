@@ -17,7 +17,25 @@ import Testing
     #expect(ModelStorage.directorySize(URL(fileURLWithPath: "/no/such/dir/\(UUID())")) == 0)
 }
 
-@Test func runnerDirIsUnderBase() throws {
+// Probe once whether Application Support is writable in this runtime.
+// Inside the Claude Code sandbox writes to ~/Library are denied (EPERM);
+// from a normal shell they succeed.
+private nonisolated(unsafe) let appSupportWritable: Bool = {
+    guard let appSupport = FileManager.default.urls(
+        for: .applicationSupportDirectory, in: .userDomainMask
+    ).first else { return false }
+    let probe = appSupport.appendingPathComponent(".write-probe-\(UUID().uuidString)")
+    do {
+        try Data().write(to: probe)
+        try? FileManager.default.removeItem(at: probe)
+        return true
+    } catch {
+        return false
+    }
+}()
+
+@Test(.enabled(if: appSupportWritable))
+func runnerDirIsUnderBase() throws {
     let dir = try ModelStorage.runnerDir(.whisperKit)
     #expect(dir.path.contains("Amanuensis/Models"))
 }
