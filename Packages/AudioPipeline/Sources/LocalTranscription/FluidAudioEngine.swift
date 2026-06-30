@@ -46,6 +46,30 @@ public actor FluidAudioEngine: LocalTranscriptionEngine {
             .appendingPathComponent(Repo.senseVoiceSmall.folderName, isDirectory: true)
     }
 
+    // MARK: - Cohere path helpers
+
+    /// Returns the directory the staged Cohere Transcribe repo lives in.
+    ///
+    /// Cohere has no auto-download. `DownloadUtils.downloadRepo(.cohereTranscribeCoreml,
+    /// to:)` writes files to `<to>/<Repo.folderName>`, where `folderName` is
+    /// `"cohere-transcribe/q8"`. Encoder, decoder, and vocab all share this single
+    /// directory, so `loadModels` receives it for all three. Keeping this helper as
+    /// the one source of truth keeps download/isDownloaded/installedBytes/delete in
+    /// agreement about where the files actually land.
+    private func cohereModelDir() throws -> URL {
+        try ModelStorage.runnerDir(.fluidAudioCohere)
+            .appendingPathComponent(Repo.cohereTranscribeCoreml.folderName, isDirectory: true)
+    }
+
+    /// Maps the engine's ISO language string to Cohere's explicit language enum.
+    ///
+    /// Cohere requires the language up front (it conditions generation on it).
+    /// Defaults to English when the caller passes nil or a code Cohere doesn't
+    /// support (its 14 supported languages use ISO raw values: en, fr, de, …).
+    private func cohereLanguage(_ language: String?) -> CohereAsrConfig.Language {
+        language.flatMap { CohereAsrConfig.Language(rawValue: $0) } ?? .english
+    }
+
     // MARK: - LocalTranscriptionEngine
 
     public func isDownloaded(_ model: LocalModel) async -> Bool {
@@ -60,6 +84,18 @@ public actor FluidAudioEngine: LocalTranscriptionEngine {
         case .fluidAudioSenseVoice:
             guard let dir = senseVoiceModelDir() else { return false }
             return SenseVoiceModels.modelsExist(at: dir, precision: .fp16)
+        case .fluidAudioCohere:
+            guard let dir = try? cohereModelDir() else { return false }
+            let fm = FileManager.default
+            // The three files CoherePipeline.loadModels needs (default .v2 decoder).
+            let required = [
+                ModelNames.CohereTranscribe.encoderCompiledFile,
+                ModelNames.CohereTranscribe.decoderCacheExternalV2CompiledFile,
+                ModelNames.CohereTranscribe.vocab,
+            ]
+            return required.allSatisfy {
+                fm.fileExists(atPath: dir.appendingPathComponent($0).path)
+            }
         default:
             return false
         }
@@ -75,6 +111,9 @@ public actor FluidAudioEngine: LocalTranscriptionEngine {
             return ModelStorage.directorySize(modelDir)
         case .fluidAudioSenseVoice:
             guard let dir = senseVoiceModelDir() else { return 0 }
+            return ModelStorage.directorySize(dir)
+        case .fluidAudioCohere:
+            guard let dir = try? cohereModelDir() else { return 0 }
             return ModelStorage.directorySize(dir)
         default:
             return 0
@@ -100,6 +139,17 @@ public actor FluidAudioEngine: LocalTranscriptionEngine {
                 precision: .fp16,
                 progressHandler: { p in progress(p.fractionCompleted) }
             )
+        case .fluidAudioCohere:
+            // No auto-download: stage the repo explicitly. downloadRepo writes to
+            // `<dir>/cohere-transcribe/q8` (see cohereModelDir). Its progress is the
+            // download half of loadModels and maxes at 0.5, so rescale to a full
+            // 0...1 to match the other engines' progress contract.
+            let dir = try ModelStorage.runnerDir(.fluidAudioCohere)
+            try await DownloadUtils.downloadRepo(
+                .cohereTranscribeCoreml,
+                to: dir,
+                progressHandler: { p in progress(min(1.0, p.fractionCompleted * 2.0)) }
+            )
         default:
             return
         }
@@ -115,6 +165,11 @@ public actor FluidAudioEngine: LocalTranscriptionEngine {
         case .fluidAudioSenseVoice:
             guard let modelsRoot = senseVoiceModelDir()?.deletingLastPathComponent() else { return }
             DownloadUtils.clearModelCache(forRepo: .senseVoiceSmall, directory: modelsRoot)
+        case .fluidAudioCohere:
+            // clearModelCache removes `<directory>/<Repo.folderName>`, i.e. the same
+            // `cohere-transcribe/q8` subtree downloadRepo populated.
+            let dir = try ModelStorage.runnerDir(.fluidAudioCohere)
+            DownloadUtils.clearModelCache(forRepo: .cohereTranscribeCoreml, directory: dir)
         default:
             return
         }
@@ -144,6 +199,19 @@ public actor FluidAudioEngine: LocalTranscriptionEngine {
             // SenseVoice language encoding uses Int32 codes; no public map from ISO
             // string exists in FluidAudio 0.15.4, so we pass the default (0 = auto-detect).
             return try await senseVoice.transcribe(audioURL: audioURL)
+        case .fluidAudioCohere:
+            let dir = try cohereModelDir()
+            // Encoder, decoder, and vocab live in the same staged dir.
+            let models = try await CoherePipeline.loadModels(
+                encoderDir: dir, decoderDir: dir, vocabDir: dir)
+            // Cohere wants [Float] @ 16 kHz mono, not a URL.
+            let samples = try AudioConverter().resampleAudioFile(audioURL)
+            // transcribeLong slides the 35 s encoder window so audio over the
+            // single-call cap is chunked rather than silently truncated.
+            let pipeline = CoherePipeline()
+            let result = try await pipeline.transcribeLong(
+                audio: samples, models: models, language: cohereLanguage(language))
+            return result.text
         default:
             throw LocalTranscriptionError.modelNotDownloaded(model.displayName)
         }
