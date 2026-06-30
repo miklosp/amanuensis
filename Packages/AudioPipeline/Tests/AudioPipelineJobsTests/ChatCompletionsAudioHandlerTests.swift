@@ -208,6 +208,32 @@ private func stubSession(status: Int, body: Data) -> URLSession {
         #expect(text == "Hello world")
     }
 
+    @Test func send_returnsContent_whenContentIsBlockArray() async throws {
+        // Groq/Bifrost (and OpenAI's newer shape) can return content as an array
+        // of content blocks instead of a plain string. Join the text blocks.
+        let json = #"{"choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":[{"type":"text","text":"Hur mår du?"}]}}]}"#
+        let session = stubSession(status: 200, body: Data(json.utf8))
+        let job = makeJob(prompt: "p")
+        let provider = makeProvider()
+        let audio = try writeAudio([0x01], ext: "flac")
+        let text = try await ChatCompletionsAudioHandler.send(job: job, provider: provider,
+                                                              audioURL: audio, apiKey: "k",
+                                                              session: session)
+        #expect(text == "Hur mår du?")
+    }
+
+    @Test func send_joinsMultipleTextBlocks() async throws {
+        let json = #"{"choices":[{"message":{"content":[{"type":"text","text":"Hello "},{"type":"text","text":"world"}]}}]}"#
+        let session = stubSession(status: 200, body: Data(json.utf8))
+        let job = makeJob(prompt: "p")
+        let provider = makeProvider()
+        let audio = try writeAudio([0x01], ext: "flac")
+        let text = try await ChatCompletionsAudioHandler.send(job: job, provider: provider,
+                                                              audioURL: audio, apiKey: "k",
+                                                              session: session)
+        #expect(text == "Hello world")
+    }
+
     @Test func send_throws_onNon200() async throws {
         let session = stubSession(status: 401, body: Data(#"{"error":"unauthorized"}"#.utf8))
         let job = makeJob(prompt: "p")
