@@ -15,6 +15,13 @@
 > - Priorities: **privacy / fully-offline, accuracy, speed** — *not* cloud cost.
 > - Seed source the brief asked us to evaluate: Ivan Digital, *"MLX vs Core ML on Apple
 >   Silicon"* — its central MLX-vs-CoreML JIT framing is **partly wrong**; see §3.
+>
+> **Update 2026-06-30 (post-review):** Apple's native `SpeechAnalyzer`/`SpeechTranscriber`
+> is **ruled out** — no model control, no tiering, no overnight-quality lever, can't serve
+> other clients. And "sidecar" is clarified to mean a **standalone "Amanuensis Server"** (an
+> independent local HTTP/WS daemon), *not* a bundled helper or a downloaded plugin. That
+> adds an architecture **option** to weigh (not a new default) — see §6.1. Measured bundle
+> sizes in §2.1.
 
 This doc is the on-device companion to `docs/realtime-streaming-asr-research.md` (which is
 *cloud* streaming, explicitly out of scope here) and builds on the architecture seams that
@@ -24,52 +31,47 @@ doc already identified.
 
 ## 1. TL;DR
 
-1. **Pick the backend by what's sandbox-safe and ANE-efficient, then let model availability
-   refine it — not the other way round.** The seed article frames this as "MLX vs Core ML,
-   and Core ML wins because MLX needs JIT." The *conclusion* (favour Core ML/ANE for the
-   fast tier) is right; the *reason given* is wrong. **MLX does not JIT its standard kernels
-   by default, and no on-device ASR backend needs `com.apple.security.cs.allow-jit`** (§3).
-   The real reasons to prefer Core ML/ANE on an 8 GB Mac are **memory and power**, not
-   entitlements.
+1. **Pick the backend by ANE-efficiency and model availability — not by JIT.** The seed
+   article says "MLX needs JIT, Core ML doesn't, so Core ML wins." The *conclusion* (Core
+   ML/ANE is the better default for the fast tier) is right; the *reason* is wrong. **MLX
+   does not JIT its standard kernels by default, and no on-device ASR backend needs
+   `com.apple.security.cs.allow-jit`** (§3). What actually decides it is **memory/power on
+   8 GB** (ANE ≫ GPU) and **which backend a given model ships for**.
 
-2. **Default recommendation: link a Core ML / Apple-Neural-Engine backend *in-process* and
-   download only the model *weights* as data.** Two mature, MIT-licensed, pure-Swift-SPM
-   options exist today:
-   - **WhisperKit** (Argmax) — the whole Whisper family pre-converted to Core ML,
-     auto-downloaded from Hugging Face, ANE-accelerated, streaming-capable. Broadest
-     language coverage (incl. Hindi at the larger tiers). Lowest integration friction.
-   - **FluidAudio** — NVIDIA **Parakeet-TDT-0.6B** as Core ML on the ANE. Extremely fast
-     and tiny (**~66 MB** working set on the ANE vs ~2 GB for the same model on the GPU via
-     MLX), with **true** sliding-window streaming. **English-only (v2) / 25 European
-     languages (v3) — no Chinese/Japanese/Hindi.**
+2. **Light tiers → a Core ML / ANE backend linked *in-process*; download only the model
+   *weights* as data.** Two mature, MIT-licensed, pure-Swift-SPM options: **WhisperKit**
+   (whole Whisper family, broadest languages incl. Hindi) and **FluidAudio** (NVIDIA
+   Parakeet-TDT-0.6B, ~66 MB on the ANE, true streaming, but English/European only). Core
+   ML is a **system framework → ~0 MB of frameworks + ~1–4 MB of Swift code** (§2.1).
 
-3. **This in-process-backend + downloaded-weights split is the *only* architecture that
-   works for both channels.** The Mac App Store forbids downloading **executable** code
-   post-install (guidelines 2.5.2 / 2.4.5(iv)); model **weights are data** and stay
-   downloadable on both channels via Apple's **Background Assets** framework. So: compile
-   the runtime in, ship weights on demand. A **downloadable code plugin/`.bundle`** (the
-   satellite-bundle idea in the SPM spec) is a **Developer-ID-only** option (§6).
+3. **Heavy / MLX tiers raise a "where does it live?" question — three options, no default
+   yet.** MLX adds **~140 MB** to a bundle (a 119.6 MB prebuilt metallib; §2.1), and the
+   metallib likely counts as *executable code* for the Mac App Store (§6.2) — so on MAS you
+   **can't** slim the app by downloading the runtime later. Placement options: **(i) bundle
+   it** (simplest; ~140 MB, or smaller via `MLX_METAL_JIT`), **(ii) a Developer-ID-only
+   downloaded plugin**, or **(iii) a standalone "Amanuensis Server"** — an independent
+   localhost HTTP/WS daemon that keeps the weight/risk out of the app and reuses both seams
+   (a localhost-`baseURL` provider + a `ws://` `DictationTranscriber`). The server is **one
+   option to weigh** (§6.1), not a recommendation.
 
-4. **The model lineup drives one real fork: Hindi.** The fast Asian specialists
-   (SenseVoice, Paraformer) are great at zh/ja but **do no Hindi**, and the best Chinese
-   Zipformers have a non-commercial training-data problem. Only **two** stacks cover
-   zh + ja + hi in one model with a clean commercial licence: **Whisper** (MIT) and the
-   newly open-weighted **Qwen3-ASR** (Apache-2.0, released 2026-01-29). Qwen3-ASR already
-   has an `mlx-swift` port — and it's the **one place MLX is genuinely the right call** for
-   us (§4).
+4. **The split that matters: data vs executable code.** MAS forbids the app
+   downloading/executing new *code* (2.5.2 / 2.4.5(iv)); model **weights are data** and stay
+   downloadable on both channels (Background Assets). A **downloaded code plugin/`.bundle`**
+   is **Developer-ID-only**; a standalone server is an alternative way to keep heavy code off
+   the app (§6.1). In-process Core ML works on both channels and adds ~0 MB of frameworks
+   (§2.1).
 
-5. **Spike Apple's native `SpeechAnalyzer` / `SpeechTranscriber` (macOS 26) first.** We
-   target macOS 26.3. The system transcriber is on-device, ships **zero** third-party
-   binary (perfect notarization/sandbox story), and covers zh/ja. If its quality is good
-   enough for the lightweight tier, it could cover much of this for free. Hindi coverage is
-   the unknown to test. **Cheap to evaluate; do it before committing to bundling anything.**
+5. **The model lineup forks on one thing: Hindi.** The fast Asian specialists (SenseVoice,
+   Paraformer) do **no Hindi**, and the best Chinese Zipformers have a non-commercial
+   training-data problem. Only **Whisper** (MIT) and the newly open-weighted **Qwen3-ASR**
+   (Apache-2.0, 2026-01-29) cover zh + ja + hi in one clean-licence model. Qwen3-ASR ships
+   for **MLX** — which is the one place MLX is genuinely the right backend, and it belongs in
+   the server (§4, §6.1).
 
-6. **Batch and streaming attach at *different* seams you already have.** Batch local
-   transcription is a new `AudioJobSending` handler (file-in / text-out) — the
-   `SonioxAsyncHandler` multi-step precedent proves local inference fits. Streaming is a new
-   `DictationTranscriber` conformer (`onPartial`/`onFinal`) — exactly the seam the realtime
-   doc and the dictation spec already call out. **Do not force streaming onto
-   `AudioJobSending`** (§8).
+6. **Batch and streaming attach at *different* seams you already have.** Batch = a new
+   `AudioJobSending` handler *or* (server variant) a localhost provider — `SonioxAsyncHandler`
+   proves multi-step local work fits. Streaming = a `DictationTranscriber` conformer
+   (`onPartial`/`onFinal`). **Do not force streaming onto `AudioJobSending`** (§8).
 
 ---
 
@@ -82,7 +84,7 @@ Neural Engine (low power, tiny working memory); MLX and whisper.cpp/Metal run on
 | Backend | Compute | Swift integration | Sandbox + notarization | 8 GB fit | Notes |
 |---|---|---|---|---|---|
 | **Core ML / ANE** — WhisperKit, FluidAudio | **ANE** (+GPU/CPU fallback) | **Best.** Pure-Swift SPM, MIT, model auto-download | **Cleanest.** No special entitlement | **Best.** ~66 MB (Parakeet/ANE); compressed Whisper 0.5–0.6 GB | Encoder **and** decoder on ANE. The default. |
-| **MLX** — mlx-swift, mlx-whisper, Qwen3-ASR-swift | GPU (Metal) | Good and improving; `mlx-swift` is first-party | **Fine.** No JIT by default (§3); no `allow-jit` | OK for ≤~1–2 GB models; GPU-resident | Needed when a model ships **only** as MLX (e.g. Qwen3-ASR). |
+| **MLX** — mlx-swift, mlx-whisper, Qwen3-ASR-swift | GPU (Metal) | Good and improving; `mlx-swift` is first-party | **Fine.** No JIT by default (§3); no `allow-jit` | OK for ≤~1–2 GB models; GPU-resident | Needed when a model ships **only** as MLX (e.g. Qwen3-ASR). **~140 MB bundle cost (§2.1).** |
 | **whisper.cpp / GGML Metal** — SwiftWhisper, whisper.spm | **GPU only** (ANE only via separate opt-in Core ML *encoder*) | Mature SPM (compiles from source) | **Fine.** No `allow-jit`; **but** runtime-shader fragility on macOS 26 unless you ship a precompiled `default.metallib` (§5) | Worse — model sits in unified memory, contends with system | Viable, entitlement-clean, but no ANE benefit and an OS-version maintenance burden. |
 | **ONNX Runtime / sherpa-onnx** | CPU (MLAS) or CoreML EP → ANE | Roughest. C-bridged, community SPM | **Fine for JIT** (MLAS is precompiled); **library-validation** friction — Embed & Sign the dylib or add `disable-library-validation` | Depends on model | The way to run SenseVoice / Paraformer / Zipformer / IndicConformer if you need them. |
 
@@ -100,6 +102,29 @@ Neural Engine (low power, tiny working memory); MLX and whisper.cpp/Metal run on
 **A claim to *not* repeat:** that WhisperKit "matches the lowest cloud latency (0.46 s) and
 best 2.2 % WER vs gpt-4o-transcribe / Deepgram / Fireworks" — that specific comparative
 claim was adversarially **refuted (0-3)** in the research and should not be cited.
+
+### 2.1 Bundle-size cost of each runtime (measured)
+
+How many MB each runtime adds to a **notarized arm64 app bundle, excluding model weights**
+(weights download separately). Numbers below were **measured** on 2026-06-30 by building the
+Swift packages / inspecting the official release artifacts and the Mach-O binaries.
+
+| Runtime | MB added to arm64 bundle (no models) | Framework? | Detail |
+|---|---|---|---|
+| **Core ML — WhisperKit** | **~1.2 MB** (Swift code) | Core ML/ANE/Accelerate = **system → 0** | `WhisperKit` + `ArgmaxCore`, `__TEXT`+`__DATA` of release build |
+| **Core ML — FluidAudio** | **~3.5 MB** (Swift code) | system → 0 | release-build code size |
+| **whisper.cpp / GGML Metal** | **~2.5 MB** | bundled | single arm64 binary incl. a **0.58 MB** embedded `__ggml_metallib` |
+| **ONNX Runtime (CoreML EP)** | **~28 MB** dylib | bundled | prebuilt full build; a reduced custom build can be single-digit MB |
+| **MLX (mlx-swift)** | **~140 MB** uncompressed (~40 MB compressed) | **bundled — not a system framework** | `libmlx` 20.6 MB + **`mlx.metallib` 119.6 MB** + ~2–4 MB Swift wrapper (est.) |
+
+**Bottom line:** including **Core ML costs essentially nothing** (system frameworks + ~1–4 MB
+code). Including **MLX costs ~140 MB on disk** (~40 MB compressed), **~35–100× the Core ML
+path**, almost all of it the **119.6 MB prebuilt `mlx.metallib`**. The only lever to shrink
+it is a custom core build with `MLX_METAL_JIT=ON` (drops the metallib, at a first-run
+kernel-compile cost of a few hundred ms to a few seconds) — and that is *not* the default
+SwiftPM `mlx-swift` dependency. **This size gap is a key input to *where* an MLX engine should live — bundled, a
+Developer-ID plugin, or a separate server (§6) — not to whether MLX is sandbox-legal (it
+is).**
 
 ---
 
@@ -132,7 +157,9 @@ ML/ANE is the better default for the fast tier) happens to be right for *other* 
    ANE vs ~2 GB on the GPU for the same Parakeet model is the whole argument.
 2. **Model availability** → some models exist *only* as MLX (Qwen3-ASR today) or *only* via
    ONNX (SenseVoice). That, not JIT, is when "the model forces the backend."
-3. **OS-version durability** → Core ML and ONNX-CoreML delegate to system frameworks;
+3. **Bundle size** → MLX adds ~140 MB (§2.1); Core ML adds ~0. A factor in *where* an MLX
+   engine lives (bundle / Dev-ID plugin / server) — not in whether MLX is sandbox-legal.
+4. **OS-version durability** → Core ML and ONNX-CoreML delegate to system frameworks;
    whisper.cpp's runtime-source-compile path is the one exposed to macOS-26 Metal stdlib
    breakage (§5).
 
@@ -183,26 +210,25 @@ beats large-v3 on **Chinese** (AISHELL-1 CER 2.96 vs 5.14) but **loses on Japane
 - **European:** **Parakeet-TDT-0.6B-v3** (25 EU languages on the ANE) *or* **Whisper
   `small`** (MIT, broader). Parakeet for speed, Whisper for licence simplicity.
 - **Asian (zh/ja/hi):** **Qwen3-ASR-0.6B via `mlx-swift`** — the only clean-licence
-  lightweight model that does Hindi respectably in **one** model; fits 8 GB. Safe fallback:
-  **Whisper `small`** (weak Hindi → bump to `medium` if Hindi matters). For zh/ja-only,
-  SenseVoice-Small is the fastest, best-zh option but carries the bespoke licence and no
-  Hindi.
+  lightweight model that does Hindi respectably in **one** model; fits 8 GB. Because it's
+  MLX (~140 MB runtime), *where* it lives is a distribution choice (§6: bundle / Dev-ID
+  plugin / server). Safe fallback that's tiny in Core ML: **Whisper `small`** (weak Hindi →
+  bump to `medium`). For zh/ja-only, SenseVoice-Small is fastest/best-zh but has the bespoke
+  licence and no Hindi.
 
 **Quality / "run overnight" tier (zh + ja + hi):**
 - **Primary: Whisper `large-v3` (`v20240930`) via WhisperKit** — MIT, mature, best Hindi of
   the Whisper line. On 8 GB use the **quantized/compressed** variant (~0.55–1.08 GB); never
   ship f16 large-v3 on an 8 GB Mac (~10 GB working set → swap/crash).
-- **Challenger: Qwen3-ASR-1.7B** (Apache-2.0, native `mlx-swift`). If it wins on your audio,
-  it collapses both tiers to one engine across zh/ja/hi.
+- **Challenger: Qwen3-ASR-1.7B** (Apache-2.0, native `mlx-swift`, hosted in the server). If
+  it wins on your audio, it collapses both tiers to one engine across zh/ja/hi.
 
-**Two things worth a quick spike before committing:**
-- **Apple `SpeechAnalyzer`/`SpeechTranscriber` (macOS 26):** native, zero binary, best
-  sandbox story, on-device, zh/ja supported. Could cover the lightweight tier for free —
-  Hindi is the unknown.
-- The **`mlx-swift` Qwen3-ASR port** (`ivan-digital/qwen3-asr-swift`) appears to be from the
-  **same author as the seed article** — active, ~macOS 15+, but its **sandbox/notarization
-  behaviour is undocumented** and the llama.cpp GGUF audio path has open long-audio bugs.
-  Verify before relying on it.
+**One thing worth a quick spike before committing:** the **`mlx-swift` Qwen3-ASR port**
+(`ivan-digital/qwen3-asr-swift`) appears to be from the **same author as the seed article** —
+active, ~macOS 15+, but its **sandbox/notarization behaviour is undocumented** and the
+llama.cpp GGUF audio path has open long-audio bugs. Verify before relying on it. (In the
+server architecture, the port runs in an unsandboxed Developer-ID process, which sidesteps
+most of that risk.)
 
 ---
 
@@ -214,7 +240,8 @@ The app is sandboxed + Developer-ID-notarized today and may target MAS. Findings
   baseline.
 - **MLX (mlx-swift / Qwen3-ASR):** **no `allow-jit`** in default builds (§3). Metal GPU
   access is normal. Weights cache to the sandbox container. *Verify* the specific Swift
-  port under sandbox — it's young and undocumented on this point.
+  port under sandbox — it's young and undocumented on this point. (Moot if it runs in the
+  Developer-ID server, which can be unsandboxed.)
 - **whisper.cpp / GGML Metal:** **no `allow-jit`.** Two caveats:
   - Its default path **runtime-compiles MSL** (`newLibraryWithSource`). On macOS 26 / Metal
     Toolchain 32023 this path is **fragile** — source-level Metal stdlib changes broke
@@ -235,10 +262,11 @@ The app is sandboxed + Developer-ID-notarized today and may target MAS. Findings
   EP writes an `.mlmodelc` cache on first run — needs the (already-provided) sandbox cache
   dir.
 
-**The big sandbox landmine for distribution:** the App Sandbox **prohibits spawning
-arbitrary subprocesses**, so the common "ship `whisper-cli` as a sidecar and `exec` it"
-pattern is a **hard blocker**. Every backend here must be **linked in-process** — which is
-exactly what our handler architecture wants anyway (§8).
+**The big sandbox landmine:** the App Sandbox **prohibits spawning arbitrary subprocesses**,
+so the common "ship `whisper-cli` as a sidecar and `exec` it" pattern is a **hard blocker for
+an in-app backend**. Either link the backend **in-process** (§6 option a) **or** move it to a
+**separate, independently-launched server** the app merely *connects* to (§6.1) — the server
+isn't a subprocess of the sandboxed app, so the ban doesn't apply.
 
 ---
 
@@ -247,7 +275,8 @@ exactly what our handler architecture wants anyway (§8).
 The core rule, verified against the App Review Guidelines (live-fetched 2026-06):
 
 > **Model weights = data → downloadable on both channels. Executable backend code = only
-> bundled-at-review for MAS; freely downloadable for Developer ID.**
+> bundled-at-review for MAS; freely downloadable for Developer ID. A *separately-installed*
+> app is neither — it sidesteps the rule entirely (§6.1).**
 
 - **MAS forbids downloading executable code** that adds/changes features (2.5.2; only a
   narrow educational exception) and bars downloading "standalone apps, kexts, additional
@@ -260,33 +289,113 @@ Options, scored for our case:
 
 | Option | What it is | MAS | Developer ID | Verdict |
 |---|---|---|---|---|
-| **(a) In-process library** | Backend linked into the app binary | ✅ | ✅ | **Recommended.** Works everywhere. WhisperKit/FluidAudio/whisper.cpp-from-source all fit. |
-| **(b) Bundled XPC service / helper tool** | Helper embedded **at build time** | ✅ (non-privileged only) | ✅ | Fine if you want process isolation. Helper must be signed with **exactly two** entitlements: `app-sandbox` + `inherit` (any extra, e.g. Xcode-injected `get-task-allow`, crashes it). Privileged helpers: Dev ID only. |
-| **(c) Separate bundled helper `.app`** | A second `.app` (LSUIElement) inside yours | ✅ (bundled at review) | ✅ | Allowed, but **cannot be *downloaded* post-install on MAS**. Heavier than (a)/(b) for little gain. |
-| **(d) Downloaded code plugin / `.bundle`** | User downloads a loadable bundle after install (the SPM-spec satellite idea) | ❌ **forbidden** | ✅ | **Developer-ID-only.** This is the honest answer to "downloadable plugin." |
-| **(e) On-demand model download** | Fetch **weights** to Application Support / via Background Assets | ✅ (data) | ✅ | **Recommended for the weights.** |
+| **(a) In-process library** | Backend linked into the app binary | ✅ | ✅ | **Recommended for the light Core ML tiers** (~1–4 MB). WhisperKit/FluidAudio/whisper.cpp-from-source fit. MLX would add ~140 MB. |
+| **(b) Bundled XPC service / helper tool** | Helper embedded **at build time** | ✅ (non-privileged only) | ✅ | Process isolation without a separate install. Helper signed with **exactly two** entitlements: `app-sandbox` + `inherit` (any extra, e.g. Xcode-injected `get-task-allow`, crashes it). Still inside the sandbox, so no `whisper-cli` subprocess and no post-install code download. |
+| **(c) Separate bundled helper `.app`** | A second `.app` (LSUIElement) inside yours | ✅ (bundled at review) | ✅ | Allowed, but **cannot be *downloaded* post-install on MAS**. Mostly superseded by (f). |
+| **(d) Downloaded code plugin / `.bundle`** | User downloads a loadable bundle after install (the SPM-spec satellite idea) | ❌ **forbidden** | ✅ | **Developer-ID-only**, and largely **obviated by (f)** — a server is the cleaner way to get heavy code onto the machine. |
+| **(e) On-demand model download** | Fetch **weights** to Application Support / via Background Assets | ✅ (data) | ✅ | **Recommended for the weights**, both channels. |
+| **(f) Standalone "Amanuensis Server"** | A separate, user-installed local HTTP/WS daemon the app *connects* to | ✅ (app just makes network calls) | ✅ (server is Dev-ID, unsandboxed, unconstrained) | **One option for the heavy/MLX tiers & multi-client** — keeps ~140 MB + sandbox-hostile work out of the app, at the cost of a second installable product. See §6.1. |
 
-**Model download mechanics:**
+### 6.1 The "Amanuensis Server" — a standalone local transcription daemon (option f)
+
+A separate product: a small app/daemon the user installs and runs **independently**, exposing
+**HTTP** (batch) and/or **WebSocket** (streaming) on `127.0.0.1`. Amanuensis connects to it
+as a client — and so can a CLI, Raycast, scripts, or other apps. This is *not* a bundled
+helper (b/c) or a downloaded plugin (d); it's an **independent install**, which is exactly why
+it sidesteps the MAS code rules.
+
+**Why it's attractive for the heavy/MLX tiers:**
+- The MAS bans (2.5.2 / 2.4.5) are on *the app* fetching/executing new code. A
+  separately-installed server is **not the app fetching code** → all the heavy,
+  sandbox-hostile work (**MLX's ~140 MB**, whisper.cpp, model downloads to anywhere, even
+  spawning subprocesses) lives in the **server**, shipped via **Developer ID, unsandboxed,
+  unconstrained**.
+- The sandbox subprocess ban becomes irrelevant — the app opens a socket, it doesn't spawn.
+- The MAS **app stays tiny** (network code only; you can skip even Core ML if everything
+  routes through the server).
+
+**It reuses both existing seams — near-zero new app code:**
+- **Batch:** the server speaks OpenAI-compatible `POST /v1/audio/transcriptions`. Amanuensis
+  **already** has the `transcriptionMultipart` shape pointed at a configurable
+  `Provider.baseURL`. So "local transcription" is just **a provider with
+  `baseURL = http://127.0.0.1:PORT`** — *no new handler*, and the keyless-carve-out friction
+  (§8.1) disappears (store a dummy local token, or the server ignores auth). The HTTP-centric
+  `Provider`/`Preset` model that was *friction* for an embedded backend is a *perfect fit*
+  here.
+- **Streaming:** the server's WS endpoint → a `DictationTranscriber` conformer via
+  `URLSessionWebSocketTask` to `ws://127.0.0.1:PORT`, identical to the cloud streaming
+  providers in `realtime-streaming-asr-research.md` (same commit-window UX).
+
+**Entitlements:** the app needs only `com.apple.security.network.client` — **already present**
+(it's what the cloud connectors use; it covers loopback). The server, *if* sandboxed, needs
+`com.apple.security.network.server`; as a Developer-ID **unsandboxed** process it needs none
+(recommended, for full ML freedom).
+
+**Costs / things to get right:**
+- **Lifecycle.** The sandboxed app **can't launch** the server (subprocess ban) and, on MAS,
+  can't install it. So the server **self-installs as a `launchd` LaunchAgent** (or a menu-bar
+  app) and stays resident; the app **health-checks the port** and **degrades gracefully**
+  (fall back to cloud, or show "Start Amanuensis Server"). This is the main UX cost.
+- **MAS self-containment risk.** App Review expects the app to function on its own. Keep cloud
+  connectors working **without** the server and present local transcription as an *optional
+  accelerator*; **never bundle or auto-install** the server from the MAS build. (Judgment
+  call — verify with Review; talking to a localhost endpoint is ordinary network traffic, but
+  *requiring* a separate install to function is the line to stay behind.)
+- **Loopback security.** Bind `127.0.0.1` only and require a **shared token** (app generates
+  it, hands it to the server via a first-run handshake/config, sends it as a bearer header) so
+  other local processes can't quietly use — or abuse — your transcription service.
+- **More to build/maintain** — you're shipping a small private, offline "Groq." But it's
+  decoupled, **independently updatable without App Review**, and reusable. You may not even
+  write it from scratch: **whisper.cpp ships `whisper-server`** with an OpenAI-compatible HTTP
+  API, and llama.cpp's server speaks OpenAI too.
+- **Server internals:** a thin Swift HTTP/WS server (Hummingbird / Vapor / NIO, or
+  `Network.framework`) wrapping WhisperKit / FluidAudio / MLX-Qwen3 / whisper.cpp **in-process
+  within the server**. Since the server is unconstrained, mix freely and update independently.
+
+### 6.2 What's "data" vs "code" — and model-weight download mechanics
+
+**Does a `.metallib` count as executable code?** Model *weights* are unambiguously **data**.
+A `.metallib` (including `mlx.metallib`) is **compiled GPU shader programs** — much closer to
+code — so a *downloaded* metallib most likely falls under the MAS "executable code" bar
+(2.5.2 / 2.4.5(iv)). Practical consequence: **on MAS you cannot shrink the app by downloading
+the MLX runtime/metallib after install** — it must ship in the bundle (or be built with
+`MLX_METAL_JIT`, which runtime-compiles kernels from *embedded* MSL source on-device — that's
+compilation, not a download, so it's fine on MAS, just slower on first run). On **Developer
+ID** none of this applies — download whatever you like. *No explicit Apple ruling on metallib
+classification was found; treat this as a conservative inference and verify before betting a
+MAS submission on downloading a metallib.*
+
 - **Background Assets** is the idiomatic framework (macOS 13+, covers our 26.x target) with
   essential / prefetch / on-demand policies. macOS 26 adds **Apple-Hosted** packs (200 GB
   free in the Developer Program, accelerated ML-model update path **without** resubmitting
   the app) — **but Apple-hosting is App Store / TestFlight only.**
-- For **Developer ID**, do **not** assume Background Assets self-hosting works — the
-  "Apple-hosted *and* self-hosted dual path" claim was **refuted (1-2)**. Safest Dev-ID
-  path: a plain **`URLSession` download into Application Support** (which is also what
-  WhisperKit/FluidAudio already do from Hugging Face), or the older self-hosted
-  `BADownloaderExtension` + your own CDN.
+- For **Developer ID** (and the server), do **not** assume Background Assets self-hosting
+  works — the "Apple-hosted *and* self-hosted dual path" claim was **refuted (1-2)**. Safest:
+  a plain **`URLSession` download into Application Support** (which is also what
+  WhisperKit/FluidAudio already do from Hugging Face).
 
-**Net distribution recommendation:** **(a) + (e)** — compile the Core ML/ANE backend into
-the app, download weights as data. This single architecture clears both channels. Reserve
-the **(d) downloadable `.bundle`** (e.g. a heavier MLX/Qwen3 engine) for the **Developer ID**
-build only; for MAS, either compile that engine in (accepting binary size) or omit it.
+### 6.3 Choosing among the options (no forced default)
+
+It depends on how much you want to ship and maintain:
+- **Light Core ML tiers** are easy either way — **(a) + (e)** in-process is ~1–4 MB and
+  "just works" on MAS. Little reason to do anything fancier for these.
+- **Heavy / MLX tiers** are where the choice bites — pick per priorities:
+  - **Bundle MLX** — simplest to ship, one product, works on both channels; but ~140 MB
+    (smaller via `MLX_METAL_JIT`), and on MAS the metallib can't be slimmed by a later
+    download (§6.2).
+  - **Developer-ID-only downloaded plugin (d)** — keeps the app small, but no MAS.
+  - **Amanuensis Server (f)** — most decoupling, both channels, multi-client reach; but a
+    separate product to build, install, and keep running.
+- **(d)** and **(f)** both keep heavy code off the app; **(d)** is Dev-ID-only, **(f)** works
+  on both. Trade app-size / MAS-simplicity against avoiding a second installable product —
+  this is an open call.
 
 ---
 
 ## 7. Streaming vs batch on-device
 
-- **Batch** (the Jobs path) is latency-tolerant and trivially served by any backend here.
+- **Batch** (the Jobs path) is latency-tolerant and trivially served by any backend here —
+  in-process or via the server's HTTP endpoint.
 - **Streaming** (live dictation) splits into two kinds:
   - **Chunked / VAD pseudo-streaming** over an encoder-decoder model (WhisperKit's
     `AudioStreamTranscriber`, ~0.45 s/word reported; whisper.cpp stream example). Latency is
@@ -296,10 +405,11 @@ build only; for MAS, either compile that engine in (accepting binary size) or om
     — FluidAudio cites a Parakeet EOU variant at ~0.13 s **full-pipeline** in a third-party
     app (not an isolated ASR RTF; treat as directional).
 - **For our realtime path, FluidAudio/Parakeet is the strongest on-device streaming engine**
-  — but English/European only, so a multilingual live-dictation story still needs Whisper
-  chunked-streaming or Apple's `SpeechTranscriber`. This mirrors the realtime-cloud doc's
-  conclusion: streaming is its own seam with its own UX problem (the "commit window" for
-  revising partials), not a reskin of batch.
+  — but English/European only, so a multilingual live-dictation story needs Whisper
+  chunked-streaming (or a Qwen3 server endpoint). Either way it surfaces the same way: a
+  `DictationTranscriber` conformer over an in-process engine **or** over a `ws://127.0.0.1`
+  server endpoint. This mirrors the realtime-cloud doc's conclusion: streaming is its own seam
+  with its own UX problem (the "commit window" for revising partials), not a reskin of batch.
 
 ---
 
@@ -308,7 +418,7 @@ build only; for MAS, either compile that engine in (accepting binary size) or om
 The codebase already has both seams. Batch and streaming attach in different places — keep
 them separate.
 
-### 8.1 Batch — a new `AudioJobSending` handler
+### 8.1 Batch — a new `AudioJobSending` handler (in-process variant)
 
 The handler protocol is file-in / text-out and shape-agnostic:
 
@@ -342,7 +452,18 @@ and dispatches — **no change needed** there.
 - `ProviderEditorView.canSave` requires a non-empty API-key account
   (`ProviderEditorView.swift:84`). Relax it for keyless local providers.
 
-### 8.2 Streaming — a new `DictationTranscriber` conformer
+### 8.2 Batch — the server variant (reuse, don't extend)
+
+If the backend lives in the **Amanuensis Server (§6.1)**, the batch path needs **no new
+handler at all**: the server exposes OpenAI-compatible `POST /v1/audio/transcriptions`, and
+the existing `transcriptionMultipart` shape already targets a configurable
+`Provider.baseURL`. So you add a **provider row with `baseURL = http://127.0.0.1:PORT`** and a
+dummy/local token, and the existing pipeline runs unchanged. **This also avoids the §8.1
+keyless carve-outs** (the provider has a token, even if the server ignores it). Net: the
+server variant is *less* app-side code than the in-process variant — at the cost of building
+and shipping the server.
+
+### 8.3 Streaming — a new `DictationTranscriber` conformer
 
 ```swift
 // Packages/AudioPipeline/Sources/DictationCore/DictationTranscriber.swift:6
@@ -351,11 +472,13 @@ and dispatches — **no change needed** there.
 
 A local streaming engine is a new conformer (`LocalTranscriber: DictationTranscriber`)
 parallel to `BatchTranscriber` (`BatchTranscriber.swift:7`), emitting `onPartial`/`onFinal`.
-The dictation spec (`docs/superpowers/specs/2026-06-18-dictation-design.md:349`) already
-names the seam (`MLXTranscriber: DictationTranscriber`). **Do not** route streaming through
+It can wrap an **in-process** engine or a **`ws://127.0.0.1` server endpoint** (the latter is
+mechanically identical to the cloud `URLSessionWebSocketTask` conformers in the realtime doc).
+The dictation spec (`docs/superpowers/specs/2026-06-18-dictation-design.md:349`) already names
+the seam (`MLXTranscriber: DictationTranscriber`). **Do not** route streaming through
 `AudioJobSending`.
 
-### 8.3 Off-main inference (the concurrency rule)
+### 8.4 Off-main inference (the concurrency rule)
 
 The package uses default `MainActor` isolation with `NonisolatedNonsendingByDefault`, so a
 bare `nonisolated async func` **inherits the caller's actor** — it does *not* move off-main
@@ -365,66 +488,78 @@ by itself. Inference must be **explicitly** dispatched. Mirror the existing prec
 - `AudioCompressor.compressToM4A`, wrapped in `Task.detached(.utility)` by its caller
   precisely for this reason (`TranscriptionMultipartHandler.swift:89`).
 
-Put the model + inference loop behind a dedicated `actor` (or `Task.detached`), never a bare
-`nonisolated async`.
+Put any **in-process** model + inference loop behind a dedicated `actor` (or `Task.detached`),
+never a bare `nonisolated async`. (The server variant moves this concern into the server
+process entirely — the app just does async network I/O, which it already handles.)
 
-### 8.4 Heavy-dependency isolation
+### 8.5 Heavy-dependency isolation
 
 The SPM module spec (`docs/superpowers/specs/2026-05-24-spm-module-architecture-design.md`
 §333-335) already plans a **separately-codesigned satellite `.bundle`** outside the umbrella
-package so `AudioPipeline*` never takes an MLX/Core ML dependency. That intent holds — with
-the **distribution caveat from §6**: a *downloaded* satellite bundle is **Developer-ID-only**.
-For the MAS build, the backend must be **compiled into the app** (a Core ML/ANE backend like
-WhisperKit/FluidAudio is light enough to link directly; an MLX engine is the one you'd gate
-to Dev ID or compile in at a size cost).
+package so `AudioPipeline*` never takes an MLX/Core ML dependency. That intent holds, refined
+by §6: a *downloaded* satellite bundle is **Developer-ID-only**, whereas the **Amanuensis
+Server** achieves the same isolation **for both channels** (the heavy dependency is in a
+separate process/product, not loaded into the app at all). For a MAS build that wants MLX
+without the server, the alternative is compiling MLX in (~140 MB; §2.1) — usually not worth
+it versus routing through the server.
 
-### 8.5 Settings / model management UI
+### 8.6 Settings / model management UI
 
 A new Section in `SettingsView.swift:61` (next to Dictation) is the natural home for model
-download/management — a local backend has no API key, so it sidesteps the Keychain/provider
-flow. Per-job model selection already works via the preset's `suggestedModels`.
+download/management and a server status/health row. An in-process local backend has no API
+key, so it sidesteps the Keychain/provider flow; the server variant reuses the normal provider
+UI (with a localhost `baseURL`). Per-job model selection already works via the preset's
+`suggestedModels`.
 
 ---
 
 ## 9. Recommendation matrix
 
-| Tier | Backend | Model | Licence | Channel fit | Notes |
+| Tier | Where it runs | Backend / model | Licence | Channel fit | Notes |
 |---|---|---|---|---|---|
-| **Spike first** | Apple `SpeechAnalyzer` | system | — (OS) | both | Zero binary; best sandbox story; test zh/ja/hi quality. |
-| **Fast — English** | FluidAudio (Core ML/ANE) | Parakeet-0.6B-v2 | code MIT; NVIDIA weights (verify) | both | ~66 MB, true streaming, fastest. Fallback Whisper `small.en` (MIT). |
-| **Fast — European** | FluidAudio or WhisperKit | Parakeet-0.6B-v3 / Whisper `small` | MIT(-ish) | both | Parakeet=speed, Whisper=licence simplicity. |
-| **Fast — Asian zh/ja/hi** | MLX (`mlx-swift`) | **Qwen3-ASR-0.6B** | **Apache-2.0** | **Dev ID** (download) / MAS (compile-in) | Only clean-licence light model doing Hindi. Verify sandbox. |
-| **Quality — all langs** | WhisperKit (Core ML/ANE) | Whisper **large-v3** (quantized) | **MIT** | both | Overnight tier; never f16 on 8 GB. |
-| **Quality — challenger** | MLX | Qwen3-ASR-1.7B | Apache-2.0 | Dev ID / MAS-compile | A/B vs large-v3; could unify both tiers. |
-| **zh/ja specialist (optional)** | sherpa-onnx | SenseVoice-Small | bespoke Alibaba | both (Embed & Sign) | Best/fastest zh; no Hindi; keep licence text on file. |
+| **Fast — English** | in-process | FluidAudio Parakeet-0.6B-v2 (Core ML/ANE) | code MIT; NVIDIA weights (verify) | both | ~66 MB working set, ~3.5 MB code, true streaming. Fallback Whisper `small.en` (MIT). |
+| **Fast — European** | in-process | Parakeet-0.6B-v3 / Whisper `small` | MIT(-ish) | both | Parakeet=speed, Whisper=licence simplicity. |
+| **Fast — Asian zh/ja/hi** | bundle / plugin / server (choose, §6.3) | Qwen3-ASR-0.6B (MLX) | **Apache-2.0** | both | Only clean-licence light model doing Hindi; MLX ~140 MB → placement is an open choice. |
+| **Quality — all langs** | in-process **or** server | Whisper **large-v3** (quantized, WhisperKit) | **MIT** | both | Overnight tier; never f16 on 8 GB. |
+| **Quality — challenger** | bundle / plugin / server | Qwen3-ASR-1.7B (MLX) | Apache-2.0 | both | A/B vs large-v3; could unify both tiers. |
+| **zh/ja specialist (optional)** | in-process or server | SenseVoice-Small (sherpa-onnx) | bespoke Alibaba | both (Embed & Sign) | Best/fastest zh; no Hindi; keep licence text on file. |
 
 **Phasing suggestion:**
-1. **Spike** Apple `SpeechTranscriber` (free, may cover the light tier) **and** prove the
-   batch seam end-to-end with **WhisperKit** (lowest friction, both channels).
+1. **Prove the batch seam end-to-end with WhisperKit in-process** (lowest friction, both
+   channels, ~1.2 MB).
 2. Add **FluidAudio/Parakeet** for the fast English/European tier + the streaming
    `DictationTranscriber` conformer.
-3. Add **Qwen3-ASR (MLX)** for the Asian tier — Dev-ID download first; decide MAS
-   compile-in later.
-4. Add **Whisper large-v3** as the overnight quality tier.
-5. Optional: sherpa-onnx **SenseVoice** if Chinese accuracy becomes a headline feature.
+3. **Decide where the heavy/MLX tiers live** (§6.3: bundle / Dev-ID plugin / server). If you
+   go the server route, stand it up here (start from `whisper-server` or a thin Hummingbird
+   wrapper) and wire Amanuensis to it as a `http://127.0.0.1` provider.
+4. Add **Qwen3-ASR (MLX)** for the Asian tier — in whichever home step 3 picked.
+5. Add **Whisper large-v3** as the overnight quality tier (in-process or server).
+6. Optional: **SenseVoice** if Chinese accuracy becomes a headline feature.
 
 ---
 
 ## 10. Open questions / spikes before committing
 
-1. **Apple `SpeechAnalyzer` quality** for zh/ja/**hi** on macOS 26.3 — could remove the need
-   to bundle anything for the light tier. Cheapest, highest-leverage spike.
-2. **Qwen3-ASR `mlx-swift` under App Sandbox + notarization** — undocumented; the engine's
-   weights-cache, Metal access, and notarization all need a real test. Also verify its
-   accuracy claims on representative zh/ja/hi audio.
-3. **NVIDIA Parakeet *weight* licence** — confirm commercial-use terms (code is MIT/Apache;
+1. **Qwen3-ASR `mlx-swift` behaviour** — accuracy on representative zh/ja/hi audio (vendor
+   claims unverified), and, if ever run *in-app* rather than in the server, its
+   sandbox/notarization/weights-cache behaviour. In the server it runs unsandboxed, which
+   removes most of the risk.
+2. **NVIDIA Parakeet *weight* licence** — confirm commercial-use terms (code is MIT/Apache;
    the model weights are the question) before shipping FluidAudio in a paid app.
-4. **Cold-start / first-run Core ML compile latency and steady-state memory on a true 8 GB
+3. **Cold-start / first-run Core ML compile latency and steady-state memory on a true 8 GB
    machine** — the 190×/M4-Pro figures don't represent the low-end target. Measure WhisperKit
    large-v3-turbo (0.6 GB) vs FluidAudio Parakeet on the actual floor hardware.
-5. **whisper.cpp `default.metallib` packaging** — only needed if we adopt whisper.cpp; verify
-   the precompiled-metallib build is sandbox-clean and survives a macOS point release.
-6. **SenseVoice/FunASR licence** — non-OSI, HF tags self-contradict; keep the exact
+4. **Server lifecycle** — `launchd` LaunchAgent install/auto-start UX, health-check protocol,
+   graceful "server not running → fall back to cloud" behaviour, and the loopback shared-token
+   handshake.
+5. **MAS self-containment review** — confirm with App Review that an *optional* localhost
+   server (app fully functional without it) is acceptable, and that the app never installs it.
+6. **Server build vs reuse** — evaluate whether `whisper-server` (OpenAI-compatible HTTP) is
+   enough to start, or whether a thin Swift HTTP/WS wrapper around WhisperKit/MLX is worth
+   owning for the WS/streaming endpoint and multi-engine routing.
+7. **whisper.cpp `default.metallib` packaging** — only if we adopt whisper.cpp; verify the
+   precompiled-metallib build is sandbox-clean and survives a macOS point release.
+8. **SenseVoice/FunASR licence** — non-OSI, HF tags self-contradict; keep the exact
    `MODEL_LICENSE` text on file if used. Avoid WenetSpeech-trained Chinese Zipformers in a
    paid app (non-commercial training data).
 
@@ -432,22 +567,25 @@ flow. Per-job model selection already works via the preset's `suggestedModels`.
 
 ## Sources
 
-**Backends & Swift integration**
+**Backends, Swift integration & bundle sizes**
 - WhisperKit — <https://github.com/argmaxinc/WhisperKit> · Core ML weights
   <https://huggingface.co/argmaxinc/whisperkit-coreml> · OD-MBP paper (arXiv 2507.10860)
   <https://arxiv.org/pdf/2507.10860>
 - FluidAudio — <https://github.com/FluidInference/FluidAudio> · Parakeet Core ML
   <https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml> · ANE footprint
   <https://macparakeet.com/blog/whisper-to-parakeet-neural-engine/>
-- MLX build/JIT flag — <https://ml-explore.github.io/mlx/build/html/install.html> ·
-  lightning-whisper-mlx (claims unverified) <https://github.com/mustafaaljadery/lightning-whisper-mlx>
-- whisper.cpp — <https://github.com/ggml-org/whisper.cpp> · SwiftWhisper
+- MLX size (`mlx.metallib` 119.6 MB, `libmlx` 20.6 MB) — `mlx-metal` wheel
+  <https://pypi.org/project/mlx-metal/#files> · build/JIT flag
+  <https://ml-explore.github.io/mlx/build/html/install.html> · mlx-swift bundling pain
+  <https://github.com/ml-explore/mlx-swift/issues/345>
+- whisper.cpp — <https://github.com/ggml-org/whisper.cpp> (v1.9.1 xcframework inspected) ·
+  `whisper-server` (OpenAI-compatible HTTP) in `examples/server` · SwiftWhisper
   <https://swiftpackageindex.com/exPHAT/SwiftWhisper> · whisper.spm
   <https://github.com/ggerganov/whisper.spm> · GGML Metal loader
   <https://github.com/ggml-org/llama.cpp/blob/master/ggml/src/ggml-metal/ggml-metal-device.m>
-- sherpa-onnx — <https://github.com/k2-fsa/sherpa-onnx> · community SPM
-  <https://swiftpackageindex.com/willwade/sherpa-onnx-spm> · ONNX Runtime CoreML EP
-  <https://onnxruntime.ai/docs/execution-providers/CoreML-ExecutionProvider.html>
+- ONNX Runtime (~28 MB dylib) — <https://pypi.org/project/onnxruntime/#files> · CoreML EP
+  <https://onnxruntime.ai/docs/execution-providers/CoreML-ExecutionProvider.html> · sherpa-onnx
+  community SPM <https://swiftpackageindex.com/willwade/sherpa-onnx-spm>
 
 **Models & licences**
 - Whisper — <https://github.com/openai/whisper> · WER tables
