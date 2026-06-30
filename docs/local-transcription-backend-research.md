@@ -636,6 +636,37 @@ UI (with a localhost `baseURL`). Per-job model selection already works via the p
 
 ---
 
+## 11. Deferred / next steps
+
+This section captures intentionally deferred work that a future contributor should tackle — both for the batch on-device path and for planned feature work identified in the implementation process.
+
+### 11.1 Streaming / live dictation
+
+**Local streaming transcription** is a sibling to the batch path (§8.1) but fits a *different* seam. Rather than adding a new `AudioJobSending` handler, implement a `LocalTranscriber: DictationTranscriber` conformer that emits interim results via `onPartial` and final text via `onFinal`. It mirrors the existing cloud streaming conformers in `docs/realtime-streaming-asr-research.md` and can wrap either:
+- **In-process engine:** FluidAudio's `SlidingWindowAsrManager` running **Parakeet EOU** (English/European, ultra-low latency, true streaming on ANE), or a **Nemotron Streaming Multilingual** variant if FluidAudio ships it (en/es/fr/it/pt/de/zh/ja + auto, same ANE path, true streaming).
+- **Server endpoint:** a `ws://127.0.0.1:PORT` WebSocket to the Amanuensis Server (§6.1) running streaming-capable models (Parakeet, Nemotron, or Whisper chunked-streaming via WhisperKit's `AudioStreamTranscriber`).
+
+The UX reuses the "commit window" model from the realtime-cloud spec: display partial results and let the user revise/accept them before they ship to the transcript. **Keep streaming orthogonal to batch** — do not force it through `AudioJobSending` (§8 explains why).
+
+### 11.2 IndicConformer-600M Core ML RNNT (Hindi, MIT, ~13 WER)
+
+**Best Hindi WER option** — per §4.3, IndicConformer-600M (AI4Bharat, **MIT**, ~13 WER on Hindi, also supports Marathi/Tamil/Telugu/Kannada/Malayalam/Bengali) ships a Core ML RNNT conversion (`phequals/indic-conformer-600m-multilingual-coreml-rnnt`). It's **not turnkey** — you implement:
+- A **Swift greedy-RNNT decoder** (the joint-layer scoring loop). The model ships INT8 encoder + RNNT joint + per-language prediction heads; your code consumes encoder outputs and steers the joint to decode.
+- A **log-mel feature frontend** (the repo provides normalisation constants, vocabulary, and preprocessing specifics; the `Muesli` reference app `pHequals7/muesli` demonstrates the full stack).
+
+The RNNT decode logic overlaps with what FluidAudio already does for Parakeet (which is also a transducer with a separate joint layer). If you've built a Parakeet harness, the IndicConformer path is incremental. **Friction: moderate.** Check:
+- Licence of the Muesli reference impl (if reusing code).
+- WER on your actual test audio (benchmark claims are on FLEURS; your recordings may behave differently).
+- Inference latency on 8 GB hardware (model is 600M, fast on ANE, but first-run Core ML compilation cost varies).
+
+### 11.3 Background Assets for model delivery
+
+Today, WhisperKit and FluidAudio download model weights from **Hugging Face** on first use (cached in the app's sandbox container or Application Support). For **Mac App Store** targets, **Background Assets** (macOS 13+, WWDC25 325) is the idiomatic distribution mechanism — you can mark models as "essential" (pre-fetches at install) or "on-demand" (fetches on first use). macOS 26 adds **Apple-Hosted** packs (200 GB free quota in the Developer Program, dedicated ML-model-update path — **App Store / TestFlight only**, *not* Developer ID).
+
+**When to invest:** if/when you commit to MAS and want to avoid the ~0.5–1 GB first-run download stall (Background Assets handles retries, metering, and prioritization better than a bare `URLSession`). Current state: **Hugging Face download + cache is sufficient for Developer-ID ships** (and faster to iterate on during development). Switch to Background Assets if MAS or user retention on poor networks becomes a priority. Refer to Apple's Background Assets docs and the implementation in WhisperKit/FluidAudio sources for how they handle cache paths.
+
+---
+
 ## Sources
 
 **Backends, Swift integration & bundle sizes**
