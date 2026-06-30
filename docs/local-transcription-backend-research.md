@@ -156,7 +156,13 @@ language (zh/ja are the specialists above; Hindi is its own model, §4.3). The w
 single-model option, **Qwen3-ASR**, has a Core ML build
 (`FluidInference/qwen3-asr-0.6b-coreml`, Apache-2.0, zh/ja/**hi**/30+ langs, int8 ~0.7 GB) but
 is in FluidAudio's **"Evaluated / Not Supported"** list (autoregressive, **~2.8–4.5× RTF**,
-needs a hand-written harness), so it drops out for now.
+needs a hand-written harness), so it drops out for now. *(Surveyed the public Core ML
+conversions: FluidInference's 0.6B is the best base — stateful KV-cache decoder + vocab — and
+its card advertises a `Qwen3AsrManager`, but that manager is **not in the shipping FluidAudio
+source** (only Parakeet/Paraformer/SenseVoice/Cohere/Nemotron exist), so it isn't turnkey
+today; `aufklarer`'s is full-ANE but ships no runner; the `aoiandroid`/`weiren119` **1.7B**
+builds are **GPU-only FP32 ~2.8 GB** — wrong for 8 GB. **Re-check when FluidAudio ships Qwen3
+support** — it would become turnkey overnight.)*
 
 **Net: MLX is no longer required for any requested tier.** Its only remaining draw is the
 prebuilt MLX Qwen3 build over a hand-written Core ML harness — niche. The §6 "where does MLX
