@@ -62,5 +62,8 @@
    "fieldHelp":{"keyterm":"Keyterm Prompting (Nova-3): biases toward names/jargon — up to ~100 terms, 500 tokens/request, comma-separated. Not free-text instructions. (Nova-2 and earlier use keywords instead.)"}},
   {"id":"reson8","displayName":"Reson8","shape":"reson8Prerecorded",
    "baseURL":"https://api.reson8.dev","suggestedModels":[],"defaults":{},
-   "docsURL":"https://docs.reson8.dev/documentation/speech-to-text/prerecorded/","defaultOutputExt":"txt"}
+   "docsURL":"https://docs.reson8.dev/documentation/speech-to-text/prerecorded/","defaultOutputExt":"txt"},
+  {"id":"on-device","displayName":"On-device (local)","shape":"localTranscription",
+   "baseURL":"","suggestedModels":["parakeet-tdt-ctc-110m","parakeet-tdt-v3","cohere-transcribe","whisper-large-v3-turbo","parakeet-tdt-ja","sensevoice-small"],
+   "defaults":{},"defaultOutputExt":"txt"}
 ]

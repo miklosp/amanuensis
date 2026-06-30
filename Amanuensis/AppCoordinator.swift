@@ -358,7 +358,9 @@ final class AppCoordinator {
         let effectiveJob = grant.job
         if effectiveJob != job { jobs.upsert(effectiveJob) }
 
-        let runner = JobRunner(keychain: keychain)
+        let handlers: [JobShape: any AudioJobSending] = JobRunner.defaultHandlers.merging(
+            [.localTranscription: LocalTranscriptionSender(service: localService)]) { _, new in new }
+        let runner = JobRunner(keychain: keychain, handlers: handlers)
         do {
             let out = try await runner.run(job: effectiveJob, provider: provider, shape: shape, audioURL: target)
             await self.flashActivity("Done: '\(job.name)' → \(out.lastPathComponent)")

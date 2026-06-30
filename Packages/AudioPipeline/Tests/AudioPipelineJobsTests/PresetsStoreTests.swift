@@ -15,7 +15,8 @@ import Testing
         #expect(ids.contains("deepgram"))
         #expect(ids.contains("gemini-openai"))
         #expect(ids.contains("reson8"))
-        #expect(store.all.count == 15)
+        #expect(ids.contains("on-device"))
+        #expect(store.all.count == 16)
     }
 
     @Test func cohere_usesCohereTranscribeShape_andDropsPromptOverrides() throws {
