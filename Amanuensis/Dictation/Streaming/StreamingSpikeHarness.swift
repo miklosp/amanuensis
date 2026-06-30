@@ -1,5 +1,4 @@
 #if DEBUG
-import AppKit
 import Foundation
 import DictationCore
 import os
