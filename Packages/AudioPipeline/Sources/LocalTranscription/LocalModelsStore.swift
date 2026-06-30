@@ -6,6 +6,7 @@ import Foundation
         public var isDownloading = false
         public var progress: Double = 0
         public var installedBytes: Int64 = 0
+        public init() {}
     }
 
     public private(set) var states: [String: ModelState] = [:]
