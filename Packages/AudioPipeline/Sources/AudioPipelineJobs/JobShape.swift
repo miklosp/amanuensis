@@ -10,6 +10,7 @@ public enum JobShape: String, Codable, CaseIterable, Hashable, Sendable {
     case deepgramListen             // Deepgram /v1/listen, raw body + query-param options
     case cohereTranscribe           // Cohere /v2/audio/transcriptions (multipart, v2 path)
     case reson8Prerecorded          // Reson8 prerecorded STT: raw body + query-param options
+    case localTranscription         // On-device ASR (WhisperKit / FluidAudio); no API key or network
 
     // The path the handler appends to the provider's Base URL. Shown as a hint
     // in the provider editor so users know not to include it themselves. Must
@@ -26,6 +27,7 @@ public enum JobShape: String, Codable, CaseIterable, Hashable, Sendable {
         case .deepgramListen:        return "/v1/listen"
         case .cohereTranscribe:      return "/v2/audio/transcriptions"
         case .reson8Prerecorded:     return "/v1/speech-to-text/prerecorded"
+        case .localTranscription:    return ""
         }
     }
 
@@ -36,10 +38,13 @@ public enum JobShape: String, Codable, CaseIterable, Hashable, Sendable {
     public var requiresModel: Bool {
         switch self {
         case .chatCompletionsAudio, .transcriptionMultipart, .cohereTranscribe,
-             .elevenLabsScribe, .geminiGenerateContent, .sonioxAsync, .deepgramListen:
+             .elevenLabsScribe, .geminiGenerateContent, .sonioxAsync, .deepgramListen,
+             .localTranscription:
             return true
         case .reson8Prerecorded:
             return false
         }
     }
+
+    public var requiresAPIKey: Bool { self != .localTranscription }
 }

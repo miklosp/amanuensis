@@ -101,6 +101,11 @@ extension JobShape {
                 FieldSpec(key: "max_speakers", label: "Max speakers", kind: .number, required: false,
                           help: "Upper bound for diarization"),
             ]
+        case .localTranscription:
+            return [
+                FieldSpec(key: "language", label: "Language (optional)", kind: .text, required: false,
+                          help: "e.g. en, ja, zh — leave blank to auto-detect"),
+            ]
         }
     }
 }
