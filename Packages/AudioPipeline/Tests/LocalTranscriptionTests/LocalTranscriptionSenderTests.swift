@@ -25,16 +25,19 @@ private let stubProvider = Provider(
     #expect(text == "fake transcript")
 }
 
-@Test func senderRejectsUnknownModel() async {
+@Test func senderRejectsUnknownModel() async throws {
     let sender = LocalTranscriptionSender(
         service: LocalTranscriptionService(fluidAudio: FakeEngine(), whisperKit: FakeEngine())
     )
     var job = Job.makeDraft()
     job.model = "bogus"
-    await #expect(throws: LocalTranscriptionError.self) {
+    do {
         _ = try await sender.send(
             job: job, provider: stubProvider,
             audioURL: URL(fileURLWithPath: "/x"), apiKey: ""
         )
+        Issue.record("Expected LocalTranscriptionError to be thrown")
+    } catch is LocalTranscriptionError {
+        // expected — guard throws before any suspension
     }
 }
