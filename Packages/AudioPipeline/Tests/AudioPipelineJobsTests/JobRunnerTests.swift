@@ -151,6 +151,39 @@ private func chatRunner(keychain: any KeychainProviding, handler: any AudioJobSe
     }
 }
 
+// SpyKeychain records whether get(account:) was called. Used to assert the
+// keychain is NOT queried for keyless shapes.
+private actor SpyKeychain: KeychainProviding {
+    private(set) var getCalled = false
+    func get(account: String) async throws -> String {
+        getCalled = true
+        return "should-not-be-used"
+    }
+}
+
+// SpySender captures the apiKey it received.
+private actor SpySender: AudioJobSending {
+    private(set) var receivedAPIKey: String?
+    func send(job: Job, provider: Provider, audioURL: URL, apiKey: String) async throws -> String {
+        receivedAPIKey = apiKey
+        return "ok"
+    }
+}
+
+@Suite struct JobRunnerKeyless {
+    @Test func localShapeSkipsKeychainFetch() async throws {
+        let audio = try makeAudio()
+        let kc = SpyKeychain()
+        let spy = SpySender()
+        let runner = JobRunner(keychain: kc, handlers: [.localTranscription: spy])
+        _ = try await runner.run(job: makeJob(providerID: makeProvider().id),
+                                 provider: makeProvider(), shape: .localTranscription,
+                                 audioURL: audio)
+        #expect(await kc.getCalled == false)
+        #expect(await spy.receivedAPIKey == "")
+    }
+}
+
 @Suite struct JobRunnerDispatch {
     @Test func run_dispatchesToHandlerForShape() async throws {
         let audio = try makeAudio()
