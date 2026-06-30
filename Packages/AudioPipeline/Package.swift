@@ -26,7 +26,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/argmaxinc/WhisperKit", from: "1.0.0"),
-        .package(url: "https://github.com/FluidInference/FluidAudio", from: "0.12.0"),
+        .package(url: "https://github.com/FluidInference/FluidAudio", .upToNextMinor(from: "0.15.4")),
     ],
     targets: [
         .target(name: "AppSettings", dependencies: ["DictationCore"], swiftSettings: mainActorSettings),

@@ -104,7 +104,7 @@ extension JobShape {
         case .localTranscription:
             return [
                 FieldSpec(key: "language", label: "Language (optional)", kind: .text, required: false,
-                          help: "e.g. en, ja, zh — leave blank to auto-detect"),
+                          help: "e.g. en, ja, zh. Blank auto-detects on Whisper & Parakeet v3; Cohere defaults to English."),
             ]
         }
     }
