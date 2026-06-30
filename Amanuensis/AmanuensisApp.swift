@@ -1,4 +1,7 @@
 import AppSettings
+#if DEBUG
+import DictationCore
+#endif
 import SwiftUI
 
 @main
@@ -22,6 +25,11 @@ struct AmanuensisApp: App {
             CommandGroup(replacing: .newItem) {
                 OpenMainWindowCommand()
             }
+            #if DEBUG
+            CommandMenu("Streaming Spike") {
+                StreamingSpikeCommands()
+            }
+            #endif
         }
 
         Settings {
@@ -40,3 +48,30 @@ private struct OpenMainWindowCommand: View {
         .keyboardShortcut("n")
     }
 }
+
+#if DEBUG
+private struct StreamingSpikeCommands: View {
+    var body: some View {
+        Button("Revisable × Clipboard (k=2)") {
+            launch(.revisableSample, ClipboardAppendInserter(), k: 2)
+        }
+        Button("Revisable × Keystroke (k=2)") {
+            launch(.revisableSample, KeystrokeDiffInserter(), k: 2)
+        }
+        Button("Revisable × Clipboard (k=3)") {
+            launch(.revisableSample, ClipboardAppendInserter(), k: 3)
+        }
+        Button("Immutable × Clipboard (k=2)") {
+            launch(.immutableSample, ClipboardAppendInserter(), k: 2)
+        }
+        Button("Immutable × Keystroke (k=2)") {
+            launch(.immutableSample, KeystrokeDiffInserter(), k: 2)
+        }
+    }
+
+    private func launch(_ script: SimulatedTranscriptScript, _ strategy: InsertionStrategy, k: Int) {
+        let harness = StreamingSpikeHarness(script: script, strategy: strategy, stabilityCount: k)
+        Task { await harness.run() }   // harness retained by the task until run() completes
+    }
+}
+#endif
