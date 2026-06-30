@@ -64,12 +64,11 @@ doc already identified.
    the app (§6.1). In-process Core ML works on both channels and adds ~0 MB of frameworks
    (§2.1).
 
-5. **The lineup still forks on Hindi — but it's a Core ML fork, not an MLX one.** The fast
-   Asian specialists (SenseVoice, Paraformer, Parakeet-ja, Nemotron) do **no Hindi**; cover
-   Hindi with **Whisper via WhisperKit** (MIT, Core ML, in-process). A single zh+ja+**hi**
-   model would be **Qwen3-ASR** — a Core ML build exists (Apache-2.0) but it's **slow
-   (~2.8× RTF) and not in the FluidAudio SDK** (§2.2), so it needs a custom harness; future,
-   not now.
+5. **Per-language models (user's call) — so no single zh+ja+hi model is needed, and Qwen3-ASR
+   drops out.** zh → SenseVoice/Paraformer, ja → Parakeet-ja (both FluidAudio, fast), hi →
+   **Whisper via WhisperKit** (vanilla `large-v3` now, or convert a **Hindi-finetuned Whisper**
+   for better WER — WhisperKit runs any Whisper checkpoint). All Core ML/ANE, in-process
+   (§2.2, §4.3).
 
 6. **Batch and streaming attach at *different* seams you already have.** Batch = a new
    `AudioJobSending` handler *or* (server variant) a localhost provider — `SonioxAsyncHandler`
@@ -152,12 +151,12 @@ MLX, no sherpa-onnx, no server needed. **Hindi** stays in the same in-process Co
 via **Whisper / WhisperKit** (MIT). So **WhisperKit + FluidAudio cover English, European, zh,
 ja, and hi — all Core ML/ANE, ~1–4 MB, both channels, no special entitlement.**
 
-**The only gap is one model that does everything incl. Hindi, *fast*.** Qwen3-ASR fits on
-paper, and a Core ML build exists (`FluidInference/qwen3-asr-0.6b-coreml`, Apache-2.0,
-zh/ja/**hi**/30+ langs, int8 ~0.7 GB) — **but** it is in FluidAudio's **"Evaluated / Not
-Supported"** list (autoregressive, **~2.8–4.5× RTF**), so using it means writing your own Swift
-harness (mel-chunking + AR decoder + KV-cache). Treat Qwen3-ASR (Core ML *or* MLX) as a
-*future convenience*, not the near-term path.
+**A single model doing everything incl. Hindi isn't needed** — the brief allows one model per
+language (zh/ja are the specialists above; Hindi is its own model, §4.3). The would-be
+single-model option, **Qwen3-ASR**, has a Core ML build
+(`FluidInference/qwen3-asr-0.6b-coreml`, Apache-2.0, zh/ja/**hi**/30+ langs, int8 ~0.7 GB) but
+is in FluidAudio's **"Evaluated / Not Supported"** list (autoregressive, **~2.8–4.5× RTF**,
+needs a hand-written harness), so it drops out for now.
 
 **Net: MLX is no longer required for any requested tier.** Its only remaining draw is the
 prebuilt MLX Qwen3 build over a hand-written Core ML harness — niche. The §6 "where does MLX
@@ -256,8 +255,13 @@ beats large-v3 on **Chinese** (AISHELL-1 CER 2.96 vs 5.14) but **loses on Japane
   fast) + **SenseVoice-Small** or **Paraformer-large** (Mandarin, fast). All ANE, tiny
   footprint, both channels (§2.2). Licence caveat: these are non-MIT (FunASR `license: other`
   / NVIDIA) — review before a paid release.
-- **Hindi:** **Whisper via WhisperKit** (`small`→`medium` for usable Hindi; MIT, Core ML).
-  A single zh+ja+hi model (Qwen3-ASR) exists in Core ML but is slow and not turnkey (§2.2).
+- **Hindi (its own model — per-language is fine):** **Whisper via WhisperKit**. Vanilla
+  `large-v3` works now (MIT, pre-converted; Hindi ~17–19 WER). For better Hindi, **convert a
+  Hindi-finetuned Whisper** (e.g. `vasista22/whisper-hindi-large-v2`,
+  `ARTPARK-IISc/whisper-large-v3-vaani-hindi`) to Core ML with `whisperkittools` and run it via
+  WhisperKit — same turnkey runner, dedicated model (check each finetune's licence). No Hindi
+  *Core ML* model is pre-converted today; `Omnilingual-ASR-CTC-300M-CoreML` (Meta, 1600+ langs,
+  fast CTC) is an alternative but needs a small DIY CTC-decode harness.
 
 **Quality / "run overnight" tier (zh + ja + hi):**
 - **Primary: Whisper `large-v3` (`v20240930`) via WhisperKit** — MIT, mature, best Hindi of
@@ -570,7 +574,7 @@ UI (with a localhost `baseURL`). Per-job model selection already works via the p
 | **Fast — Asian zh/ja** | in-process | FluidAudio: Parakeet-ja + SenseVoice/Paraformer (Core ML/ANE) | non-MIT (verify) | both | Turnkey, fast, tiny; §2.2. |
 | **Hindi** | in-process | Whisper via WhisperKit | **MIT** | both | `small`→`medium`; clean cross-lingual incl-Hindi path. |
 | **Quality — all langs** | in-process **or** server | Whisper **large-v3** (quantized, WhisperKit) | **MIT** | both | Overnight tier; never f16 on 8 GB. |
-| **Quality — challenger** | in-process or server | Qwen3-ASR (Core ML conv. or MLX) | Apache-2.0 | both | Does zh/ja/hi in one model, but slow + needs a custom Swift harness (§2.2); evaluate later. |
+| **Hindi (better WER, optional)** | in-process | Hindi-finetuned Whisper via WhisperKit (convert w/ whisperkittools) | per-finetune (verify) | both | Dedicated Hindi model, same Core ML runner; §4.3. |
 | **zh/ja specialist (optional)** | in-process or server | SenseVoice-Small (sherpa-onnx) | bespoke Alibaba | both (Embed & Sign) | Best/fastest zh; no Hindi; keep licence text on file. |
 
 **Phasing suggestion:**
@@ -589,12 +593,12 @@ UI (with a localhost `baseURL`). Per-job model selection already works via the p
 
 ## 10. Open questions / spikes before committing
 
-1. **Qwen3-ASR harness effort vs. just using WhisperKit for Hindi.** A Core ML conversion
-   exists (`FluidInference/qwen3-asr-0.6b-coreml`, Apache-2.0, zh/ja/hi) but is **not** in the
-   FluidAudio SDK (autoregressive, ~2.8× RTF). Decide whether a single zh+ja+hi model is worth
-   writing/maintaining a custom Swift inference harness, versus covering Hindi with Whisper
-   (WhisperKit, turnkey) and zh/ja with FluidAudio. Validate Qwen3-ASR accuracy on real audio
-   (vendor claims unverified).
+1. **Best Hindi model (its own tier).** No dedicated Hindi *Core ML* model is pre-converted.
+   Compare: vanilla Whisper `large-v3` (turnkey, ~17–19 WER) vs converting a Hindi-finetuned
+   Whisper (`vasista22/whisper-hindi-large-v2`, `ARTPARK-IISc/whisper-large-v3-vaani-hindi`) via
+   `whisperkittools` (better WER, check licence) vs `Omnilingual-ASR-CTC-300M-CoreML` (fast CTC,
+   needs a DIY decode harness). Qwen3-ASR (one-model zh+ja+hi) is no longer needed now that
+   per-language is acceptable.
 2. **NVIDIA Parakeet *weight* licence** — confirm commercial-use terms (code is MIT/Apache;
    the model weights are the question) before shipping FluidAudio in a paid app.
 3. **Cold-start / first-run Core ML compile latency and steady-state memory on a true 8 GB
