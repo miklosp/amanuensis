@@ -10,6 +10,10 @@ struct JobEditorView: View {
     @State private var outputExt: String
     @State private var customOutputFolder: Bool
     @State private var outputFolderPath: String
+    // Security-scoped bookmark minted when the user picks a folder, so the job
+    // can write there after relaunch. Preserved from the saved job when editing
+    // without re-picking; reset whenever the path changes or custom folder is off.
+    @State private var outputFolderBookmark: Data?
 
     private let initialID: UUID
     private let presets: PresetsStore
@@ -31,6 +35,7 @@ struct JobEditorView: View {
         let startingFolder = initial.outputFolderPath ?? ""
         _customOutputFolder = State(initialValue: !startingFolder.isEmpty)
         _outputFolderPath = State(initialValue: startingFolder)
+        _outputFolderBookmark = State(initialValue: initial.outputFolderBookmark)
     }
 
     private var provider: Provider? {
@@ -190,11 +195,12 @@ struct JobEditorView: View {
     }
 
     private func save() {
+        let useCustom = customOutputFolder && !outputFolderPath.isEmpty
         let job = Job(
             name: name, providerID: providerID,
             model: model, fields: fields, outputExt: outputExt,
-            outputFolderPath: customOutputFolder && !outputFolderPath.isEmpty
-                ? outputFolderPath : nil,
+            outputFolderPath: useCustom ? outputFolderPath : nil,
+            outputFolderBookmark: useCustom ? outputFolderBookmark : nil,
             id: initialID
         )
         onSave(job)
@@ -211,6 +217,13 @@ struct JobEditorView: View {
         }
         if panel.runModal() == .OK, let url = panel.url {
             outputFolderPath = url.path
+            // Mint a security-scoped bookmark now (the panel grants access), so
+            // the job can still write here after a relaunch. Folders under
+            // ~/Music don't need it; storing one anyway is harmless (the run
+            // path ignores it where no scope is required).
+            outputFolderBookmark = try? url.bookmarkData(
+                options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil
+            )
         }
     }
 }

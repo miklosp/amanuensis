@@ -122,7 +122,7 @@ extension ChatCompletionsAudioHandler {
     static func parseContent(data: Data) throws -> String {
         struct Envelope: Decodable {
             struct Choice: Decodable {
-                struct Message: Decodable { let content: String }
+                struct Message: Decodable { let content: MessageContent }
                 let message: Message
             }
             let choices: [Choice]
@@ -130,11 +130,33 @@ extension ChatCompletionsAudioHandler {
         do {
             let env = try JSONDecoder().decode(Envelope.self, from: data)
             guard let first = env.choices.first else { throw SendError.malformedResponse(body: data) }
-            return first.message.content
+            return first.message.content.text
         } catch is SendError {
             throw SendError.malformedResponse(body: data)
         } catch {
             throw SendError.malformedResponse(body: data)
+        }
+    }
+
+    // Chat-completion `content` is either a plain string or an array of content
+    // blocks (`[{"type":"text","text":"…"}]`) — OpenAI's newer shape, which
+    // Groq/Bifrost also emit. Decode both; `text` joins the text blocks.
+    struct MessageContent: Decodable {
+        let text: String
+
+        struct Block: Decodable {
+            let type: String
+            let text: String?
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            if let string = try? container.decode(String.self) {
+                text = string
+            } else {
+                let blocks = try container.decode([Block].self)
+                text = blocks.compactMap { $0.type == "text" ? $0.text : nil }.joined()
+            }
         }
     }
 }
