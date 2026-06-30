@@ -4,6 +4,7 @@ import AppSettings
 import AudioPipelineJobs
 import DictationCore
 import Foundation
+import LocalTranscription
 import Observation
 import os
 import RecordingCore
@@ -52,6 +53,8 @@ final class AppCoordinator {
     let providers: ProvidersStore
     let logs: LogStore
     let dictation: DictationCoordinator
+    let localService: LocalTranscriptionService
+    let localModelsStore: LocalModelsStore
 
     var allProviders: [Provider] { providers.providers }
 
@@ -94,6 +97,10 @@ final class AppCoordinator {
             presetLookup: { [presets] id in presets.preset(id: id) },
             log: { [logs] message in logs.log(.error, message, category: .recording) }
         )
+
+        let localService = LocalTranscriptionService(fluidAudio: FluidAudioEngine(), whisperKit: WhisperKitEngine())
+        self.localService = localService
+        self.localModelsStore = LocalModelsStore(service: localService)
 
         // Start the mic-in-use cue if enabled in settings.
         _ = micCuePolicy.enabledChanged(settings.suggestRecordingWhenMicInUse)

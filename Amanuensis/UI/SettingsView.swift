@@ -2,6 +2,7 @@ import AppKit
 import AppSettings
 import AudioPipelineJobs
 import DictationCore
+import LocalTranscription
 import SwiftUI
 
 struct SettingsView: View {
@@ -12,6 +13,7 @@ struct SettingsView: View {
     @State private var postEventGranted = TextInserter.hasPostEventAccess()
 
     var body: some View {
+        NavigationStack {
         Form {
             Section("Recordings") {
                 LabeledContent("Location") {
@@ -116,8 +118,16 @@ struct SettingsView: View {
                         refreshPermissions()
                     })
             }
+            Section("Models") {
+                NavigationLink {
+                    ModelsView(store: coordinator.localModelsStore)
+                } label: {
+                    Text("On-device models")
+                }
+            }
         }
         .formStyle(.grouped)
+        } // NavigationStack
         .frame(width: 480, height: 640)
     }
 
