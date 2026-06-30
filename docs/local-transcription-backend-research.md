@@ -22,6 +22,11 @@
 > independent local HTTP/WS daemon), *not* a bundled helper or a downloaded plugin. That
 > adds an architecture **option** to weigh (not a new default) — see §6.1. Measured bundle
 > sizes in §2.1.
+>
+> **Update 2 (2026-06-30):** Core ML's on-device catalog is broader than first credited —
+> **FluidAudio** runs the Asian specialists (Parakeet-ja, SenseVoice/Paraformer for zh) and
+> **WhisperKit** covers Hindi, all Core ML/ANE in-process. **MLX is no longer required** for
+> any requested tier (§2.2), which also defuses the MLX-size / server-to-avoid-MLX argument.
 
 This doc is the on-device companion to `docs/realtime-streaming-asr-research.md` (which is
 *cloud* streaming, explicitly out of scope here) and builds on the architecture seams that
@@ -44,15 +49,13 @@ doc already identified.
    Parakeet-TDT-0.6B, ~66 MB on the ANE, true streaming, but English/European only). Core
    ML is a **system framework → ~0 MB of frameworks + ~1–4 MB of Swift code** (§2.1).
 
-3. **Heavy / MLX tiers raise a "where does it live?" question — three options, no default
-   yet.** MLX adds **~140 MB** to a bundle (a 119.6 MB prebuilt metallib; §2.1), and the
-   metallib likely counts as *executable code* for the Mac App Store (§6.2) — so on MAS you
-   **can't** slim the app by downloading the runtime later. Placement options: **(i) bundle
-   it** (simplest; ~140 MB, or smaller via `MLX_METAL_JIT`), **(ii) a Developer-ID-only
-   downloaded plugin**, or **(iii) a standalone "Amanuensis Server"** — an independent
-   localhost HTTP/WS daemon that keeps the weight/risk out of the app and reuses both seams
-   (a localhost-`baseURL` provider + a `ws://` `DictationTranscriber`). The server is **one
-   option to weigh** (§6.1), not a recommendation.
+3. **Heavy MLX placement turned out to be a non-problem — Core ML covers everything.** Per
+   §2.2, **WhisperKit + FluidAudio** run the whole requested lineup (English, European, zh,
+   ja, Hindi) on the Core ML/ANE path **in-process at ~1–4 MB**, so **MLX is not required**.
+   That defuses the ~140 MB bundle / "where does MLX live" / "host MLX in a server" thread
+   entirely (MLX adds a 119.6 MB metallib that, on MAS, can't be slimmed by a later download —
+   §2.1, §6.2 — but you simply don't need MLX). MLX stays an *optional* niche: only if you
+   prefer the prebuilt MLX Qwen3 over a hand-written Core ML harness.
 
 4. **The split that matters: data vs executable code.** MAS forbids the app
    downloading/executing new *code* (2.5.2 / 2.4.5(iv)); model **weights are data** and stay
@@ -61,12 +64,12 @@ doc already identified.
    the app (§6.1). In-process Core ML works on both channels and adds ~0 MB of frameworks
    (§2.1).
 
-5. **The model lineup forks on one thing: Hindi.** The fast Asian specialists (SenseVoice,
-   Paraformer) do **no Hindi**, and the best Chinese Zipformers have a non-commercial
-   training-data problem. Only **Whisper** (MIT) and the newly open-weighted **Qwen3-ASR**
-   (Apache-2.0, 2026-01-29) cover zh + ja + hi in one clean-licence model. Qwen3-ASR ships
-   for **MLX** — which is the one place MLX is genuinely the right backend, and it belongs in
-   the server (§4, §6.1).
+5. **The lineup still forks on Hindi — but it's a Core ML fork, not an MLX one.** The fast
+   Asian specialists (SenseVoice, Paraformer, Parakeet-ja, Nemotron) do **no Hindi**; cover
+   Hindi with **Whisper via WhisperKit** (MIT, Core ML, in-process). A single zh+ja+**hi**
+   model would be **Qwen3-ASR** — a Core ML build exists (Apache-2.0) but it's **slow
+   (~2.8× RTF) and not in the FluidAudio SDK** (§2.2), so it needs a custom harness; future,
+   not now.
 
 6. **Batch and streaming attach at *different* seams you already have.** Batch = a new
    `AudioJobSending` handler *or* (server variant) a localhost provider — `SonioxAsyncHandler`
@@ -126,6 +129,42 @@ SwiftPM `mlx-swift` dependency. **This size gap is a key input to *where* an MLX
 Developer-ID plugin, or a separate server (§6) — not to whether MLX is sandbox-legal (it
 is).**
 
+### 2.2 The Core ML ASR catalog is broader than WhisperKit (this revises the MLX story)
+
+**Correction to the first draft.** I treated Core ML ASR as "WhisperKit (Whisper) + FluidAudio
+(Parakeet)" and routed the Asian tier to MLX/sherpa-onnx. That undersold it. **FluidAudio is a
+general Core ML/ANE audio SDK** (MIT, 800k+ downloads, already shipping in Mac App Store apps)
+that runs a large model zoo on the ANE — including the Asian specialists. Turnkey,
+SDK-supported ASR models today:
+
+| Model (FluidAudio) | Langs | Speed / notes | Licence |
+|---|---|---|---|
+| Parakeet TDT v2 / v3 / CTC-110M | EN / 25 EU / small | very fast on ANE | NVIDIA (verify) |
+| **Parakeet TDT Japanese** | **ja** | 6.85 % CER JSUT, 10.8× RTF | NVIDIA (verify) |
+| **SenseVoiceSmall** | zh + 50 langs (yue/ja/ko/en) | non-autoregressive, fast | **`license: other`** (FunASR) |
+| **Paraformer-large** | **zh** | non-autoregressive Mandarin | bespoke FunASR |
+| Cohere Transcribe | 14 (incl **ja/zh/ko/vi**) | 1.8 GB INT8, 35 s cap | Cohere (verify) |
+| **Nemotron Streaming Multilingual** | en/es/fr/it/pt/de/**zh/ja** + auto | **true streaming**, 0.6B | NVIDIA |
+| Parakeet EOU / Nemotron Streaming EN | en | ultra-low-latency streaming | NVIDIA |
+
+**What changes:** the **Asian tier (zh, ja) is Core ML/ANE in-process** via FluidAudio — no
+MLX, no sherpa-onnx, no server needed. **Hindi** stays in the same in-process Core ML family
+via **Whisper / WhisperKit** (MIT). So **WhisperKit + FluidAudio cover English, European, zh,
+ja, and hi — all Core ML/ANE, ~1–4 MB, both channels, no special entitlement.**
+
+**The only gap is one model that does everything incl. Hindi, *fast*.** Qwen3-ASR fits on
+paper, and a Core ML build exists (`FluidInference/qwen3-asr-0.6b-coreml`, Apache-2.0,
+zh/ja/**hi**/30+ langs, int8 ~0.7 GB) — **but** it is in FluidAudio's **"Evaluated / Not
+Supported"** list (autoregressive, **~2.8–4.5× RTF**), so using it means writing your own Swift
+harness (mel-chunking + AR decoder + KV-cache). Treat Qwen3-ASR (Core ML *or* MLX) as a
+*future convenience*, not the near-term path.
+
+**Net: MLX is no longer required for any requested tier.** Its only remaining draw is the
+prebuilt MLX Qwen3 build over a hand-written Core ML harness — niche. The §6 "where does MLX
+live / host it in a server to dodge 140 MB" discussion is therefore **moot for model
+coverage**; the server (§6.1) now stands purely on its *other* merits (multi-client,
+decoupling, independent updates).
+
 ---
 
 ## 3. The MLX-vs-Core ML question, resolved (the seed article, corrected)
@@ -178,6 +217,10 @@ area for a paid app regardless of the weight licence. **Only Whisper (MIT) and Q
 
 ### 4.2 Candidate matrix
 
+> Swift-path note: several "sherpa-onnx" entries below now have a **turnkey Core ML/ANE path
+> via FluidAudio** (SenseVoice, Paraformer, Parakeet-ja, Nemotron) — see §2.2. The sherpa-onnx
+> column is the fallback, not the only option.
+
 | Model | zh / ja / hi | Size (params / on-disk) | Licence (commercial?) | Best Swift path | Friction |
 |---|---|---|---|---|---|
 | **Whisper small** | ✅ / ✅ / ⚠️ weak | 244 M / ggml-q5 ~190 MB, CoreML ~216 MB | **MIT** ✅ | **WhisperKit** | Lowest |
@@ -209,12 +252,12 @@ beats large-v3 on **Chinese** (AISHELL-1 CER 2.96 vs 5.14) but **loses on Japane
   (WhisperKit) if the NVIDIA weight licence is unacceptable.
 - **European:** **Parakeet-TDT-0.6B-v3** (25 EU languages on the ANE) *or* **Whisper
   `small`** (MIT, broader). Parakeet for speed, Whisper for licence simplicity.
-- **Asian (zh/ja/hi):** **Qwen3-ASR-0.6B via `mlx-swift`** — the only clean-licence
-  lightweight model that does Hindi respectably in **one** model; fits 8 GB. Because it's
-  MLX (~140 MB runtime), *where* it lives is a distribution choice (§6: bundle / Dev-ID
-  plugin / server). Safe fallback that's tiny in Core ML: **Whisper `small`** (weak Hindi →
-  bump to `medium`). For zh/ja-only, SenseVoice-Small is fastest/best-zh but has the bespoke
-  licence and no Hindi.
+- **Asian (zh/ja):** **Core ML/ANE in-process via FluidAudio** — **Parakeet-ja** (Japanese,
+  fast) + **SenseVoice-Small** or **Paraformer-large** (Mandarin, fast). All ANE, tiny
+  footprint, both channels (§2.2). Licence caveat: these are non-MIT (FunASR `license: other`
+  / NVIDIA) — review before a paid release.
+- **Hindi:** **Whisper via WhisperKit** (`small`→`medium` for usable Hindi; MIT, Core ML).
+  A single zh+ja+hi model (Qwen3-ASR) exists in Core ML but is slow and not turnkey (§2.2).
 
 **Quality / "run overnight" tier (zh + ja + hi):**
 - **Primary: Whisper `large-v3` (`v20240930`) via WhisperKit** — MIT, mature, best Hindi of
@@ -303,6 +346,11 @@ A separate product: a small app/daemon the user installs and runs **independentl
 as a client — and so can a CLI, Raycast, scripts, or other apps. This is *not* a bundled
 helper (b/c) or a downloaded plugin (d); it's an **independent install**, which is exactly why
 it sidesteps the MAS code rules.
+
+**Caveat after the §2.2 finding:** the server is **no longer needed to avoid MLX bloat** —
+Core ML/ANE in-process (WhisperKit + FluidAudio) already covers every requested tier (incl.
+zh/ja/hi) at ~1–4 MB. So weigh the server purely on its *other* merits below (multi-client,
+decoupling, independent updates), not as an MLX workaround.
 
 **Why it's attractive for the heavy/MLX tiers:**
 - The MAS bans (2.5.2 / 2.4.5) are on *the app* fetching/executing new code. A
@@ -519,9 +567,10 @@ UI (with a localhost `baseURL`). Per-job model selection already works via the p
 |---|---|---|---|---|---|
 | **Fast — English** | in-process | FluidAudio Parakeet-0.6B-v2 (Core ML/ANE) | code MIT; NVIDIA weights (verify) | both | ~66 MB working set, ~3.5 MB code, true streaming. Fallback Whisper `small.en` (MIT). |
 | **Fast — European** | in-process | Parakeet-0.6B-v3 / Whisper `small` | MIT(-ish) | both | Parakeet=speed, Whisper=licence simplicity. |
-| **Fast — Asian zh/ja/hi** | bundle / plugin / server (choose, §6.3) | Qwen3-ASR-0.6B (MLX) | **Apache-2.0** | both | Only clean-licence light model doing Hindi; MLX ~140 MB → placement is an open choice. |
+| **Fast — Asian zh/ja** | in-process | FluidAudio: Parakeet-ja + SenseVoice/Paraformer (Core ML/ANE) | non-MIT (verify) | both | Turnkey, fast, tiny; §2.2. |
+| **Hindi** | in-process | Whisper via WhisperKit | **MIT** | both | `small`→`medium`; clean cross-lingual incl-Hindi path. |
 | **Quality — all langs** | in-process **or** server | Whisper **large-v3** (quantized, WhisperKit) | **MIT** | both | Overnight tier; never f16 on 8 GB. |
-| **Quality — challenger** | bundle / plugin / server | Qwen3-ASR-1.7B (MLX) | Apache-2.0 | both | A/B vs large-v3; could unify both tiers. |
+| **Quality — challenger** | in-process or server | Qwen3-ASR (Core ML conv. or MLX) | Apache-2.0 | both | Does zh/ja/hi in one model, but slow + needs a custom Swift harness (§2.2); evaluate later. |
 | **zh/ja specialist (optional)** | in-process or server | SenseVoice-Small (sherpa-onnx) | bespoke Alibaba | both (Embed & Sign) | Best/fastest zh; no Hindi; keep licence text on file. |
 
 **Phasing suggestion:**
@@ -540,10 +589,12 @@ UI (with a localhost `baseURL`). Per-job model selection already works via the p
 
 ## 10. Open questions / spikes before committing
 
-1. **Qwen3-ASR `mlx-swift` behaviour** — accuracy on representative zh/ja/hi audio (vendor
-   claims unverified), and, if ever run *in-app* rather than in the server, its
-   sandbox/notarization/weights-cache behaviour. In the server it runs unsandboxed, which
-   removes most of the risk.
+1. **Qwen3-ASR harness effort vs. just using WhisperKit for Hindi.** A Core ML conversion
+   exists (`FluidInference/qwen3-asr-0.6b-coreml`, Apache-2.0, zh/ja/hi) but is **not** in the
+   FluidAudio SDK (autoregressive, ~2.8× RTF). Decide whether a single zh+ja+hi model is worth
+   writing/maintaining a custom Swift inference harness, versus covering Hindi with Whisper
+   (WhisperKit, turnkey) and zh/ja with FluidAudio. Validate Qwen3-ASR accuracy on real audio
+   (vendor claims unverified).
 2. **NVIDIA Parakeet *weight* licence** — confirm commercial-use terms (code is MIT/Apache;
    the model weights are the question) before shipping FluidAudio in a paid app.
 3. **Cold-start / first-run Core ML compile latency and steady-state memory on a true 8 GB
