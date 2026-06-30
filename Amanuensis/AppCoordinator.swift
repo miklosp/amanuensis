@@ -339,9 +339,21 @@ final class AppCoordinator {
             logs.log(.error, "Failed: '\(job.name)' — combined.flac missing", category: .job)
             return .failure(JobRunError.combinedFlacMissing)
         }
+        // Establish write access to a custom output folder before the (slow)
+        // request, re-prompting if the security-scoped bookmark was lost. Held
+        // across the run, released when it finishes.
+        guard case let .granted(grant) = JobOutputFolderAccess.acquire(for: job) else {
+            await self.flashActivity("Failed: '\(job.name)' — output folder access not granted")
+            logs.log(.error, "Failed: '\(job.name)' — output folder access not granted", category: .job)
+            return .failure(JobRunError.outputFolderAccessDenied)
+        }
+        defer { grant.release() }
+        let effectiveJob = grant.job
+        if effectiveJob != job { jobs.upsert(effectiveJob) }
+
         let runner = JobRunner(keychain: keychain)
         do {
-            let out = try await runner.run(job: job, provider: provider, shape: shape, audioURL: target)
+            let out = try await runner.run(job: effectiveJob, provider: provider, shape: shape, audioURL: target)
             await self.flashActivity("Done: '\(job.name)' → \(out.lastPathComponent)")
             logs.log(.info, "Done: '\(job.name)' → \(out.lastPathComponent)", category: .job)
             return .success(out)
@@ -546,6 +558,7 @@ final class AppCoordinator {
         case combinedFlacMissing
         case providerMissing
         case presetMissing
+        case outputFolderAccessDenied
     }
 
     private static let log = Logger(subsystem: "work.miklos.amanuensis", category: "coordinator")

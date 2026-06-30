@@ -43,4 +43,30 @@ import Testing
                       fields: [:], outputExt: "txt")
         #expect(job.outputFolderPath == nil)
     }
+
+    @Test func roundTrip_preservesOutputFolderBookmark() throws {
+        let bookmark = Data([0x01, 0x02, 0x03])
+        let job = Job(name: "n", providerID: nil, model: "",
+                      fields: [:], outputExt: "txt",
+                      outputFolderPath: "/Users/x/transcripts",
+                      outputFolderBookmark: bookmark)
+        let data = try JSONEncoder().encode(job)
+        let decoded = try JSONDecoder().decode(Job.self, from: data)
+        #expect(decoded.outputFolderBookmark == bookmark)
+    }
+
+    @Test func outputFolderBookmark_defaultsToNil() {
+        let job = Job(name: "n", providerID: nil, model: "",
+                      fields: [:], outputExt: "txt")
+        #expect(job.outputFolderBookmark == nil)
+    }
+
+    // Jobs saved before the bookmark field existed must still decode (the key is
+    // simply absent), leaving the bookmark nil so the run path re-prompts once.
+    @Test func decodesLegacyJSON_withoutBookmarkKey() throws {
+        let legacy = #"{"id":"\#(UUID().uuidString)","name":"n","model":"","fields":{},"outputExt":"txt","outputFolderPath":"/Users/x/transcripts"}"#
+        let decoded = try JSONDecoder().decode(Job.self, from: Data(legacy.utf8))
+        #expect(decoded.outputFolderPath == "/Users/x/transcripts")
+        #expect(decoded.outputFolderBookmark == nil)
+    }
 }
