@@ -16,12 +16,17 @@ let package = Package(
     name: "AudioPipeline",
     platforms: [.macOS("26.3")],
     products: [
-        .library(name: "AppSettings",      targets: ["AppSettings"]),
-        .library(name: "RecordingStorage", targets: ["RecordingStorage"]),
-        .library(name: "RecordingCore",    targets: ["RecordingCore"]),
-        .library(name: "AudioPipelineJobs", targets: ["AudioPipelineJobs"]),
-        .library(name: "AppLog",            targets: ["AppLog"]),
-        .library(name: "DictationCore",     targets: ["DictationCore"]),
+        .library(name: "AppSettings",        targets: ["AppSettings"]),
+        .library(name: "RecordingStorage",   targets: ["RecordingStorage"]),
+        .library(name: "RecordingCore",      targets: ["RecordingCore"]),
+        .library(name: "AudioPipelineJobs",  targets: ["AudioPipelineJobs"]),
+        .library(name: "AppLog",             targets: ["AppLog"]),
+        .library(name: "DictationCore",      targets: ["DictationCore"]),
+        .library(name: "LocalTranscription", targets: ["LocalTranscription"]),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/argmaxinc/WhisperKit", from: "1.0.0"),
+        .package(url: "https://github.com/FluidInference/FluidAudio", from: "0.12.0"),
     ],
     targets: [
         .target(name: "AppSettings", dependencies: ["DictationCore"], swiftSettings: mainActorSettings),
@@ -38,6 +43,15 @@ let package = Package(
         ),
         .target(name: "AppLog", swiftSettings: mainActorSettings),
         .target(name: "DictationCore", swiftSettings: nonisolatedSettings),
+        .target(
+            name: "LocalTranscription",
+            dependencies: [
+                "AudioPipelineJobs", "AppLog",
+                .product(name: "WhisperKit", package: "WhisperKit"),
+                .product(name: "FluidAudio", package: "FluidAudio"),
+            ],
+            swiftSettings: nonisolatedSettings
+        ),
         .testTarget(
             name: "AppSettingsTests",
             dependencies: ["AppSettings"],
@@ -66,6 +80,11 @@ let package = Package(
         .testTarget(
             name: "DictationCoreTests",
             dependencies: ["DictationCore"],
+            swiftSettings: nonisolatedSettings
+        ),
+        .testTarget(
+            name: "LocalTranscriptionTests",
+            dependencies: ["LocalTranscription"],
             swiftSettings: nonisolatedSettings
         ),
     ]
