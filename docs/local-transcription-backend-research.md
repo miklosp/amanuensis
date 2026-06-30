@@ -232,7 +232,7 @@ area for a paid app regardless of the weight licence. **Only Whisper (MIT) and Q
 | **Paraformer** (zh) | ✅ / ❌ / ❌ | ~220 M / int8 ~79 MB | Same bespoke licence | sherpa-onnx | Moderate |
 | **sherpa Zipformer multi-zh-hans** | ✅ / – / – | 67–726 MB | weights Apache **but WenetSpeech non-commercial** | sherpa-onnx | **Legal risk** |
 | **sherpa Zipformer ja (ReazonSpeech)** | – / ✅ / – | int8 ~148 MB | **Apache-2.0** ✅ | sherpa-onnx | Moderate |
-| **IndicConformer-600M** (hi) | – / – / ✅ (~13 WER) | 600 M | **MIT** ✅ | ❌ NeMo→ONNX DIY | High |
+| **IndicConformer-600M** (hi + 6 Indic) | – / – / ✅ (~13 WER) | 600 M / Core ML INT8 | **MIT** ✅ | **Core ML RNNT conv. exists** (phequals; Swift RNNT harness, Muesli = ref) | Moderate |
 | **NVIDIA Canary** | ❌ / ❌ / ❌ (EU/Eng) | 180 M–2.5 B | CC-BY-4.0 (canary-1b: **CC-BY-NC**) | ❌ no Apple path | **Drop** |
 | **Moonshine** | ❌ (Eng; multiling "Flavors" no hi) | 27–61 M | MIT | ❌ no Swift pkg | Drop |
 
@@ -255,13 +255,21 @@ beats large-v3 on **Chinese** (AISHELL-1 CER 2.96 vs 5.14) but **loses on Japane
   fast) + **SenseVoice-Small** or **Paraformer-large** (Mandarin, fast). All ANE, tiny
   footprint, both channels (§2.2). Licence caveat: these are non-MIT (FunASR `license: other`
   / NVIDIA) — review before a paid release.
-- **Hindi (its own model — per-language is fine):** **Whisper via WhisperKit**. Vanilla
-  `large-v3` works now (MIT, pre-converted; Hindi ~17–19 WER). For better Hindi, **convert a
-  Hindi-finetuned Whisper** (e.g. `vasista22/whisper-hindi-large-v2`,
-  `ARTPARK-IISc/whisper-large-v3-vaani-hindi`) to Core ML with `whisperkittools` and run it via
-  WhisperKit — same turnkey runner, dedicated model (check each finetune's licence). No Hindi
-  *Core ML* model is pre-converted today; `Omnilingual-ASR-CTC-300M-CoreML` (Meta, 1600+ langs,
-  fast CTC) is an alternative but needs a small DIY CTC-decode harness.
+- **Hindi (its own model — per-language is fine).** Two good Core ML paths, trading WER vs
+  effort:
+  - **Best WER + cleanest licence: IndicConformer-600M** (AI4Bharat, **MIT**, ~13 WER Hindi —
+    beats Whisper). A Core ML **RNNT** conversion exists
+    (`phequals/indic-conformer-600m-multilingual-coreml-rnnt`: INT8 encoder + RNNT joint/pred +
+    per-language heads for hi/bn/mr/te/ta/ml/kn). Fast, ANE, non-autoregressive. **Not a
+    turnkey SDK** — you implement greedy RNNT decode + a log-mel frontend in Swift (the repo
+    ships the protocol, vocab, and preprocessor constants; the **Muesli** app
+    `pHequals7/muesli` is the reference runtime). Friction: **moderate** — and the RNNT decode
+    overlaps with what FluidAudio already does for Parakeet.
+  - **Turnkey: Whisper via WhisperKit** — vanilla `large-v3` (MIT, pre-converted, Hindi
+    ~17–19 WER), or convert a Hindi-finetuned Whisper (`vasista22/whisper-hindi-large-v2`,
+    `ARTPARK-IISc/whisper-large-v3-vaani-hindi`) with `whisperkittools` for better WER (check
+    licence). Zero decode code. (`Omnilingual-ASR-CTC-300M-CoreML` — Meta, 1600+ langs, fast
+    CTC — is a third option but also needs a DIY decode harness.)
 
 **Quality / "run overnight" tier (zh + ja + hi):**
 - **Primary: Whisper `large-v3` (`v20240930`) via WhisperKit** — MIT, mature, best Hindi of
@@ -574,7 +582,7 @@ UI (with a localhost `baseURL`). Per-job model selection already works via the p
 | **Fast — Asian zh/ja** | in-process | FluidAudio: Parakeet-ja + SenseVoice/Paraformer (Core ML/ANE) | non-MIT (verify) | both | Turnkey, fast, tiny; §2.2. |
 | **Hindi** | in-process | Whisper via WhisperKit | **MIT** | both | `small`→`medium`; clean cross-lingual incl-Hindi path. |
 | **Quality — all langs** | in-process **or** server | Whisper **large-v3** (quantized, WhisperKit) | **MIT** | both | Overnight tier; never f16 on 8 GB. |
-| **Hindi (better WER, optional)** | in-process | Hindi-finetuned Whisper via WhisperKit (convert w/ whisperkittools) | per-finetune (verify) | both | Dedicated Hindi model, same Core ML runner; §4.3. |
+| **Hindi (best WER, MIT)** | in-process | IndicConformer-600M Core ML RNNT (phequals) | **MIT** | both | ~13 WER, fast RNNT/ANE, +6 Indic langs; needs a Swift RNNT harness (Muesli = ref). §4.3. |
 | **zh/ja specialist (optional)** | in-process or server | SenseVoice-Small (sherpa-onnx) | bespoke Alibaba | both (Embed & Sign) | Best/fastest zh; no Hindi; keep licence text on file. |
 
 **Phasing suggestion:**
@@ -593,12 +601,14 @@ UI (with a localhost `baseURL`). Per-job model selection already works via the p
 
 ## 10. Open questions / spikes before committing
 
-1. **Best Hindi model (its own tier).** No dedicated Hindi *Core ML* model is pre-converted.
-   Compare: vanilla Whisper `large-v3` (turnkey, ~17–19 WER) vs converting a Hindi-finetuned
-   Whisper (`vasista22/whisper-hindi-large-v2`, `ARTPARK-IISc/whisper-large-v3-vaani-hindi`) via
-   `whisperkittools` (better WER, check licence) vs `Omnilingual-ASR-CTC-300M-CoreML` (fast CTC,
-   needs a DIY decode harness). Qwen3-ASR (one-model zh+ja+hi) is no longer needed now that
-   per-language is acceptable.
+1. **Best Hindi model (its own tier) + RNNT-harness effort.** Top option is **IndicConformer-600M**
+   (MIT, ~13 WER) with a ready Core ML RNNT conversion
+   (`phequals/indic-conformer-600m-multilingual-coreml-rnnt`) — but it needs a Swift greedy-RNNT
+   decoder + log-mel frontend (the repo provides constants/vocab; `pHequals7/muesli` is the
+   reference impl; decode overlaps FluidAudio's Parakeet RNNT). Compare effort/quality vs turnkey
+   Whisper (`large-v3` or a Hindi finetune via `whisperkittools`, ~17–19 WER). Verify accuracy and,
+   if you reuse Muesli's code, its licence. Qwen3-ASR (one-model zh+ja+hi) is no longer needed now
+   that per-language is acceptable.
 2. **NVIDIA Parakeet *weight* licence** — confirm commercial-use terms (code is MIT/Apache;
    the model weights are the question) before shipping FluidAudio in a paid app.
 3. **Cold-start / first-run Core ML compile latency and steady-state memory on a true 8 GB
