@@ -64,7 +64,11 @@ public actor WhisperKitEngine: LocalTranscriptionEngine {
             modelFolder: folder,
             download: false
         ))
-        let opts = DecodingOptions(language: language, chunkingStrategy: .vad)
+        // A blank language must actually auto-detect. WhisperKit's DecodingOptions
+        // defaults detectLanguage to false and prefills English when language is nil
+        // (TextDecoder prefill uses Constants.defaultLanguageCode == "en"), so pass
+        // detectLanguage when no language is given — otherwise blank silently forces English.
+        let opts = DecodingOptions(language: language, detectLanguage: language == nil, chunkingStrategy: .vad)
         let results = try await pipe.transcribe(audioPath: audioURL.path, decodeOptions: opts)
         return results.map(\.text).joined(separator: " ")
     }
