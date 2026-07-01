@@ -22,6 +22,8 @@ final class Reson8SpikeHarness {
     private var metrics = SpikeMetrics()
     private var firstWordAt: TimeInterval?
     private var start = Date()
+    private var isStopping = false
+    private var socketFailed = false
 
     init(providers: ProvidersStore, keychain: KeychainStore,
          strategy: InsertionStrategy, stabilityCount: Int = 3, captureSeconds: Int = 20) {
@@ -67,7 +69,9 @@ final class Reson8SpikeHarness {
             url: url, apiKey: apiKey,
             onPartial: { cont.yield(.partial($0)) },
             onFinal: { cont.yield(.final($0)) },
-            onError: { [log] in log.error("reson8 ws error: \($0.localizedDescription, privacy: .public)") })
+            onError: { [weak self] error in
+                Task { @MainActor in self?.handleSocketError(error) }
+            })
         client.start()
 
         let consume = Task { @MainActor [weak self] in
@@ -85,17 +89,23 @@ final class Reson8SpikeHarness {
         } catch {
             log.error("reson8 spike: mic start failed: \(error.localizedDescription, privacy: .public)")
             overlay.render(committed: "", volatile: "Mic unavailable")
+            isStopping = true
             await client.finish()
             cont.finish()
             await consume.value
+            try? FileManager.default.removeItem(at: captureURL)
             try? await Task.sleep(for: .seconds(2))
             overlay.hide()
             return
         }
 
-        try? await Task.sleep(for: .seconds(captureSeconds))
+        let deadline = Date().addingTimeInterval(Double(captureSeconds))
+        while Date() < deadline, !socketFailed {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
 
         _ = await recorder.stop()
+        isStopping = true
         await client.finish()
         cont.finish()
         await consume.value
@@ -110,6 +120,13 @@ final class Reson8SpikeHarness {
             """)
         try? await Task.sleep(for: .seconds(2))
         overlay.hide()
+    }
+
+    private func handleSocketError(_ error: Error) {
+        if isStopping { return }   // benign: our own finish()/cancel triggered this
+        socketFailed = true
+        log.error("reson8 ws error: \(error.localizedDescription, privacy: .public)")
+        overlay.render(committed: commit.committed, volatile: "Reson8 connection failed")
     }
 
     private func handle(_ kind: ScriptKind) {
