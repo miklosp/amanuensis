@@ -17,6 +17,23 @@ public actor LocalTranscriptionService {
         }
     }
 
+    private var residentID: String?
+
+    public func residentModelID() -> String? { residentID }
+
+    public func preload(modelID: String) async throws {
+        if residentID == modelID { return }
+        if let old = residentID, let (_, e) = try? resolve(old) { await e.unloadResident() }
+        let (m, e) = try resolve(modelID)
+        try await e.preload(m)
+        residentID = modelID
+    }
+
+    public func unloadResident() async {
+        if let old = residentID, let (_, e) = try? resolve(old) { await e.unloadResident() }
+        residentID = nil
+    }
+
     public func transcribe(audioURL: URL, modelID: String, language: String?) async throws -> String {
         let (m, e) = try resolve(modelID)
         return try await e.transcribe(audioURL: audioURL, model: m, language: language)

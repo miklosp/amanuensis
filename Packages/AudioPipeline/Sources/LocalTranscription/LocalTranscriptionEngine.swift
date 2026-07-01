@@ -6,6 +6,13 @@ public protocol LocalTranscriptionEngine: Sendable {
     func download(_ model: LocalModel, progress: @escaping @Sendable (Double) -> Void) async throws
     func delete(_ model: LocalModel) async throws
     func transcribe(audioURL: URL, model: LocalModel, language: String?) async throws -> String
+    func preload(_ model: LocalModel) async throws
+    func unloadResident() async
+}
+
+public extension LocalTranscriptionEngine {
+    func preload(_ model: LocalModel) async throws {}   // default: no warm cache; a later task overrides on the real engines
+    func unloadResident() async {}
 }
 
 public enum LocalTranscriptionError: LocalizedError {
