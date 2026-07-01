@@ -27,7 +27,7 @@ struct AmanuensisApp: App {
             }
             #if DEBUG
             CommandMenu("Streaming Spike") {
-                StreamingSpikeCommands()
+                StreamingSpikeCommands(coordinator: coordinator)
             }
             #endif
         }
@@ -51,6 +51,8 @@ private struct OpenMainWindowCommand: View {
 
 #if DEBUG
 private struct StreamingSpikeCommands: View {
+    let coordinator: AppCoordinator
+
     var body: some View {
         Button("Revisable × Clipboard (k=2)") {
             launch(.revisableSample, ClipboardAppendInserter(), k: 2)
@@ -67,10 +69,24 @@ private struct StreamingSpikeCommands: View {
         Button("Immutable × Keystroke (k=2)") {
             launch(.immutableSample, KeystrokeDiffInserter(), k: 2)
         }
+        Divider()
+        Button("Reson8 Realtime (Keystroke)") {
+            launchReson8(KeystrokeDiffInserter(), k: 3)
+        }
+        Button("Reson8 Realtime (Clipboard k=3)") {
+            launchReson8(ClipboardAppendInserter(), k: 3)
+        }
     }
 
     private func launch(_ script: SimulatedTranscriptScript, _ strategy: InsertionStrategy, k: Int) {
         let harness = StreamingSpikeHarness(script: script, strategy: strategy, stabilityCount: k)
+        Task { await harness.run() }   // harness retained by the task until run() completes
+    }
+
+    private func launchReson8(_ strategy: InsertionStrategy, k: Int) {
+        let harness = Reson8SpikeHarness(
+            providers: coordinator.providers, keychain: coordinator.keychain,
+            strategy: strategy, stabilityCount: k, captureSeconds: 20)
         Task { await harness.run() }   // harness retained by the task until run() completes
     }
 }
