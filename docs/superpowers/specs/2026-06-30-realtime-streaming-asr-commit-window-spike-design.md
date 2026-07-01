@@ -166,3 +166,41 @@ AppKit-touching code (`TextInserter`, `DictationOverlayController`, menus).
    (live buffers vs `audioFile`).
 3. Provider abstraction (`RealtimeSTTProvider`) + 2–3 adapters + settings UI.
 4. (Optional) AX-first in-place insertion fallback chain.
+
+## 7. Findings & verdict (2026-07-01)
+
+**Verdict: GO.** The commit-window + continuous-pasting mechanism works. M1 built the engine
+(pure `DictationCore`: `reconcile`, `CommitController`, `SimulatedTranscriptSource`, model +
+fixtures; app-target `InsertionStrategy` + clipboard/keystroke inserters; DEBUG harness +
+overlay + menu). All tasks passed spec+quality review; final whole-branch review returned no
+Critical/Important defects; SPM suite 380 green; Debug + Release both build.
+
+Headless run of all five combos (real `CommitController` + `reconcile` + the shipped fixtures,
+driven through each inserter's exact decision rule; side-effects mocked) — reproduces the
+review's hand-trace exactly:
+
+| Combo | Final text | Result | Metrics |
+|---|---|---|---|
+| Revisable × Clipboard (k=2) | `"I think "` | WRONG | revisionMisses=3, appended=8 |
+| Revisable × Keystroke (k=2) | `"I thought it is fine."` | correct | backspaces=9, revised=1, appended=30 |
+| Revisable × Clipboard (k=3) | `"I thought it is fine."` | correct | revisionMisses=0, appended=21 |
+| Immutable × Clipboard (k=2) | `"the quick brown fox."` | correct | clean |
+| Immutable × Keystroke (k=2) | `"the quick brown fox."` | correct | clean |
+
+**Live TextEdit run (manual):** all five felt acceptable; the **revising (keystroke /
+in-place backspace-diff) strategy felt best**.
+
+**Decisions carried into M2 (real provider):**
+- **Default insertion strategy: keystroke / in-place revision.** It types the live hypothesis
+  and backspace-diffs corrections, so it always converges to the correct text regardless of the
+  commit window, and it was the preferred feel.
+- **Keep clipboard append-only as a fallback** for targets where synthetic keystrokes/backspacing
+  are unreliable. When used, the commit window `k` must be tuned to the provider's revision depth —
+  too low and it silently drops mid-utterance corrections (the k=2 `revisionMiss` case above).
+- **Interpretation notes for the metrics:** `revisionMisses` counts *events that could not apply*,
+  not distinct revisions (one logical "think→thought" revision yields 3 misses because `applied`
+  intentionally doesn't advance on a miss). `stabilityCount` (`k`) affects only the clipboard path;
+  keystroke consumes the full hypothesis regardless of `k`.
+- The `DictationTranscriber` seam's *input* side (live audio buffers vs `audioFile`) is still the
+  open M2 design point; the *output* side (`onPartial`/`onFinal` → commit window → strategy) is
+  proven here.
