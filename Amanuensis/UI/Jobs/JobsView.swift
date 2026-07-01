@@ -1,10 +1,12 @@
 import AudioPipelineJobs
+import LocalTranscription
 import SwiftUI
 
 struct JobsView: View {
     let presets: PresetsStore
     @Bindable var jobs: JobsStore
     @Bindable var providers: ProvidersStore
+    let localModelsStore: LocalModelsStore
     @Binding var sidebarSelection: SidebarDestination
 
     @State private var selection: Job.ID?
@@ -53,6 +55,7 @@ struct JobsView: View {
                         job: sortedJobs.first(where: { $0.id == selection }),
                         presets: presets,
                         providers: providers,
+                        localModelsStore: localModelsStore,
                         onSave: { jobs.upsert($0) }
                     )
                     .frame(minWidth: 420, maxWidth: .infinity)
@@ -111,6 +114,7 @@ private struct JobsDetailPane: View {
     let job: Job?
     let presets: PresetsStore
     let providers: ProvidersStore
+    let localModelsStore: LocalModelsStore
     let onSave: (Job) -> Void
 
     var body: some View {
@@ -118,6 +122,7 @@ private struct JobsDetailPane: View {
             JobEditorView(initial: job,
                           presets: presets,
                           providers: providers,
+                          localModelsStore: localModelsStore,
                           onSave: onSave)
                 .id(job.id)
         } else {
