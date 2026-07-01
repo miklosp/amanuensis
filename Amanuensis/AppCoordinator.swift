@@ -55,6 +55,9 @@ final class AppCoordinator {
     let dictation: DictationCoordinator
     let localService: LocalTranscriptionService
     let localModelsStore: LocalModelsStore
+    // Handler map including the on-device sender. Shared by batch jobs (runJob)
+    // and dictation, so the local sender is constructed once.
+    let localHandlers: [JobShape: any AudioJobSending]
 
     var allProviders: [Provider] { providers.providers }
 
@@ -92,17 +95,23 @@ final class AppCoordinator {
         for id in orphanIDs { self.providers.delete(id: id) }
         self.logs = Self.loadLogs(bundleID: "work.miklos.amanuensis")
 
+        // Local transcription must exist before DictationCoordinator so its
+        // handler map (shared with runJob) can carry the on-device sender.
+        let localService = LocalTranscriptionService(fluidAudio: FluidAudioEngine(), whisperKit: WhisperKitEngine())
+        self.localService = localService
+        self.localModelsStore = LocalModelsStore(service: localService)
+        let localHandlers = JobRunner.defaultHandlers.merging(
+            [.localTranscription: LocalTranscriptionSender(service: localService)]) { _, new in new }
+        self.localHandlers = localHandlers
+
         self.dictation = DictationCoordinator(
             settings: settings,
             keychain: keychain,
             providerLookup: { [providers] id in providers.provider(id: id) },
             presetLookup: { [presets] id in presets.preset(id: id) },
+            handlers: localHandlers,
             log: { [logs] message in logs.log(.error, message, category: .recording) }
         )
-
-        let localService = LocalTranscriptionService(fluidAudio: FluidAudioEngine(), whisperKit: WhisperKitEngine())
-        self.localService = localService
-        self.localModelsStore = LocalModelsStore(service: localService)
 
         // Start the mic-in-use cue if enabled in settings.
         _ = micCuePolicy.enabledChanged(settings.suggestRecordingWhenMicInUse)
@@ -113,6 +122,29 @@ final class AppCoordinator {
         // Seed the mic-off cue policy. Its monitor starts only when recording
         // begins (see notifyRecordingActivity), so nothing to start here.
         _ = micOffCuePolicy.enabledChanged(settings.suggestStoppingWhenMeetingEnds)
+
+        // Warm the dictation model on launch without blocking init: learn which
+        // models are downloaded, then preload the selected local model (if any)
+        // so the first utterance is fast.
+        Task { [weak self] in
+            guard let self else { return }
+            await self.localModelsStore.refresh()
+            await self.syncDictationWarmModel()
+        }
+    }
+
+    // Keeps the resident (warm) local model in sync with the dictation setting.
+    // Preloads the selected on-device model when it is downloaded; otherwise
+    // unloads any resident model. Cloud dictation keeps nothing warm.
+    func syncDictationWarmModel() async {
+        switch TranscriptionSource(providerID: settings.dictation.providerID) {
+        case .local where localModelsStore.states[settings.dictation.model]?.isDownloaded == true:
+            await localModelsStore.preload(modelID: settings.dictation.model)
+            localModelsStore.dictationModelID = settings.dictation.model
+        default:
+            await localModelsStore.preload(modelID: nil)
+            localModelsStore.dictationModelID = nil
+        }
     }
 
     // MARK: - Store loading
@@ -360,9 +392,7 @@ final class AppCoordinator {
         let effectiveJob = grant.job
         if effectiveJob != job { jobs.upsert(effectiveJob) }
 
-        let handlers: [JobShape: any AudioJobSending] = JobRunner.defaultHandlers.merging(
-            [.localTranscription: LocalTranscriptionSender(service: localService)]) { _, new in new }
-        let runner = JobRunner(keychain: keychain, handlers: handlers)
+        let runner = JobRunner(keychain: keychain, handlers: localHandlers)
         do {
             let out = try await runner.run(job: effectiveJob, provider: provider, shape: shape, audioURL: target)
             await self.flashActivity("Done: '\(job.name)' → \(out.lastPathComponent)")

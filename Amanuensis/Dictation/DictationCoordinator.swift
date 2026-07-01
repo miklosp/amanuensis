@@ -17,6 +17,7 @@ final class DictationCoordinator {
     private let keychain: any KeychainProviding
     private let providerLookup: (UUID) -> Provider?
     private let presetLookup: (String) -> Preset?
+    private let handlers: [JobShape: any AudioJobSending]
     private let log: (String) -> Void
 
     private var recognizer: ModifierGestureRecognizer
@@ -35,11 +36,13 @@ final class DictationCoordinator {
          keychain: any KeychainProviding,
          providerLookup: @escaping (UUID) -> Provider?,
          presetLookup: @escaping (String) -> Preset?,
+         handlers: [JobShape: any AudioJobSending] = JobRunner.defaultHandlers,
          log: @escaping (String) -> Void) {
         self.settings = settings
         self.keychain = keychain
         self.providerLookup = providerLookup
         self.presetLookup = presetLookup
+        self.handlers = handlers
         self.log = log
         self.recognizer = ModifierGestureRecognizer(trigger: settings.dictation.trigger)
         tempStore.sweep()                       // reclaim crash orphans on launch
@@ -200,7 +203,7 @@ final class DictationCoordinator {
         self.recorder = nil
         let transcriber = BatchTranscriber(
             job: inputs.job, provider: inputs.provider,
-            shape: inputs.shape, keychain: keychain)
+            shape: inputs.shape, keychain: keychain, handlers: handlers)
         let resultRef = ResultRef()
         transcribeTask = Task { [weak self] in
             _ = await recorder.stop()
@@ -218,13 +221,26 @@ final class DictationCoordinator {
     private struct TranscriberInputs { let job: Job; let provider: Provider; let shape: JobShape }
 
     private func resolveTranscriberInputs() -> TranscriberInputs? {
-        guard let pid = settings.dictation.providerID,
-              let provider = providerLookup(pid),
-              let preset = presetLookup(provider.presetID) else { return nil }
-        let job = Job(
-            name: "Dictation", providerID: provider.id,
-            model: settings.dictation.model, fields: preset.defaults, outputExt: "txt")
-        return TranscriberInputs(job: job, provider: provider, shape: preset.shape)
+        switch TranscriptionSource(providerID: settings.dictation.providerID) {
+        case .local:
+            let job = Job(
+                name: "Dictation", providerID: Provider.localID,
+                model: settings.dictation.model, fields: [:], outputExt: "txt")
+            // Transient placeholder — LocalTranscriptionSender ignores provider/apiKey.
+            let provider = Provider(
+                name: "Local", presetID: "", baseURL: "",
+                apiKeyRef: KeychainRef(account: ""), id: Provider.localID)
+            return TranscriberInputs(job: job, provider: provider, shape: .localTranscription)
+        case .provider(let id):
+            guard let provider = providerLookup(id),
+                  let preset = presetLookup(provider.presetID) else { return nil }
+            let job = Job(
+                name: "Dictation", providerID: provider.id,
+                model: settings.dictation.model, fields: preset.defaults, outputExt: "txt")
+            return TranscriberInputs(job: job, provider: provider, shape: preset.shape)
+        case .none:
+            return nil
+        }
     }
 }
 

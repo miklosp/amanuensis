@@ -19,7 +19,9 @@ struct BatchTranscriber: DictationTranscriber {
         guard let handler = handlers[shape] else {
             throw DictationError.unsupportedShape
         }
-        let key = try await keychain.get(account: provider.apiKeyRef.account)
+        let key = shape.requiresAPIKey
+            ? try await keychain.get(account: provider.apiKeyRef.account)
+            : ""
         let text = try await handler.send(
             job: job, provider: provider, audioURL: audioFile, apiKey: key)
         onFinal(text)
