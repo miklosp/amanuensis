@@ -88,6 +88,8 @@ final class AppCoordinator {
         self.presets = Self.loadPresets()
         self.jobs = Self.loadJobs(bundleID: "work.miklos.amanuensis")
         self.providers = Self.loadProviders(bundleID: "work.miklos.amanuensis")
+        let orphanIDs = self.providers.providers.filter { $0.presetID == "on-device" }.map(\.id)
+        for id in orphanIDs { self.providers.delete(id: id) }
         self.logs = Self.loadLogs(bundleID: "work.miklos.amanuensis")
 
         self.dictation = DictationCoordinator(

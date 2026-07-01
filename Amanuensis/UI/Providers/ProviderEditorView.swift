@@ -81,10 +81,9 @@ struct ProviderEditorView: View {
     }
 
     private var canSave: Bool {
-        let needsKey = presets.preset(id: presetID)?.shape.requiresAPIKey ?? true
-        return !name.isEmpty && !presetID.isEmpty
-            && (!needsKey || !apiKeyAccount.isEmpty)
-            && (!needsKey || Provider.isAcceptableBaseURL(baseURL))
+        !name.isEmpty && !presetID.isEmpty
+            && !apiKeyAccount.isEmpty
+            && Provider.isAcceptableBaseURL(baseURL)
     }
 
     private func save() {
