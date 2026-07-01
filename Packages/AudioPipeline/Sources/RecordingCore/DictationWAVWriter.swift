@@ -14,11 +14,14 @@ final class DictationWAVWriter: @unchecked Sendable {
     private let converter: AVAudioConverter
     private let outputFormat: AVAudioFormat
     private let onLevel: (@Sendable (Float) -> Void)?
+    private let onChunk: (@Sendable (Data) -> Void)?
     private var frames: Int64 = 0
 
     init(url: URL, inputFormat: AVAudioFormat,
-         onLevel: (@Sendable (Float) -> Void)?) throws {
+         onLevel: (@Sendable (Float) -> Void)?,
+         onChunk: (@Sendable (Data) -> Void)? = nil) throws {
         self.onLevel = onLevel
+        self.onChunk = onChunk
         guard let out = AVAudioFormat(
             commonFormat: .pcmFormatInt16, sampleRate: 16_000,
             channels: 1, interleaved: true) else {
@@ -80,6 +83,10 @@ final class DictationWAVWriter: @unchecked Sendable {
             // non-nil error) is a real failure. Writing solely on `.haveData`
             // silently dropped almost all converted audio.
             guard status != .error, err == nil, out.frameLength > 0 else { return }
+            if let onChunk = self.onChunk, let base = out.int16ChannelData?[0] {
+                let byteCount = Int(out.frameLength) * MemoryLayout<Int16>.size
+                onChunk(Data(bytes: base, count: byteCount))
+            }
             if (try? file.write(from: out)) != nil {
                 self.frames += Int64(out.frameLength)
             }
