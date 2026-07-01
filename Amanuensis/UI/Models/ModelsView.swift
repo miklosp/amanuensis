@@ -8,10 +8,12 @@ struct ModelsView: View {
         List(LocalModelCatalog.all) { model in
             ModelRowView(model: model,
                          state: store.states[model.id] ?? .init(),
+                         isDictation: model.id == store.dictationModelID,
+                         isInMemory: model.id == store.residentModelID,
                          onDownload: { Task { await store.download(model) } },
                          onDelete: { Task { await store.delete(model) } })
         }
         .task { await store.refresh() }
-        .navigationTitle("On-device models")
+        .navigationTitle("Local Models")
     }
 }
