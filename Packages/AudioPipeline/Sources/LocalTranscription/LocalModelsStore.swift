@@ -11,6 +11,8 @@ import Foundation
 
     public private(set) var states: [String: ModelState] = [:]
     public var lastError: String?
+    public var dictationModelID: String?
+    public private(set) var residentModelID: String?
     private let service: LocalTranscriptionService
 
     public init(service: LocalTranscriptionService) {
@@ -25,6 +27,7 @@ import Foundation
             states[m.id, default: ModelState()].isDownloaded = downloaded
             states[m.id, default: ModelState()].installedBytes = bytes
         }
+        residentModelID = await service.residentModelID()
     }
 
     public func download(_ model: LocalModel) async {
@@ -47,6 +50,14 @@ import Foundation
             try await service.delete(modelID: model.id)
             states[model.id, default: ModelState()].isDownloaded = false
             states[model.id, default: ModelState()].installedBytes = 0
+        } catch { lastError = error.localizedDescription }
+    }
+
+    public func preload(modelID: String?) async {
+        do {
+            if let id = modelID { try await service.preload(modelID: id) }
+            else { await service.unloadResident() }
+            residentModelID = await service.residentModelID()
         } catch { lastError = error.localizedDescription }
     }
 }
