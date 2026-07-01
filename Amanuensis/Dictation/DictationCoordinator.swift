@@ -227,10 +227,7 @@ final class DictationCoordinator {
                 name: "Dictation", providerID: Provider.localID,
                 model: settings.dictation.model, fields: [:], outputExt: "txt")
             // Transient placeholder — LocalTranscriptionSender ignores provider/apiKey.
-            let provider = Provider(
-                name: "Local", presetID: "", baseURL: "",
-                apiKeyRef: KeychainRef(account: ""), id: Provider.localID)
-            return TranscriberInputs(job: job, provider: provider, shape: .localTranscription)
+            return TranscriberInputs(job: job, provider: .localPlaceholder, shape: .localTranscription)
         case .provider(let id):
             guard let provider = providerLookup(id),
                   let preset = presetLookup(provider.presetID) else { return nil }

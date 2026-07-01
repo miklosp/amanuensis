@@ -350,17 +350,29 @@ final class AppCoordinator {
     func runJob(_ job: Job, on recordingFolder: URL) async -> Result<URL, Error> {
         let recordingName = recordingFolder.lastPathComponent
 
-        guard let providerID = job.providerID,
-              let provider = providers.provider(id: providerID) else {
+        let provider: Provider
+        let shape: JobShape
+        switch TranscriptionSource(providerID: job.providerID) {
+        case .none:
             await self.flashActivity("Failed: '\(job.name)' — provider missing")
             logs.log(.error, "Failed: '\(job.name)' — provider missing", category: .job)
             return .failure(JobRunError.providerMissing)
-        }
-
-        guard let shape = presets.preset(id: provider.presetID)?.shape else {
-            await self.flashActivity("Failed: '\(job.name)' — provider preset unknown")
-            logs.log(.error, "Failed: '\(job.name)' — provider preset unknown", category: .job)
-            return .failure(JobRunError.presetMissing)
+        case .local:
+            provider = Provider.localPlaceholder
+            shape = .localTranscription
+        case .provider(let id):
+            guard let resolvedProvider = providers.provider(id: id) else {
+                await self.flashActivity("Failed: '\(job.name)' — provider missing")
+                logs.log(.error, "Failed: '\(job.name)' — provider missing", category: .job)
+                return .failure(JobRunError.providerMissing)
+            }
+            guard let resolvedShape = presets.preset(id: resolvedProvider.presetID)?.shape else {
+                await self.flashActivity("Failed: '\(job.name)' — provider preset unknown")
+                logs.log(.error, "Failed: '\(job.name)' — provider preset unknown", category: .job)
+                return .failure(JobRunError.presetMissing)
+            }
+            provider = resolvedProvider
+            shape = resolvedShape
         }
 
         if await conversionService.isConverting(folderName: recordingName) {

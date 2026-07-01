@@ -5,6 +5,13 @@ extension Provider {
     /// provider; recognised at the read boundary by `TranscriptionSource`. Fixed
     /// forever — it is persisted in saved jobs / dictation settings.
     public static let localID = UUID(uuidString: "10CA110C-0000-0000-0000-000000000000")!
+
+    /// Transient, non-persisted stand-in for the Local source. `LocalTranscriptionSender`
+    /// ignores the provider, so only `id == .localID` matters here.
+    public static var localPlaceholder: Provider {
+        Provider(name: "Local", presetID: "", baseURL: "",
+                 apiKeyRef: KeychainRef(account: ""), id: Provider.localID)
+    }
 }
 
 /// The target of a transcription, resolved from the persisted `providerID: UUID?`.
