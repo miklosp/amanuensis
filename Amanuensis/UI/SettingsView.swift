@@ -13,7 +13,6 @@ struct SettingsView: View {
     @State private var postEventGranted = TextInserter.hasPostEventAccess()
 
     var body: some View {
-        NavigationStack {
         Form {
             Section("Recordings") {
                 LabeledContent("Location") {
@@ -92,9 +91,22 @@ struct SettingsView: View {
                     ForEach(coordinator.allProviders) { provider in
                         Text(provider.name).tag(UUID?.some(provider.id))
                     }
+                    if !downloadedLocalIDs.isEmpty {
+                        Text("Local").tag(UUID?.some(Provider.localID))
+                    }
+                }
+                .onChange(of: settings.dictation.providerID) { _, _ in
+                    Task { await coordinator.syncDictationWarmModel() }
                 }
 
-                TextField("Model", text: $settings.dictation.model)
+                ModelSelector(
+                    isLocal: TranscriptionSource(providerID: settings.dictation.providerID) == .local,
+                    model: $settings.dictation.model,
+                    downloadedLocalModelIDs: downloadedLocalIDs,
+                    suggestedModels: dictationSuggestedModels)
+                .onChange(of: settings.dictation.model) { _, _ in
+                    Task { await coordinator.syncDictationWarmModel() }
+                }
 
                 Picker("On finish", selection: $settings.dictation.insertMode) {
                     Text("Insert at cursor").tag(InsertMode.autoInsert)
@@ -118,17 +130,20 @@ struct SettingsView: View {
                         refreshPermissions()
                     })
             }
-            Section("Models") {
-                NavigationLink {
-                    ModelsView(store: coordinator.localModelsStore)
-                } label: {
-                    Text("On-device models")
-                }
-            }
         }
         .formStyle(.grouped)
-        } // NavigationStack
         .frame(width: 480, height: 640)
+    }
+
+    private var downloadedLocalIDs: [String] {
+        LocalModelCatalog.all.map(\.id).filter { coordinator.localModelsStore.states[$0]?.isDownloaded == true }
+    }
+
+    private var dictationSuggestedModels: [String] {
+        guard case .provider(let id) = TranscriptionSource(providerID: settings.dictation.providerID),
+              let provider = coordinator.allProviders.first(where: { $0.id == id }),
+              let preset = coordinator.presets.preset(id: provider.presetID) else { return [] }
+        return preset.suggestedModels
     }
 
     private func chooseLocation() {
