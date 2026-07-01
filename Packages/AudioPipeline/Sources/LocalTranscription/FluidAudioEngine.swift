@@ -70,6 +70,43 @@ public actor FluidAudioEngine: LocalTranscriptionEngine {
         language.flatMap { CohereAsrConfig.Language(rawValue: $0) } ?? .english
     }
 
+    // MARK: - Resident model cache
+
+    /// One loaded handle, tagged by the runner it belongs to. Exactly one of
+    /// these is resident at a time; a transcribe for a different model loads a
+    /// transient handle instead and never touches this slot.
+    private enum FluidResident {
+        case parakeet(AsrManager)
+        case senseVoice(SenseVoiceManager)
+        case cohere(CoherePipeline.LoadedModels)
+    }
+
+    private var residentModelID: String?
+    private var resident: FluidResident?
+
+    // MARK: - Load helpers (shared by preload + transient transcribe path)
+
+    private func loadParakeetManager(_ model: LocalModel) async throws -> AsrManager {
+        let dir = try ModelStorage.runnerDir(.fluidAudioParakeet)
+        let version = parakeetVersion(model.selector)
+        let models = try await AsrModels.load(from: dir, version: version)
+        return AsrManager(config: .default, models: models)
+    }
+
+    private func loadSenseVoiceManager(_ model: LocalModel) throws -> SenseVoiceManager {
+        guard let dir = senseVoiceModelDir() else {
+            throw LocalTranscriptionError.modelNotDownloaded(model.displayName)
+        }
+        let svModels = try SenseVoiceModels.load(from: dir, precision: .fp16)
+        return SenseVoiceManager(models: svModels)
+    }
+
+    private func loadCohereModels() async throws -> CoherePipeline.LoadedModels {
+        let dir = try cohereModelDir()
+        // Encoder, decoder, and vocab live in the same staged dir.
+        return try await CoherePipeline.loadModels(encoderDir: dir, decoderDir: dir, vocabDir: dir)
+    }
+
     // MARK: - LocalTranscriptionEngine
 
     public func isDownloaded(_ model: LocalModel) async -> Bool {
@@ -175,35 +212,70 @@ public actor FluidAudioEngine: LocalTranscriptionEngine {
         }
     }
 
+    /// Load the model for `model` and keep it resident for warm reuse. Only marks
+    /// the resident slot AFTER the load succeeds, so a throwing load leaves the
+    /// engine with no partially-set resident (a prior resident, if any, survives).
+    public func preload(_ model: LocalModel) async throws {
+        switch model.runner {
+        case .fluidAudioParakeet:
+            let asr = try await loadParakeetManager(model)
+            resident = .parakeet(asr)
+            residentModelID = model.id
+        case .fluidAudioSenseVoice:
+            let senseVoice = try loadSenseVoiceManager(model)
+            resident = .senseVoice(senseVoice)
+            residentModelID = model.id
+        case .fluidAudioCohere:
+            let models = try await loadCohereModels()
+            resident = .cohere(models)
+            residentModelID = model.id
+        default:
+            return
+        }
+    }
+
+    public func unloadResident() async {
+        resident = nil
+        residentModelID = nil
+    }
+
     public func transcribe(audioURL: URL, model: LocalModel, language: String?) async throws -> String {
         guard await isDownloaded(model) else {
             throw LocalTranscriptionError.modelNotDownloaded(model.displayName)
         }
         switch model.runner {
         case .fluidAudioParakeet:
-            let dir = try ModelStorage.runnerDir(.fluidAudioParakeet)
             let version = parakeetVersion(model.selector)
-            let models = try await AsrModels.load(from: dir, version: version)
-            let asr = AsrManager(config: .default, models: models)
+            // Reuse the resident manager if it's this model; otherwise load a
+            // transient one and let it go — the resident slot is untouched.
+            let asr: AsrManager
+            if model.id == residentModelID, case .parakeet(let cached) = resident {
+                asr = cached
+            } else {
+                asr = try await loadParakeetManager(model)
+            }
             // language hint is only honoured by the v3 joint decoder
             let lang: Language? = version == .v3 ? language.flatMap { Language(rawValue: $0) } : nil
             var state = try TdtDecoderState(decoderLayers: version.decoderLayers)
             let result = try await asr.transcribe(audioURL, decoderState: &state, language: lang)
             return result.text
         case .fluidAudioSenseVoice:
-            guard let dir = senseVoiceModelDir() else {
-                throw LocalTranscriptionError.modelNotDownloaded(model.displayName)
+            let senseVoice: SenseVoiceManager
+            if model.id == residentModelID, case .senseVoice(let cached) = resident {
+                senseVoice = cached
+            } else {
+                senseVoice = try loadSenseVoiceManager(model)
             }
-            let svModels = try SenseVoiceModels.load(from: dir, precision: .fp16)
-            let senseVoice = SenseVoiceManager(models: svModels)
             // SenseVoice language encoding uses Int32 codes; no public map from ISO
             // string exists in FluidAudio 0.15.4, so we pass the default (0 = auto-detect).
             return try await senseVoice.transcribe(audioURL: audioURL)
         case .fluidAudioCohere:
-            let dir = try cohereModelDir()
-            // Encoder, decoder, and vocab live in the same staged dir.
-            let models = try await CoherePipeline.loadModels(
-                encoderDir: dir, decoderDir: dir, vocabDir: dir)
+            let models: CoherePipeline.LoadedModels
+            if model.id == residentModelID, case .cohere(let cached) = resident {
+                models = cached
+            } else {
+                models = try await loadCohereModels()
+            }
             // Cohere wants [Float] @ 16 kHz mono, not a URL.
             let samples = try AudioConverter().resampleAudioFile(audioURL)
             // transcribeLong slides the 35 s encoder window so audio over the

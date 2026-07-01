@@ -28,6 +28,26 @@ public actor WhisperKitEngine: LocalTranscriptionEngine {
             )
     }
 
+    // MARK: - Resident model cache
+
+    private var residentModelID: String?
+    private var resident: WhisperKit?
+
+    /// Builds the WhisperKit pipeline for a variant from its pre-downloaded folder.
+    /// Shared by `preload` and the transient `transcribe` path so there's one
+    /// source of truth for the init.
+    private func buildPipeline(_ model: LocalModel) async throws -> WhisperKit {
+        // Pass modelFolder explicitly so WhisperKit loads the pre-downloaded model
+        // without attempting a network download. With download: false and no modelFolder
+        // the WhisperKit init leaves self.modelFolder nil and skips loadModels entirely
+        // (init line: `if config.load ?? (config.modelFolder != nil)`).
+        let folder = try variantDir(model).path
+        return try await WhisperKit(WhisperKitConfig(
+            modelFolder: folder,
+            download: false
+        ))
+    }
+
     // MARK: - LocalTranscriptionEngine
 
     public func isDownloaded(_ model: LocalModel) async -> Bool {
@@ -51,19 +71,32 @@ public actor WhisperKitEngine: LocalTranscriptionEngine {
         try FileManager.default.removeItem(at: try variantDir(model))
     }
 
+    /// Build the pipeline for `model` and keep it resident for warm reuse. Only
+    /// marks the resident slot AFTER the build succeeds, so a throwing build leaves
+    /// the engine with no partially-set resident (a prior resident, if any, survives).
+    public func preload(_ model: LocalModel) async throws {
+        let pipe = try await buildPipeline(model)
+        resident = pipe
+        residentModelID = model.id
+    }
+
+    public func unloadResident() async {
+        resident = nil
+        residentModelID = nil
+    }
+
     public func transcribe(audioURL: URL, model: LocalModel, language: String?) async throws -> String {
         guard await isDownloaded(model) else {
             throw LocalTranscriptionError.modelNotDownloaded(model.displayName)
         }
-        // Pass modelFolder explicitly so WhisperKit loads the pre-downloaded model
-        // without attempting a network download. With download: false and no modelFolder
-        // the WhisperKit init leaves self.modelFolder nil and skips loadModels entirely
-        // (init line: `if config.load ?? (config.modelFolder != nil)`).
-        let folder = try variantDir(model).path
-        let pipe = try await WhisperKit(WhisperKitConfig(
-            modelFolder: folder,
-            download: false
-        ))
+        // Reuse the resident pipeline if it's this model; otherwise build a
+        // transient one and let it go — the resident slot is untouched.
+        let pipe: WhisperKit
+        if model.id == residentModelID, let cached = resident {
+            pipe = cached
+        } else {
+            pipe = try await buildPipeline(model)
+        }
         // A blank language must actually auto-detect. WhisperKit's DecodingOptions
         // defaults detectLanguage to false and prefills English when language is nil
         // (TextDecoder prefill uses Constants.defaultLanguageCode == "en"), so pass
