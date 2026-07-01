@@ -24,6 +24,7 @@ public actor LocalTranscriptionService {
     public func preload(modelID: String) async throws {
         if residentID == modelID { return }
         if let old = residentID, let (_, e) = try? resolve(old) { await e.unloadResident() }
+        residentID = nil                 // old engine (if any) is now unloaded; nothing resident until the new load succeeds
         let (m, e) = try resolve(modelID)
         try await e.preload(m)
         residentID = modelID

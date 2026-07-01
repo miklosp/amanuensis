@@ -40,3 +40,21 @@ private func svc() -> (LocalTranscriptionService, FakeEngine, FakeEngine) {
     #expect(await s.residentModelID() == nil)
     #expect(await fa.residentID == nil)
 }
+
+@Test func throwingPreloadLeavesNoResident() async throws {
+    let (s, fa, wk) = svc()
+    try await s.preload(modelID: "parakeet-tdt-ctc-110m")   // FluidAudio resident
+    await wk.setPreloadShouldThrow(true)                     // next (WhisperKit) preload fails
+    await #expect(throws: (any Error).self) { try await s.preload(modelID: "whisper-large-v3-turbo") }
+    #expect(await s.residentModelID() == nil)               // consistent: old unloaded, new failed
+    #expect(await fa.residentID == nil)
+}
+
+@Test func sameModelTranscribeCountsAsReuse() async throws {
+    let (s, fa, _) = svc()
+    try await fa.download(LocalModelCatalog.model(id: "parakeet-tdt-ctc-110m")!) { _ in }
+    try await s.preload(modelID: "parakeet-tdt-ctc-110m")
+    _ = try await s.transcribe(audioURL: URL(fileURLWithPath: "/x"), modelID: "parakeet-tdt-ctc-110m", language: nil)
+    #expect(await fa.reuseTranscribes == 1)
+    #expect(await fa.transientTranscribes == 0)
+}

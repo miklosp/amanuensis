@@ -8,6 +8,9 @@ actor FakeEngine: LocalTranscriptionEngine {
     var residentID: String?
     var transientTranscribes = 0
     var reuseTranscribes = 0
+    var preloadShouldThrow = false
+
+    func setPreloadShouldThrow(_ v: Bool) { preloadShouldThrow = v }
 
     func isDownloaded(_ model: LocalModel) async -> Bool { downloaded.contains(model.id) }
     func installedBytes(_ model: LocalModel) async -> Int64 { downloaded.contains(model.id) ? 123 : 0 }
@@ -21,6 +24,9 @@ actor FakeEngine: LocalTranscriptionEngine {
         if residentID == model.id { reuseTranscribes += 1 } else { transientTranscribes += 1 }
         return transcript
     }
-    func preload(_ model: LocalModel) async throws { residentID = model.id }
+    func preload(_ model: LocalModel) async throws {
+        if preloadShouldThrow { throw LocalTranscriptionError.modelNotDownloaded(model.displayName) }
+        residentID = model.id
+    }
     func unloadResident() async { residentID = nil }
 }
