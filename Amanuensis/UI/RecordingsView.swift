@@ -8,6 +8,8 @@ struct RecordingsView: View {
     let coordinator: AppCoordinator
     @State private var selection: Set<RecordingItem.ID> = []
     @State private var pendingDelete: [RecordingItem] = []
+    @State private var pendingRename: RecordingItem?
+    @State private var renameText: String = ""
 
     var body: some View {
         Table(library.recordings, selection: $selection) {
@@ -25,6 +27,10 @@ struct RecordingsView: View {
                 // operate on the first selected row.
                 Button("Play") { play(first) }
                 Button("Reveal in Finder") { reveal(first) }
+                Button("Rename…") {
+                    renameText = first.name
+                    pendingRename = first
+                }
 
                 if coordinator.jobs.jobs.isEmpty {
                     Text("No Jobs defined")
@@ -71,6 +77,24 @@ struct RecordingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(deleteAlertMessage(for: pendingDelete.count))
+        }
+        .alert(
+            "Rename recording",
+            isPresented: Binding(
+                get: { pendingRename != nil },
+                set: { if !$0 { pendingRename = nil } }
+            )
+        ) {
+            TextField("Name", text: $renameText)
+            Button("Rename") {
+                guard let item = pendingRename else { return }
+                let newName = renameText
+                pendingRename = nil
+                Task { await library.rename(item, to: newName) }
+            }
+            Button("Cancel", role: .cancel) { pendingRename = nil }
+        } message: {
+            Text("Enter a display name for this recording. Leave blank to use the original folder name.")
         }
         .toolbar {
             Button {
