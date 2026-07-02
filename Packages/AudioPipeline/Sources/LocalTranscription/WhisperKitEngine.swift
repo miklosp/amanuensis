@@ -60,8 +60,8 @@ public actor WhisperKitEngine: LocalTranscriptionEngine {
     /// but incomplete — is not reported as downloaded.
     static func hasRequiredModels(in dir: URL) -> Bool {
         let fm = FileManager.default
-        return ["MelSpectrogram", "AudioEncoder", "TextDecoder"].allSatisfy {
-            fm.fileExists(atPath: dir.appendingPathComponent("\($0).mlmodelc").path)
+        return ["MelSpectrogram", "AudioEncoder", "TextDecoder"].allSatisfy { name in
+            fm.fileExists(atPath: dir.appendingPathComponent("\(name).mlmodelc").path)
         }
     }
 
