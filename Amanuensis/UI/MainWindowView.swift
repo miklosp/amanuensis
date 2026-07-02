@@ -16,6 +16,8 @@ struct MainWindowView: View {
                         .tag(SidebarDestination.jobs)
                     Label("Providers", systemImage: "key")
                         .tag(SidebarDestination.providers)
+                    Label("Local Models", systemImage: "cpu")
+                        .tag(SidebarDestination.localModels)
                     Label("Logs", systemImage: "list.bullet.rectangle")
                         .tag(SidebarDestination.logs)
                 }
@@ -34,6 +36,7 @@ struct MainWindowView: View {
                 JobsView(presets: coordinator.presets,
                          jobs: coordinator.jobs,
                          providers: coordinator.providers,
+                         localModelsStore: coordinator.localModelsStore,
                          sidebarSelection: $selection)
                     .navigationTitle("Jobs")
             case .providers:
@@ -41,6 +44,8 @@ struct MainWindowView: View {
                               providers: coordinator.providers,
                               keychain: coordinator.keychain)
                     .navigationTitle("Providers")
+            case .localModels:
+                ModelsView(store: coordinator.localModelsStore)
             case .logs:
                 LogsView(logs: coordinator.logs)
                     .navigationTitle("Logs")
@@ -55,5 +60,5 @@ struct MainWindowView: View {
 }
 
 enum SidebarDestination: Hashable {
-    case recordings, jobs, providers, logs
+    case recordings, jobs, providers, localModels, logs
 }

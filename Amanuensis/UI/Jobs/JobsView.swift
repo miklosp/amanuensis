@@ -1,10 +1,12 @@
 import AudioPipelineJobs
+import LocalTranscription
 import SwiftUI
 
 struct JobsView: View {
     let presets: PresetsStore
     @Bindable var jobs: JobsStore
     @Bindable var providers: ProvidersStore
+    let localModelsStore: LocalModelsStore
     @Binding var sidebarSelection: SidebarDestination
 
     @State private var selection: Job.ID?
@@ -16,13 +18,22 @@ struct JobsView: View {
     }
 
     private func isBroken(_ job: Job) -> Bool {
-        guard let id = job.providerID else { return true }
-        return providers.provider(id: id) == nil
+        switch TranscriptionSource(providerID: job.providerID) {
+        case .none: return true
+        case .local: return false
+        case .provider(let id): return providers.provider(id: id) == nil
+        }
+    }
+
+    // A local-only user (no cloud providers) can still create + run a Local job
+    // once any on-device model is downloaded.
+    private var hasLocalModel: Bool {
+        LocalModelCatalog.all.contains { localModelsStore.states[$0.id]?.isDownloaded == true }
     }
 
     var body: some View {
         Group {
-            if providers.providers.isEmpty {
+            if providers.providers.isEmpty && !hasLocalModel {
                 ContentUnavailableView {
                     Label("No providers configured", systemImage: "key")
                 } description: {
@@ -53,6 +64,7 @@ struct JobsView: View {
                         job: sortedJobs.first(where: { $0.id == selection }),
                         presets: presets,
                         providers: providers,
+                        localModelsStore: localModelsStore,
                         onSave: { jobs.upsert($0) }
                     )
                     .frame(minWidth: 420, maxWidth: .infinity)
@@ -67,7 +79,7 @@ struct JobsView: View {
                 } label: {
                     Label("New Job", systemImage: "plus")
                 }
-                .disabled(providers.providers.isEmpty)
+                .disabled(providers.providers.isEmpty && !hasLocalModel)
                 Button(role: .destructive) {
                     deleteSelected()
                 } label: {
@@ -93,9 +105,9 @@ struct JobsView: View {
     private func addJob() {
         let firstProvider = providers.providers
             .min { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        guard let firstProvider else { return }
+        guard let providerID = firstProvider?.id ?? (hasLocalModel ? Provider.localID : nil) else { return }
         var draft = Job.makeDraft()
-        draft.providerID = firstProvider.id
+        draft.providerID = providerID
         jobs.upsert(draft)
         selection = draft.id
     }
@@ -111,6 +123,7 @@ private struct JobsDetailPane: View {
     let job: Job?
     let presets: PresetsStore
     let providers: ProvidersStore
+    let localModelsStore: LocalModelsStore
     let onSave: (Job) -> Void
 
     var body: some View {
@@ -118,6 +131,7 @@ private struct JobsDetailPane: View {
             JobEditorView(initial: job,
                           presets: presets,
                           providers: providers,
+                          localModelsStore: localModelsStore,
                           onSave: onSave)
                 .id(job.id)
         } else {
