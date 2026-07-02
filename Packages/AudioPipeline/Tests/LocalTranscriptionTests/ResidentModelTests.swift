@@ -66,6 +66,18 @@ private func svc() -> (LocalTranscriptionService, FakeEngine, FakeEngine) {
     #expect(await fa.residentID == "parakeet-tdt-ctc-110m")
 }
 
+@Test func deletingModelMidPreloadDoesNotLeaveItResident() async throws {
+    let (s, fa, _) = svc()
+    await fa.setPreloadShouldBlock(true)
+    let p = Task { try? await s.preload(modelID: "parakeet-tdt-ctc-110m") }
+    while !(await fa.preloadEntered) { await Task.yield() }   // preload suspended mid-load
+    try await s.delete(modelID: "parakeet-tdt-ctc-110m")      // reentrant delete
+    await fa.releasePreloadGate()                             // let the stale preload resume
+    _ = await p.value
+    #expect(await s.residentModelID() == nil)                 // not resurrected
+    #expect(await fa.residentID == nil)
+}
+
 @Test func sameModelTranscribeCountsAsReuse() async throws {
     let (s, fa, _) = svc()
     try await fa.download(LocalModelCatalog.model(id: "parakeet-tdt-ctc-110m")!) { _ in }

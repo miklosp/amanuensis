@@ -51,7 +51,18 @@ public actor WhisperKitEngine: LocalTranscriptionEngine {
     // MARK: - LocalTranscriptionEngine
 
     public func isDownloaded(_ model: LocalModel) async -> Bool {
-        (try? variantDir(model)).map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+        (try? variantDir(model)).map { Self.hasRequiredModels(in: $0) } ?? false
+    }
+
+    /// Whether `dir` holds a complete WhisperKit model. Mirrors the precondition in
+    /// `WhisperKit.loadModels` (MelSpectrogram/AudioEncoder/TextDecoder must all be
+    /// present) so a crash-interrupted download — which leaves the folder existing
+    /// but incomplete — is not reported as downloaded.
+    static func hasRequiredModels(in dir: URL) -> Bool {
+        let fm = FileManager.default
+        return ["MelSpectrogram", "AudioEncoder", "TextDecoder"].allSatisfy {
+            fm.fileExists(atPath: dir.appendingPathComponent("\($0).mlmodelc").path)
+        }
     }
 
     public func installedBytes(_ model: LocalModel) async -> Int64 {

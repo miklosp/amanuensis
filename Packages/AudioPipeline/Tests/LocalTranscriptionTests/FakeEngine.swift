@@ -10,6 +10,7 @@ actor FakeEngine: LocalTranscriptionEngine {
     var reuseTranscribes = 0
     var preloadShouldThrow = false
     var preloadShouldBlock = false
+    var preloadEntered = false           // set once preload is suspended at the gate
     var unloadShouldBlock = false
     private var preloadGate: CheckedContinuation<Void, Never>?
     private var unloadGate: CheckedContinuation<Void, Never>?
@@ -34,7 +35,7 @@ actor FakeEngine: LocalTranscriptionEngine {
     }
     func preload(_ model: LocalModel) async throws {
         if preloadShouldThrow { throw LocalTranscriptionError.modelNotDownloaded(model.displayName) }
-        if preloadShouldBlock { await withCheckedContinuation { preloadGate = $0 } }
+        if preloadShouldBlock { preloadEntered = true; await withCheckedContinuation { preloadGate = $0 } }
         residentID = model.id
     }
     func unloadResident() async {

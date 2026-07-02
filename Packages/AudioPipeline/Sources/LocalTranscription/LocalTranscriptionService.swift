@@ -18,6 +18,7 @@ public actor LocalTranscriptionService {
     }
 
     private var residentID: String?
+    private var loadingID: String?       // model whose preload is in flight (may be evicted by a reentrant delete)
 
     public func residentModelID() -> String? { residentID }
 
@@ -26,7 +27,18 @@ public actor LocalTranscriptionService {
         if let old = residentID, let (_, e) = try? resolve(old) { await e.unloadResident() }
         residentID = nil                 // old engine (if any) is now unloaded; nothing resident until the new load succeeds
         let (m, e) = try resolve(modelID)
-        try await e.preload(m)
+        loadingID = modelID
+        do {
+            try await e.preload(m)
+        } catch {
+            if loadingID == modelID { loadingID = nil }
+            throw error
+        }
+        // The actor can run `delete(modelID:)` during the await above; if it deleted
+        // this model it cleared loadingID. Don't publish a just-deleted model as
+        // resident — drop what we loaded and bail.
+        guard loadingID == modelID else { await e.unloadResident(); return }
+        loadingID = nil
         residentID = modelID
     }
 
@@ -46,7 +58,13 @@ public actor LocalTranscriptionService {
     }
     public func delete(modelID: String) async throws {
         let (m, e) = try resolve(modelID)
-        if residentID == modelID { await e.unloadResident(); residentID = nil }   // don't leave a fileless model loaded
+        // Clear both flags synchronously (no await between) so an in-flight preload
+        // for this model can't publish it as resident after its load resumes.
+        if residentID == modelID || loadingID == modelID {
+            residentID = nil
+            loadingID = nil
+            await e.unloadResident()
+        }
         try await e.delete(m)
     }
 }

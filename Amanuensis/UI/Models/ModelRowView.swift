@@ -41,6 +41,7 @@ struct ModelRowView: View {
                     }
                 }
                 Button(role: .destructive, action: onDelete) { Image(systemName: "trash") }
+                    .disabled(isLoading || isUnloading)   // don't race delete against an in-flight (un)load
             }
             else { Button("Download", action: onDownload) }
         }.padding(.vertical, 4)

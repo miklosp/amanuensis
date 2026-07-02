@@ -61,6 +61,22 @@ import Testing
     #expect(store.residentModelID == nil)
 }
 
+@MainActor @Test func deletingModelMidPreloadDoesNotResurrectResident() async {
+    let fa = FakeEngine()
+    let store = LocalModelsStore(service: LocalTranscriptionService(fluidAudio: fa, whisperKit: FakeEngine()))
+    let model = LocalModelCatalog.model(id: "parakeet-tdt-ctc-110m")!
+    await store.download(model)
+    await fa.setPreloadShouldBlock(true)
+    let p = Task { await store.preload(modelID: model.id) }
+    while store.loadingModelID == nil { await Task.yield() }
+    await store.delete(model)               // delete while the warm preload is in flight
+    await fa.releasePreloadGate()
+    await p.value
+    #expect(store.residentModelID == nil)   // not resurrected as resident
+    #expect(await fa.residentID == nil)
+    #expect(store.states[model.id]?.isDownloaded == false)
+}
+
 @MainActor @Test func deletingResidentDictationModelClearsBadges() async {
     let store = LocalModelsStore(service: LocalTranscriptionService(fluidAudio: FakeEngine(), whisperKit: FakeEngine()))
     let model = LocalModelCatalog.model(id: "parakeet-tdt-ctc-110m")!
