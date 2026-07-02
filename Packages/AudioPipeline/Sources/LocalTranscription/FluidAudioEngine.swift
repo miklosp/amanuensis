@@ -130,8 +130,8 @@ public actor FluidAudioEngine: LocalTranscriptionEngine {
                 ModelNames.CohereTranscribe.decoderCacheExternalV2CompiledFile,
                 ModelNames.CohereTranscribe.vocab,
             ]
-            return required.allSatisfy {
-                fm.fileExists(atPath: dir.appendingPathComponent($0).path)
+            return required.allSatisfy { file in
+                fm.fileExists(atPath: dir.appendingPathComponent(file).path)
             }
         default:
             return false

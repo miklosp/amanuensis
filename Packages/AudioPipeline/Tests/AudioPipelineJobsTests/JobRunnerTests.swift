@@ -180,7 +180,7 @@ private actor SpySender: AudioJobSending {
                                  provider: makeProvider(), shape: .localTranscription,
                                  audioURL: audio)
         #expect(await kc.getCalled == false)
-        #expect(await spy.receivedAPIKey == "")
+        #expect(await spy.receivedAPIKey?.isEmpty == true)
     }
 }
 
