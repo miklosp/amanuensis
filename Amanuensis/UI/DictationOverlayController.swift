@@ -16,6 +16,7 @@ final class DictationOverlayController {
     private var enabled = false
     private var shown = false
     private var flashing = false
+    private var modelLoading = false
     private var flashTask: Task<Void, Never>?
 
     /// Show/hide based on phase + the user's overlay preference.
@@ -23,6 +24,15 @@ final class DictationOverlayController {
         self.phase = phase
         self.enabled = enabled
         // A transient flash owns the panel until it expires; don't clobber it.
+        guard !flashing else { return }
+        renderPhase()
+    }
+
+    /// Overlay a "Loading model…" state on the active session while the
+    /// on-device model warms up (see DictationCoordinator). Reverts to the
+    /// phase display when cleared.
+    func setModelLoading(_ loading: Bool) {
+        modelLoading = loading
         guard !flashing else { return }
         renderPhase()
     }
@@ -43,8 +53,10 @@ final class DictationOverlayController {
     }
 
     private func renderPhase() {
+        // Only override with "Loading model…" while a session is active (phase
+        // maps to a visible state); an idle phase still hides the overlay.
         guard enabled, let state = Self.state(for: phase) else { hide(); return }
-        show(state)
+        show(modelLoading ? .loadingModel : state)
     }
 
     private static func state(for phase: DictationStateMachine.Phase) -> DictationOverlayState? {

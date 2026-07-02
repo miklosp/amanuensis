@@ -4,6 +4,7 @@ import DictationCore
 /// What the dictation overlay pill is currently showing — derived from the
 /// dictation phase, plus a transient flash message.
 enum DictationOverlayState: Equatable {
+    case loadingModel
     case listening
     case transcribing
     case inserted
@@ -42,6 +43,11 @@ struct DictationOverlayView: View {
     @ViewBuilder
     private var content: some View {
         switch model.state {
+        case .loadingModel:
+            pill {
+                ProgressView().controlSize(.small)
+                Text("Loading model…")
+            }
         case .listening:
             pill {
                 Image(systemName: "waveform")

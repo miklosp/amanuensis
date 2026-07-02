@@ -9,8 +9,16 @@ actor FakeEngine: LocalTranscriptionEngine {
     var transientTranscribes = 0
     var reuseTranscribes = 0
     var preloadShouldThrow = false
+    var preloadShouldBlock = false
+    var unloadShouldBlock = false
+    private var preloadGate: CheckedContinuation<Void, Never>?
+    private var unloadGate: CheckedContinuation<Void, Never>?
 
     func setPreloadShouldThrow(_ v: Bool) { preloadShouldThrow = v }
+    func setPreloadShouldBlock(_ v: Bool) { preloadShouldBlock = v }
+    func setUnloadShouldBlock(_ v: Bool) { unloadShouldBlock = v }
+    func releasePreloadGate() { preloadGate?.resume(); preloadGate = nil }
+    func releaseUnloadGate() { unloadGate?.resume(); unloadGate = nil }
 
     func isDownloaded(_ model: LocalModel) async -> Bool { downloaded.contains(model.id) }
     func installedBytes(_ model: LocalModel) async -> Int64 { downloaded.contains(model.id) ? 123 : 0 }
@@ -26,7 +34,11 @@ actor FakeEngine: LocalTranscriptionEngine {
     }
     func preload(_ model: LocalModel) async throws {
         if preloadShouldThrow { throw LocalTranscriptionError.modelNotDownloaded(model.displayName) }
+        if preloadShouldBlock { await withCheckedContinuation { preloadGate = $0 } }
         residentID = model.id
     }
-    func unloadResident() async { residentID = nil }
+    func unloadResident() async {
+        if unloadShouldBlock { await withCheckedContinuation { unloadGate = $0 } }
+        residentID = nil
+    }
 }

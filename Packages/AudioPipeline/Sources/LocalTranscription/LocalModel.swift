@@ -47,4 +47,12 @@ public enum LocalModelCatalog {
                    runner: .fluidAudioSenseVoice, selector: "fp16", recommended: false),
     ]
     public static func model(id: String) -> LocalModel? { all.first { $0.id == id } }
+
+    /// The id a local-model picker should fall back to when `current` isn't among
+    /// `downloaded` (empty setting, or the saved model was deleted): the first
+    /// downloaded id, or nil when `current` is already valid or nothing is downloaded.
+    public static func defaultedSelection(current: String, downloaded: [String]) -> String? {
+        guard !downloaded.contains(current), let first = downloaded.first else { return nil }
+        return first
+    }
 }

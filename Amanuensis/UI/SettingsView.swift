@@ -103,7 +103,9 @@ struct SettingsView: View {
                     isLocal: TranscriptionSource(providerID: settings.dictation.providerID) == .local,
                     model: $settings.dictation.model,
                     downloadedLocalModelIDs: downloadedLocalIDs,
-                    suggestedModels: dictationSuggestedModels)
+                    suggestedModels: dictationSuggestedModels,
+                    isBusy: coordinator.localModelsStore.loadingModelID != nil
+                        || coordinator.localModelsStore.unloadingModelID != nil)
                 .onChange(of: settings.dictation.model) { _, _ in
                     Task { await coordinator.syncDictationWarmModel() }
                 }

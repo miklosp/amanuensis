@@ -22,3 +22,16 @@ import Testing
 @Test func cohereIsFluidAudioCohereRunner() {
     #expect(LocalModelCatalog.model(id: "cohere-transcribe")?.runner == .fluidAudioCohere)
 }
+
+@Test func defaultedSelectionPicksFirstWhenCurrentIsMissing() {
+    #expect(LocalModelCatalog.defaultedSelection(current: "", downloaded: ["a", "b"]) == "a")
+    #expect(LocalModelCatalog.defaultedSelection(current: "gone", downloaded: ["a", "b"]) == "a")
+}
+
+@Test func defaultedSelectionKeepsValidCurrent() {
+    #expect(LocalModelCatalog.defaultedSelection(current: "b", downloaded: ["a", "b"]) == nil)
+}
+
+@Test func defaultedSelectionIsNilWhenNothingDownloaded() {
+    #expect(LocalModelCatalog.defaultedSelection(current: "", downloaded: []) == nil)
+}

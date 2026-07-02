@@ -16,26 +16,45 @@ struct ModelSelector: View {
     let downloadedLocalModelIDs: [String]
     /// Suggested model strings shown in the convenience menu; used when `isLocal` is `false`.
     let suggestedModels: [String]
+    /// Shows a spinner next to the local picker while the resident model loads/unloads.
+    var isBusy: Bool = false
 
     var body: some View {
-        if isLocal {
-            Picker("Model", selection: $model) {
-                ForEach(downloadedLocalModelIDs, id: \.self) { id in
-                    Text(LocalModelCatalog.model(id: id)?.displayName ?? id).tag(id)
-                }
-            }
-        } else {
-            HStack {
-                TextField("Model", text: $model)
-                if !suggestedModels.isEmpty {
-                    Menu("Suggested") {
-                        ForEach(suggestedModels, id: \.self) { s in
-                            Button(s) { model = s }
+        Group {
+            if isLocal {
+                HStack {
+                    Picker("Model", selection: $model) {
+                        ForEach(downloadedLocalModelIDs, id: \.self) { id in
+                            Text(LocalModelCatalog.model(id: id)?.displayName ?? id).tag(id)
                         }
                     }
-                    .frame(width: 110)
+                    if isBusy { ProgressView().controlSize(.small) }
+                }
+            } else {
+                HStack {
+                    TextField("Model", text: $model)
+                    if !suggestedModels.isEmpty {
+                        Menu("Suggested") {
+                            ForEach(suggestedModels, id: \.self) { s in
+                                Button(s) { model = s }
+                            }
+                        }
+                        .frame(width: 110)
+                    }
                 }
             }
         }
+        .onAppear(perform: applyDefaultSelection)
+        .onChange(of: isLocal) { _, _ in applyDefaultSelection() }
+        .onChange(of: downloadedLocalModelIDs) { _, _ in applyDefaultSelection() }
+    }
+
+    /// In local mode, fall back to the first downloaded model when the current
+    /// selection is empty or no longer downloaded, and persist it via the binding.
+    private func applyDefaultSelection() {
+        guard isLocal,
+              let defaulted = LocalModelCatalog.defaultedSelection(current: model, downloaded: downloadedLocalModelIDs)
+        else { return }
+        model = defaulted
     }
 }

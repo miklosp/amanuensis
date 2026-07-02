@@ -44,5 +44,9 @@ public actor LocalTranscriptionService {
     public func download(modelID: String, progress: @escaping @Sendable (Double) -> Void) async throws {
         let (m, e) = try resolve(modelID); try await e.download(m, progress: progress)
     }
-    public func delete(modelID: String) async throws { let (m, e) = try resolve(modelID); try await e.delete(m) }
+    public func delete(modelID: String) async throws {
+        let (m, e) = try resolve(modelID)
+        if residentID == modelID { await e.unloadResident(); residentID = nil }   // don't leave a fileless model loaded
+        try await e.delete(m)
+    }
 }

@@ -99,7 +99,8 @@ final class AppCoordinator {
         // handler map (shared with runJob) can carry the on-device sender.
         let localService = LocalTranscriptionService(fluidAudio: FluidAudioEngine(), whisperKit: WhisperKitEngine())
         self.localService = localService
-        self.localModelsStore = LocalModelsStore(service: localService)
+        let localModelsStore = LocalModelsStore(service: localService)
+        self.localModelsStore = localModelsStore
         let localHandlers = JobRunner.defaultHandlers.merging(
             [.localTranscription: LocalTranscriptionSender(service: localService)]) { _, new in new }
         self.localHandlers = localHandlers
@@ -110,6 +111,8 @@ final class AppCoordinator {
             providerLookup: { [providers] id in providers.provider(id: id) },
             presetLookup: { [presets] id in presets.preset(id: id) },
             handlers: localHandlers,
+            ensureLocalModelResident: { [localModelsStore] id in await localModelsStore.preload(modelID: id) },
+            isLocalModelResident: { [localModelsStore] id in localModelsStore.residentModelID == id },
             log: { [logs] message in logs.log(.error, message, category: .recording) }
         )
 

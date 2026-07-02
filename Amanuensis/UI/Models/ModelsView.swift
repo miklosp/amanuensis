@@ -10,6 +10,8 @@ struct ModelsView: View {
                          state: store.states[model.id] ?? .init(),
                          isDictation: model.id == store.dictationModelID,
                          isInMemory: model.id == store.residentModelID,
+                         isLoading: model.id == store.loadingModelID,
+                         isUnloading: model.id == store.unloadingModelID,
                          onDownload: { Task { await store.download(model) } },
                          onDelete: { Task { await store.delete(model) } })
         }

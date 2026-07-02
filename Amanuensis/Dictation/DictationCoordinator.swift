@@ -19,6 +19,10 @@ final class DictationCoordinator {
     private let presetLookup: (String) -> Preset?
     private let handlers: [JobShape: any AudioJobSending]
     private let log: (String) -> Void
+    /// Loads the given on-device model into memory (no-op if already resident).
+    private let ensureLocalModelResident: (String) async -> Void
+    /// Whether the given on-device model is currently resident in memory.
+    private let isLocalModelResident: (String) -> Bool
 
     private var recognizer: ModifierGestureRecognizer
     private var machine = DictationStateMachine()
@@ -37,12 +41,16 @@ final class DictationCoordinator {
          providerLookup: @escaping (UUID) -> Provider?,
          presetLookup: @escaping (String) -> Preset?,
          handlers: [JobShape: any AudioJobSending] = JobRunner.defaultHandlers,
+         ensureLocalModelResident: @escaping (String) async -> Void = { _ in },
+         isLocalModelResident: @escaping (String) -> Bool = { _ in true },
          log: @escaping (String) -> Void) {
         self.settings = settings
         self.keychain = keychain
         self.providerLookup = providerLookup
         self.presetLookup = presetLookup
         self.handlers = handlers
+        self.ensureLocalModelResident = ensureLocalModelResident
+        self.isLocalModelResident = isLocalModelResident
         self.log = log
         self.recognizer = ModifierGestureRecognizer(trigger: settings.dictation.trigger)
         tempStore.sweep()                       // reclaim crash orphans on launch
@@ -205,9 +213,18 @@ final class DictationCoordinator {
             job: inputs.job, provider: inputs.provider,
             shape: inputs.shape, keychain: keychain, handlers: handlers)
         let resultRef = ResultRef()
+        // For on-device dictation, warm the model before transcribing so the
+        // overlay shows a distinct "Loading model…" step instead of a long,
+        // opaque "Transcribing…". Usually already resident (warmed on switch).
+        let localModel = inputs.shape == .localTranscription ? inputs.job.model : nil
         transcribeTask = Task { [weak self] in
             _ = await recorder.stop()
             defer { self?.tempStore.delete(url) }
+            if let self, let id = localModel, !self.isLocalModelResident(id) {
+                self.overlay.setModelLoading(true)
+                await self.ensureLocalModelResident(id)
+                self.overlay.setModelLoading(false)
+            }
             do {
                 try await transcriber.transcribe(
                     audioFile: url, onPartial: { _ in }, onFinal: { resultRef.value = $0 })

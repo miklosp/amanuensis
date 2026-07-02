@@ -13,10 +13,17 @@ import Foundation
     public var lastError: String?
     public var dictationModelID: String?
     public private(set) var residentModelID: String?
+    /// The model currently being loaded into memory (preload in flight), or nil.
+    public private(set) var loadingModelID: String?
+    /// The model currently being unloaded — set only once an unload drags past
+    /// `unloadSpinnerDelay`, so fast unloads never flash a spinner.
+    public private(set) var unloadingModelID: String?
     private let service: LocalTranscriptionService
+    private let unloadSpinnerDelay: Duration
 
-    public init(service: LocalTranscriptionService) {
+    public init(service: LocalTranscriptionService, unloadSpinnerDelay: Duration = .seconds(4)) {
         self.service = service
+        self.unloadSpinnerDelay = unloadSpinnerDelay
         for m in LocalModelCatalog.all { states[m.id] = ModelState() }
     }
 
@@ -50,14 +57,28 @@ import Foundation
             try await service.delete(modelID: model.id)
             states[model.id, default: ModelState()].isDownloaded = false
             states[model.id, default: ModelState()].installedBytes = 0
+            residentModelID = await service.residentModelID()          // resync after a resident delete unloads it
+            if dictationModelID == model.id { dictationModelID = nil }  // stop advertising a deleted dictation model
         } catch { lastError = error.localizedDescription }
     }
 
     public func preload(modelID: String?) async {
-        do {
-            if let id = modelID { try await service.preload(modelID: id) }
-            else { await service.unloadResident() }
-            residentModelID = await service.residentModelID()
-        } catch { lastError = error.localizedDescription }
+        if let id = modelID {
+            loadingModelID = id                       // spinner on immediately: loads are multi-second
+            do { try await service.preload(modelID: id) }
+            catch { lastError = error.localizedDescription }
+            loadingModelID = nil
+        } else {
+            // Unloads are usually instant; only show the spinner if this one drags on.
+            let doomed = residentModelID
+            let spinner = Task { [weak self, unloadSpinnerDelay] in
+                try? await Task.sleep(for: unloadSpinnerDelay)
+                if !Task.isCancelled { self?.unloadingModelID = doomed }
+            }
+            await service.unloadResident()
+            spinner.cancel()
+            unloadingModelID = nil
+        }
+        residentModelID = await service.residentModelID()
     }
 }

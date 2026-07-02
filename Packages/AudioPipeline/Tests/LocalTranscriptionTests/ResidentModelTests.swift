@@ -50,6 +50,22 @@ private func svc() -> (LocalTranscriptionService, FakeEngine, FakeEngine) {
     #expect(await fa.residentID == nil)
 }
 
+@Test func deletingResidentModelUnloadsIt() async throws {
+    let (s, fa, _) = svc()
+    try await s.preload(modelID: "parakeet-tdt-ctc-110m")
+    try await s.delete(modelID: "parakeet-tdt-ctc-110m")
+    #expect(await s.residentModelID() == nil)   // resident cleared
+    #expect(await fa.residentID == nil)          // engine unloaded
+}
+
+@Test func deletingNonResidentModelKeepsResident() async throws {
+    let (s, fa, _) = svc()
+    try await s.preload(modelID: "parakeet-tdt-ctc-110m")   // FluidAudio resident
+    try await s.delete(modelID: "whisper-large-v3-turbo")   // delete a different model
+    #expect(await s.residentModelID() == "parakeet-tdt-ctc-110m")   // still pinned
+    #expect(await fa.residentID == "parakeet-tdt-ctc-110m")
+}
+
 @Test func sameModelTranscribeCountsAsReuse() async throws {
     let (s, fa, _) = svc()
     try await fa.download(LocalModelCatalog.model(id: "parakeet-tdt-ctc-110m")!) { _ in }

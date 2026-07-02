@@ -7,6 +7,8 @@ struct ModelRowView: View {
     let state: LocalModelsStore.ModelState
     let isDictation: Bool
     let isInMemory: Bool
+    let isLoading: Bool
+    let isUnloading: Bool
     let onDownload: () -> Void
     let onDelete: () -> Void
 
@@ -30,7 +32,16 @@ struct ModelRowView: View {
             }
             Spacer()
             if state.isDownloading { ProgressView(value: state.progress).frame(width: 90) }
-            else if state.isDownloaded { Button(role: .destructive, action: onDelete) { Image(systemName: "trash") } }
+            else if state.isDownloaded {
+                if isLoading || isUnloading {
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small)
+                        Text(isLoading ? "Loading…" : "Unloading…")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Button(role: .destructive, action: onDelete) { Image(systemName: "trash") }
+            }
             else { Button("Download", action: onDownload) }
         }.padding(.vertical, 4)
     }
