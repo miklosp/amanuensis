@@ -192,3 +192,30 @@ at the edges. The only new *live* surfaces are one WebSocket driver and the mic�
    streaming provider picker.
 5. (Optional) AX-first in-place insertion fallback chain; manual stop / endpointing tuning; the
    Turns endpoint for latency-critical scenarios.
+
+## 7. Findings & verdict (2026-07-02)
+
+**Verdict: GO.** Live Reson8 Realtime dictation works end to end. Real speech streams from the mic
+(16 kHz mono Int16 PCM) as binary frames to `wss://api.reson8.dev/v1/speech-to-text/realtime`;
+interim/final transcripts drive the M1 commit window, and words appear live in the frontmost app.
+Exercised from the DEBUG menu against TextEdit across multiple runs, both insertion strategies.
+
+- **Auth simplification confirmed:** `Authorization: ApiKey <key>` directly on the WebSocket works —
+  no token-minting backend needed (tokens are browser-only), as the research predicted.
+- **Insertion strategy: keystroke / in-place preferred** — consistent with M1's decision. Clipboard
+  append-only (`k=3`) also works but the in-place path feels better for live revision.
+- **Format fit confirmed:** the `pcm_s16le` / 16 kHz / mono config matches `DictationWAVWriter`'s
+  output exactly — no re-encoding, no container needed.
+- **Legibility fix landed** (commit `6ee304c`): a WebSocket failure now flashes "Reson8 connection
+  failed" and ends the capture early, while the benign shutdown-cancel is suppressed (`isStopping`).
+
+**Engineering state:** 6 tasks + 1 fix, all reviewed clean (no Critical/Important); the final
+whole-branch review (opus) verified data-race safety across the three executors, resource lifecycle
+on every path, YAGNI/scope, and secret handling. SPM suite 394/394 green; Debug build succeeds.
+
+**Carry into M3 (real coordinator integration):**
+- Wire streaming into the real hotkey → `DictationCoordinator` → `DictationStateMachine`
+  (send-while-recording; a streaming phase; apply the off-thread→MainActor hop in the shipping path).
+- Make `language` a setting (currently the `en` constant); the picker + a streaming toggle in Settings.
+- Minor polish deferred here: suppress the benign shutdown-cancel log line; watch non-blocking `send`
+  backpressure under real network stalls; `Reson8RealtimeURL.path` could be `internal`.
