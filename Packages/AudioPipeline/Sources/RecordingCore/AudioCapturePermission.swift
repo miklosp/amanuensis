@@ -46,7 +46,7 @@ public enum AudioCapturePermission {
     }()
 
     // True when system audio capture is already authorized (never prompts).
-    nonisolated static func isAuthorized() -> Bool {
+    public nonisolated static func isAuthorized() -> Bool {
         guard let preflightSPI else { return false }
         // 0 = authorized, 1 = denied, 2 = undetermined.
         return preflightSPI(service as CFString, nil) == 0

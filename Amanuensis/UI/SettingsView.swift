@@ -1,19 +1,43 @@
 import AppKit
 import AppSettings
-import AudioPipelineJobs
-import DictationCore
-import LocalTranscription
+import RecordingCore
 import SwiftUI
 
 struct SettingsView: View {
     @Bindable var settings: AppSettings
     let coordinator: AppCoordinator
 
+    @State private var micGranted = MicrophonePermission.isAuthorized()
+    @State private var systemAudioGranted = AudioCapturePermission.isAuthorized()
     @State private var inputMonitoringGranted = HotkeyTapMonitor.hasInputMonitoringAccess()
     @State private var postEventGranted = TextInserter.hasPostEventAccess()
 
     var body: some View {
         Form {
+            Section("Mac privileges") {
+                permissionRow(title: "Microphone", granted: micGranted) {
+                    Task {
+                        let ok = await MicrophonePermission.requestIfNeeded()
+                        if !ok { openPrivacy("Privacy_Microphone") }
+                        refreshPermissions()
+                    }
+                }
+                permissionRow(title: "System Audio", granted: systemAudioGranted) {
+                    Task {
+                        let ok = await AudioCapturePermission.requestIfNeeded()
+                        if !ok { openPrivacy("Privacy_ScreenCapture") }
+                        refreshPermissions()
+                    }
+                }
+                permissionRow(title: "Input Monitoring (hotkey)", granted: inputMonitoringGranted) {
+                    HotkeyTapMonitor.requestInputMonitoringAccess()
+                    refreshPermissions()
+                }
+                permissionRow(title: "Accessibility · post events (auto-insert)", granted: postEventGranted) {
+                    TextInserter.requestPostEventAccess()
+                    refreshPermissions()
+                }
+            }
             Section("Recordings") {
                 LabeledContent("Location") {
                     HStack(spacing: 8) {
@@ -59,93 +83,10 @@ struct SettingsView: View {
                     coordinator.setMicOffCueEnabled(newValue)
                 }
             }
-            Section("Dictation") {
-                Toggle("Enable dictation", isOn: $settings.dictation.enabled)
-                    .onChange(of: settings.dictation.enabled) { _, _ in
-                        coordinator.dictation.settingsChanged()
-                    }
-
-                Picker("Trigger key", selection: $settings.dictation.trigger) {
-                    ForEach(TriggerModifier.allCases, id: \.self) { modifier in
-                        Text(modifier.displayName).tag(modifier)
-                    }
-                }
-                .onChange(of: settings.dictation.trigger) { _, _ in
-                    coordinator.dictation.settingsChanged()
-                }
-                if settings.dictation.trigger == .function {
-                    Text("Fn may also trigger a macOS action (System Settings ▸ Keyboard ▸ “Press 🌐 to”).")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-
-                LabeledContent("Hold threshold") {
-                    HStack {
-                        Slider(value: holdThresholdBinding, in: 150...600, step: 50)
-                        Text("\(settings.dictation.holdThresholdMs) ms")
-                            .monospacedDigit().foregroundStyle(.secondary)
-                    }
-                }
-
-                Picker("Provider", selection: $settings.dictation.providerID) {
-                    Text("None").tag(UUID?.none)
-                    ForEach(coordinator.allProviders) { provider in
-                        Text(provider.name).tag(UUID?.some(provider.id))
-                    }
-                    if !downloadedLocalIDs.isEmpty {
-                        Text("Local").tag(UUID?.some(Provider.localID))
-                    }
-                }
-                .onChange(of: settings.dictation.providerID) { _, _ in
-                    Task { await coordinator.syncDictationWarmModel() }
-                }
-
-                ModelSelector(
-                    isLocal: TranscriptionSource(providerID: settings.dictation.providerID) == .local,
-                    model: $settings.dictation.model,
-                    downloadedLocalModelIDs: downloadedLocalIDs,
-                    suggestedModels: dictationSuggestedModels,
-                    isBusy: coordinator.localModelsStore.loadingModelID != nil
-                        || coordinator.localModelsStore.unloadingModelID != nil)
-                .onChange(of: settings.dictation.model) { _, _ in
-                    Task { await coordinator.syncDictationWarmModel() }
-                }
-
-                Picker("On finish", selection: $settings.dictation.insertMode) {
-                    Text("Insert at cursor").tag(InsertMode.autoInsert)
-                    Text("Copy to clipboard").tag(InsertMode.clipboardOnly)
-                }
-
-                Toggle("Show overlay while dictating", isOn: $settings.dictation.showOverlay)
-
-                permissionRow(
-                    title: "Input Monitoring (hotkey)",
-                    granted: inputMonitoringGranted,
-                    grant: {
-                        HotkeyTapMonitor.requestInputMonitoringAccess()
-                        refreshPermissions()
-                    })
-                permissionRow(
-                    title: "Accessibility · post events (auto-insert)",
-                    granted: postEventGranted,
-                    grant: {
-                        TextInserter.requestPostEventAccess()
-                        refreshPermissions()
-                    })
-            }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 640)
-    }
-
-    private var downloadedLocalIDs: [String] {
-        LocalModelCatalog.all.map(\.id).filter { coordinator.localModelsStore.states[$0]?.isDownloaded == true }
-    }
-
-    private var dictationSuggestedModels: [String] {
-        guard case .provider(let id) = TranscriptionSource(providerID: settings.dictation.providerID),
-              let provider = coordinator.allProviders.first(where: { $0.id == id }),
-              let preset = coordinator.presets.preset(id: provider.presetID) else { return [] }
-        return preset.suggestedModels
+        .frame(width: 480, height: 560)
+        .onAppear { refreshPermissions() }
     }
 
     private func chooseLocation() {
@@ -160,15 +101,17 @@ struct SettingsView: View {
         }
     }
 
-    private var holdThresholdBinding: Binding<Double> {
-        Binding(
-            get: { Double(settings.dictation.holdThresholdMs) },
-            set: { settings.dictation.holdThresholdMs = Int($0) })
-    }
-
     private func refreshPermissions() {
+        micGranted = MicrophonePermission.isAuthorized()
+        systemAudioGranted = AudioCapturePermission.isAuthorized()
         inputMonitoringGranted = HotkeyTapMonitor.hasInputMonitoringAccess()
         postEventGranted = TextInserter.hasPostEventAccess()
+    }
+
+    private func openPrivacy(_ anchor: String) {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     @ViewBuilder

@@ -9,6 +9,8 @@ struct MainWindowView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
+                Label("Dictation", systemImage: "text.bubble")
+                    .tag(SidebarDestination.dictation)
                 Section("Library") {
                     Label("Recordings", systemImage: "waveform")
                         .tag(SidebarDestination.recordings)
@@ -29,6 +31,8 @@ struct MainWindowView: View {
             }
         } detail: {
             switch selection {
+            case .dictation:
+                DictationView(settings: coordinator.settings, coordinator: coordinator)
             case .recordings:
                 RecordingsView(library: coordinator.library, coordinator: coordinator)
                     .navigationTitle("Recordings")
@@ -60,5 +64,5 @@ struct MainWindowView: View {
 }
 
 enum SidebarDestination: Hashable {
-    case recordings, jobs, providers, localModels, logs
+    case dictation, recordings, jobs, providers, localModels, logs
 }
