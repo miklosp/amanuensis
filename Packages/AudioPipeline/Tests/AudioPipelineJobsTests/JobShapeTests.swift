@@ -80,3 +80,11 @@ import Testing
         }
     }
 }
+
+@Suite struct JobShapeRequiresAPIKey {
+    @Test func localTranscriptionShapeIsKeylessAndNeedsModel() {
+        #expect(JobShape.localTranscription.requiresAPIKey == false)
+        #expect(JobShape.chatCompletionsAudio.requiresAPIKey == true)
+        #expect(JobShape.localTranscription.requiresModel == true)
+    }
+}

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5BD2335DFDD414FBAA06343E /* LocalTranscription in Frameworks */ = {isa = PBXBuildFile; productRef = FE42F305B1CE9D00A9546BC9 /* LocalTranscription */; };
 		64674FEC558B1BB721E3281B /* RecordingCore in Frameworks */ = {isa = PBXBuildFile; productRef = B237FACF51794DAD4B8B30A6 /* RecordingCore */; };
 		651FA23B038E85E0704E3342 /* AudioPipelineJobs in Frameworks */ = {isa = PBXBuildFile; productRef = 234879DAEC2256F37E40EEBC /* AudioPipelineJobs */; };
 		6A2C3F578C1FD67551B1173A /* BatchTranscriberTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7C9535F59A0C34F7816F65 /* BatchTranscriberTests.swift */; };
@@ -61,6 +62,7 @@
 				651FA23B038E85E0704E3342 /* AudioPipelineJobs in Frameworks */,
 				EDD09D52AABBE7C1F59C03C3 /* AppLog in Frameworks */,
 				DC7A7A1000000000DEAD0002 /* DictationCore in Frameworks */,
+				5BD2335DFDD414FBAA06343E /* LocalTranscription in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -147,6 +149,7 @@
 				234879DAEC2256F37E40EEBC /* AudioPipelineJobs */,
 				2D7BB706295DFD7293887750 /* AppLog */,
 				DC7A7A1000000000DEAD0001 /* DictationCore */,
+				FE42F305B1CE9D00A9546BC9 /* LocalTranscription */,
 			);
 			productName = "audio-pipeline";
 			productReference = 64F04E712FBDBC4A00B58BE7 /* Amanuensis.app */;
@@ -561,6 +564,10 @@
 		DDADBEADF4CFB28174A18CD6 /* AppSettings */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AppSettings;
+		};
+		FE42F305B1CE9D00A9546BC9 /* LocalTranscription */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LocalTranscription;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

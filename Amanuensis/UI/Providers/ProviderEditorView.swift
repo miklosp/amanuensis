@@ -81,7 +81,8 @@ struct ProviderEditorView: View {
     }
 
     private var canSave: Bool {
-        !name.isEmpty && !presetID.isEmpty && !apiKeyAccount.isEmpty
+        !name.isEmpty && !presetID.isEmpty
+            && !apiKeyAccount.isEmpty
             && Provider.isAcceptableBaseURL(baseURL)
     }
 

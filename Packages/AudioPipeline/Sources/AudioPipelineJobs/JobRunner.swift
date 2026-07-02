@@ -36,7 +36,7 @@ public struct JobRunner: Sendable {
         guard let handler = handlers[shape] else {
             throw Error.unsupportedShape(shape)
         }
-        let key = try await keychain.get(account: provider.apiKeyRef.account)
+        let key = shape.requiresAPIKey ? try await keychain.get(account: provider.apiKeyRef.account) : ""
         let text = try await handler.send(job: job, provider: provider,
                                           audioURL: audioURL, apiKey: key)
         let folder: URL

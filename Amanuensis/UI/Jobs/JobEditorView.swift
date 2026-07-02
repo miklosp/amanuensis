@@ -1,5 +1,6 @@
 import AppKit
 import AudioPipelineJobs
+import LocalTranscription
 import SwiftUI
 
 struct JobEditorView: View {
@@ -18,12 +19,15 @@ struct JobEditorView: View {
     private let initialID: UUID
     private let presets: PresetsStore
     private let providers: ProvidersStore
+    private let localModelsStore: LocalModelsStore
     private let onSave: (Job) -> Void
 
     init(initial: Job, presets: PresetsStore, providers: ProvidersStore,
+         localModelsStore: LocalModelsStore,
          onSave: @escaping (Job) -> Void) {
         self.presets = presets
         self.providers = providers
+        self.localModelsStore = localModelsStore
         self.onSave = onSave
 
         self.initialID = initial.id
@@ -46,11 +50,43 @@ struct JobEditorView: View {
         provider.flatMap { presets.preset(id: $0.presetID) }
     }
 
+    private var source: TranscriptionSource {
+        TranscriptionSource(providerID: providerID)
+    }
+
+    private var requiresModel: Bool {
+        switch source {
+        case .local: return JobShape.localTranscription.requiresModel
+        case .provider: return preset?.shape.requiresModel ?? true
+        case .none: return false
+        }
+    }
+
+    // Downloaded local models in stable catalog order (for the Picker).
+    private var downloadedLocalIDs: [String] {
+        LocalModelCatalog.all.map(\.id).filter { localModelsStore.states[$0]?.isDownloaded == true }
+    }
+
+    // The JobShape backing a given providerID, used to decide whether a picker
+    // change crosses shapes (and therefore must reset model/fields/output).
+    private func shape(for id: UUID?) -> JobShape? {
+        switch TranscriptionSource(providerID: id) {
+        case .none: return nil
+        case .local: return .localTranscription
+        case .provider(let pid):
+            return providers.provider(id: pid).flatMap { presets.preset(id: $0.presetID) }?.shape
+        }
+    }
+
     var body: some View {
-        if providerID == nil || provider == nil {
+        switch source {
+        case .none:
             repairPane
-        } else {
+        case .local:
             editorForm
+        case .provider:
+            // A dangling stored provider (deleted) has no Provider → repair.
+            if provider == nil { repairPane } else { editorForm }
         }
     }
 
@@ -67,16 +103,14 @@ struct JobEditorView: View {
                 ForEach(providers.providers.sorted(by: { $0.name.localizedStandardCompare($1.name) == .orderedAscending })) { p in
                     Text(p.name).tag(Optional(p.id))
                 }
+                if !downloadedLocalIDs.isEmpty {
+                    Text("Local").tag(Optional(Provider.localID))
+                }
             }
             .onChange(of: providerID) { _, newID in
                 // Always reset — the old provider is gone, so there's no shape
                 // to preserve. Differs from editorForm's onChange below.
-                let newPreset = newID
-                    .flatMap { providers.provider(id: $0) }
-                    .flatMap { presets.preset(id: $0.presetID) }
-                model = Self.autoFilledModel(newPreset)
-                fields = newPreset?.defaults ?? [:]
-                outputExt = newPreset?.defaultOutputExt ?? "txt"
+                resetFields(for: newID)
             }
             .frame(maxWidth: 360)
             Button("Save repair") { save() }
@@ -98,32 +132,23 @@ struct JobEditorView: View {
                         ForEach(providers.providers.sorted(by: { $0.name.localizedStandardCompare($1.name) == .orderedAscending })) { p in
                             Text(p.name).tag(Optional(p.id))
                         }
+                        if !downloadedLocalIDs.isEmpty {
+                            Text("Local").tag(Optional(Provider.localID))
+                        }
                     }
                     .onChange(of: providerID) { oldID, newID in
-                        let oldShape = oldID
-                            .flatMap { providers.provider(id: $0) }
-                            .flatMap { presets.preset(id: $0.presetID) }?.shape
-                        let newPreset = newID
-                            .flatMap { providers.provider(id: $0) }
-                            .flatMap { presets.preset(id: $0.presetID) }
-                        if oldShape != newPreset?.shape {
-                            model = Self.autoFilledModel(newPreset)
-                            fields = newPreset?.defaults ?? [:]
-                            outputExt = newPreset?.defaultOutputExt ?? "txt"
+                        // Reset only when the shape changes — preserves the
+                        // typed model/fields when switching between providers
+                        // that share a shape.
+                        if shape(for: oldID) != shape(for: newID) {
+                            resetFields(for: newID)
                         }
                     }
-                    if preset?.shape.requiresModel ?? true {
-                        HStack {
-                            TextField("Model", text: $model)
-                            if let suggestions = preset?.suggestedModels, !suggestions.isEmpty {
-                                Menu("Suggested") {
-                                    ForEach(suggestions, id: \.self) { s in
-                                        Button(s) { model = s }
-                                    }
-                                }
-                                .frame(width: 110)
-                            }
-                        }
+                    if requiresModel {
+                        ModelSelector(isLocal: source == .local,
+                                      model: $model,
+                                      downloadedLocalModelIDs: downloadedLocalIDs,
+                                      suggestedModels: preset?.suggestedModels ?? [])
                     }
                     Picker("Output extension", selection: $outputExt) {
                         ForEach(outputExtOptions, id: \.self) { Text($0).tag($0) }
@@ -165,18 +190,43 @@ struct JobEditorView: View {
 
     private var canSave: Bool {
         let folderOK = !customOutputFolder || !outputFolderPath.isEmpty
-        // provider != nil (not just providerID != nil) — guards against the
-        // repair-pane case where providerID still holds the dangling UUID of
-        // a deleted Provider and the user hits Save without touching the Picker.
-        let modelOK = !(preset?.shape.requiresModel ?? true) || !model.isEmpty
-        // Required shape fields (e.g. Cohere's language) must be non-empty —
-        // FieldSpec.required is otherwise only a label, so without this the
-        // provider could dispatch a request the API rejects.
-        let requiredFieldsOK = preset?.shape.fields
-            .filter(\.required)
-            .allSatisfy { !(fields[$0.key] ?? "").trimmingCharacters(in: .whitespaces).isEmpty }
-            ?? true
-        return !name.isEmpty && provider != nil && modelOK && folderOK && requiredFieldsOK
+        let modelOK = !requiresModel || !model.isEmpty
+        switch source {
+        case .none:
+            return false
+        case .local:
+            // Local has no API key and no required shape fields.
+            return !name.isEmpty && modelOK && folderOK
+        case .provider:
+            // provider != nil (not just source == .provider) — guards against
+            // the repair case where providerID still holds the dangling UUID of
+            // a deleted Provider and the user hits Save without touching the Picker.
+            guard provider != nil else { return false }
+            // Required shape fields (e.g. Cohere's language) must be non-empty —
+            // FieldSpec.required is otherwise only a label, so without this the
+            // provider could dispatch a request the API rejects.
+            let requiredFieldsOK = preset?.shape.fields
+                .filter(\.required)
+                .allSatisfy { !(fields[$0.key] ?? "").trimmingCharacters(in: .whitespaces).isEmpty }
+                ?? true
+            return !name.isEmpty && modelOK && folderOK && requiredFieldsOK
+        }
+    }
+
+    // Source-aware reset of model/fields/output extension when the picker's
+    // selection changes. Local (and unset) has no preset, so everything clears.
+    private func resetFields(for id: UUID?) {
+        switch TranscriptionSource(providerID: id) {
+        case .none, .local:
+            model = ""
+            fields = [:]
+            outputExt = "txt"
+        case .provider(let pid):
+            let p = providers.provider(id: pid).flatMap { presets.preset(id: $0.presetID) }
+            model = Self.autoFilledModel(p)
+            fields = p?.defaults ?? [:]
+            outputExt = p?.defaultOutputExt ?? "txt"
+        }
     }
 
     // A preset that suggests exactly one model pre-fills it; otherwise the user

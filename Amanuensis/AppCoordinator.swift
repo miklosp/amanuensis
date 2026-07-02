@@ -4,6 +4,7 @@ import AppSettings
 import AudioPipelineJobs
 import DictationCore
 import Foundation
+import LocalTranscription
 import Observation
 import os
 import RecordingCore
@@ -52,6 +53,11 @@ final class AppCoordinator {
     let providers: ProvidersStore
     let logs: LogStore
     let dictation: DictationCoordinator
+    let localService: LocalTranscriptionService
+    let localModelsStore: LocalModelsStore
+    // Handler map including the on-device sender. Shared by batch jobs (runJob)
+    // and dictation, so the local sender is constructed once.
+    let localHandlers: [JobShape: any AudioJobSending]
 
     var allProviders: [Provider] { providers.providers }
 
@@ -85,13 +91,28 @@ final class AppCoordinator {
         self.presets = Self.loadPresets()
         self.jobs = Self.loadJobs(bundleID: "work.miklos.amanuensis")
         self.providers = Self.loadProviders(bundleID: "work.miklos.amanuensis")
+        let orphanIDs = self.providers.providers.filter { $0.presetID == "on-device" }.map(\.id)
+        for id in orphanIDs { self.providers.delete(id: id) }
         self.logs = Self.loadLogs(bundleID: "work.miklos.amanuensis")
+
+        // Local transcription must exist before DictationCoordinator so its
+        // handler map (shared with runJob) can carry the on-device sender.
+        let localService = LocalTranscriptionService(fluidAudio: FluidAudioEngine(), whisperKit: WhisperKitEngine())
+        self.localService = localService
+        let localModelsStore = LocalModelsStore(service: localService)
+        self.localModelsStore = localModelsStore
+        let localHandlers = JobRunner.defaultHandlers.merging(
+            [.localTranscription: LocalTranscriptionSender(service: localService)]) { _, new in new }
+        self.localHandlers = localHandlers
 
         self.dictation = DictationCoordinator(
             settings: settings,
             keychain: keychain,
             providerLookup: { [providers] id in providers.provider(id: id) },
             presetLookup: { [presets] id in presets.preset(id: id) },
+            handlers: localHandlers,
+            ensureLocalModelResident: { [localModelsStore] id in await localModelsStore.preload(modelID: id) },
+            isLocalModelResident: { [localModelsStore] id in localModelsStore.residentModelID == id },
             log: { [logs] message in logs.log(.error, message, category: .recording) }
         )
 
@@ -104,6 +125,29 @@ final class AppCoordinator {
         // Seed the mic-off cue policy. Its monitor starts only when recording
         // begins (see notifyRecordingActivity), so nothing to start here.
         _ = micOffCuePolicy.enabledChanged(settings.suggestStoppingWhenMeetingEnds)
+
+        // Warm the dictation model on launch without blocking init: learn which
+        // models are downloaded, then preload the selected local model (if any)
+        // so the first utterance is fast.
+        Task { [weak self] in
+            guard let self else { return }
+            await self.localModelsStore.refresh()
+            await self.syncDictationWarmModel()
+        }
+    }
+
+    // Keeps the resident (warm) local model in sync with the dictation setting.
+    // Preloads the selected on-device model when it is downloaded; otherwise
+    // unloads any resident model. Cloud dictation keeps nothing warm.
+    func syncDictationWarmModel() async {
+        switch TranscriptionSource(providerID: settings.dictation.providerID) {
+        case .local where localModelsStore.states[settings.dictation.model]?.isDownloaded == true:
+            await localModelsStore.preload(modelID: settings.dictation.model)
+            localModelsStore.dictationModelID = settings.dictation.model
+        default:
+            await localModelsStore.preload(modelID: nil)
+            localModelsStore.dictationModelID = nil
+        }
     }
 
     // MARK: - Store loading
@@ -309,17 +353,29 @@ final class AppCoordinator {
     func runJob(_ job: Job, on recordingFolder: URL) async -> Result<URL, Error> {
         let recordingName = recordingFolder.lastPathComponent
 
-        guard let providerID = job.providerID,
-              let provider = providers.provider(id: providerID) else {
+        let provider: Provider
+        let shape: JobShape
+        switch TranscriptionSource(providerID: job.providerID) {
+        case .none:
             await self.flashActivity("Failed: '\(job.name)' — provider missing")
             logs.log(.error, "Failed: '\(job.name)' — provider missing", category: .job)
             return .failure(JobRunError.providerMissing)
-        }
-
-        guard let shape = presets.preset(id: provider.presetID)?.shape else {
-            await self.flashActivity("Failed: '\(job.name)' — provider preset unknown")
-            logs.log(.error, "Failed: '\(job.name)' — provider preset unknown", category: .job)
-            return .failure(JobRunError.presetMissing)
+        case .local:
+            provider = Provider.localPlaceholder
+            shape = .localTranscription
+        case .provider(let id):
+            guard let resolvedProvider = providers.provider(id: id) else {
+                await self.flashActivity("Failed: '\(job.name)' — provider missing")
+                logs.log(.error, "Failed: '\(job.name)' — provider missing", category: .job)
+                return .failure(JobRunError.providerMissing)
+            }
+            guard let resolvedShape = presets.preset(id: resolvedProvider.presetID)?.shape else {
+                await self.flashActivity("Failed: '\(job.name)' — provider preset unknown")
+                logs.log(.error, "Failed: '\(job.name)' — provider preset unknown", category: .job)
+                return .failure(JobRunError.presetMissing)
+            }
+            provider = resolvedProvider
+            shape = resolvedShape
         }
 
         if await conversionService.isConverting(folderName: recordingName) {
@@ -351,7 +407,7 @@ final class AppCoordinator {
         let effectiveJob = grant.job
         if effectiveJob != job { jobs.upsert(effectiveJob) }
 
-        let runner = JobRunner(keychain: keychain)
+        let runner = JobRunner(keychain: keychain, handlers: localHandlers)
         do {
             let out = try await runner.run(job: effectiveJob, provider: provider, shape: shape, audioURL: target)
             await self.flashActivity("Done: '\(job.name)' → \(out.lastPathComponent)")
