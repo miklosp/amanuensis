@@ -12,7 +12,10 @@ concurrency:
 
 jobs:
   build-test:
-    runs-on: macos-15
+    # macos-26: Xcode 26 test bundles link libswift_DarwinFoundation2.dylib, a
+    # macOS 26 runtime lib absent on the macos-15 (Sequoia) image, so `swift test`
+    # fails to dlopen the test bundle there. The app targets macOS 26.3 anyway.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
