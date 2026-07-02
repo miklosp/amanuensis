@@ -12,6 +12,7 @@ public struct RecordingMetadata: Sendable {
     public var system: TrackMetadata?
     public var hostAppVersion: String?
     public var notes: String?
+    public var title: String?
 
     public init(
         folderName: String,
@@ -22,7 +23,8 @@ public struct RecordingMetadata: Sendable {
         mic: TrackMetadata? = nil,
         system: TrackMetadata? = nil,
         hostAppVersion: String? = nil,
-        notes: String? = nil
+        notes: String? = nil,
+        title: String? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.folderName = folderName
@@ -33,6 +35,7 @@ public struct RecordingMetadata: Sendable {
         self.system = system
         self.hostAppVersion = hostAppVersion
         self.notes = notes
+        self.title = title
     }
 
     public struct TrackMetadata: Sendable {

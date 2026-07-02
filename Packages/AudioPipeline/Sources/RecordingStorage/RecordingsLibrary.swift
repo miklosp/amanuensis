@@ -33,6 +33,27 @@ public final class RecordingsLibrary {
         await refresh()
     }
 
+    // Renames a recording by writing a display `title` into its meta.json.
+    // Non-destructive: the folder (the recording's identity) is untouched.
+    // A blank/whitespace title clears it, reverting the name to the folder.
+    public func rename(_ item: RecordingItem, to newTitle: String) async {
+        let metadataURL = item.folderURL.appending(path: "meta.json", directoryHint: .notDirectory)
+        guard let data = try? Data(contentsOf: metadataURL),
+              var meta = try? Self.metadataDecoder.decode(RecordingMetadata.self, from: data) else {
+            return
+        }
+        let trimmed = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        meta.title = trimmed.isEmpty ? nil : trimmed
+        try? meta.write(to: metadataURL)
+        await refresh()
+    }
+
+    private nonisolated static let metadataDecoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+
     private nonisolated static func scan(baseURL: URL) -> [RecordingItem] {
         let fileManager = FileManager.default
         guard let entries = try? fileManager.contentsOfDirectory(
@@ -66,7 +87,11 @@ public struct RecordingItem: Identifiable, Sendable {
         }
 
         id = meta.folderName
-        name = meta.folderName
+        if let title = meta.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
+            name = title
+        } else {
+            name = meta.folderName
+        }
         self.folderURL = folderURL
         startedAt = meta.startedAt
         duration = meta.durationSeconds
