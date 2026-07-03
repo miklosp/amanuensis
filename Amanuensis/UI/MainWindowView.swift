@@ -11,18 +11,16 @@ struct MainWindowView: View {
             List(selection: $selection) {
                 Label("Dictation", systemImage: "text.bubble")
                     .tag(SidebarDestination.dictation)
-                Section("Library") {
-                    Label("Recordings", systemImage: "waveform")
-                        .tag(SidebarDestination.recordings)
-                    Label("Jobs", systemImage: "wand.and.stars")
-                        .tag(SidebarDestination.jobs)
-                    Label("Providers", systemImage: "key")
-                        .tag(SidebarDestination.providers)
-                    Label("Local Models", systemImage: "cpu")
-                        .tag(SidebarDestination.localModels)
-                    Label("Logs", systemImage: "list.bullet.rectangle")
-                        .tag(SidebarDestination.logs)
-                }
+                Label("Recordings", systemImage: "waveform")
+                    .tag(SidebarDestination.recordings)
+                Label("Jobs", systemImage: "wand.and.stars")
+                    .tag(SidebarDestination.jobs)
+                Label("Providers", systemImage: "key")
+                    .tag(SidebarDestination.providers)
+                Label("Local Models", systemImage: "cpu")
+                    .tag(SidebarDestination.localModels)
+                Label("Logs", systemImage: "list.bullet.rectangle")
+                    .tag(SidebarDestination.logs)
             }
             .listStyle(.sidebar)
             .navigationSplitViewColumnWidth(min: 180, ideal: 210, max: 260)
