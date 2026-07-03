@@ -136,6 +136,8 @@ final class DictationCoordinator {
             overlay.flash("Dictation failed")
         case .showEmpty:
             overlay.flash("Nothing heard")
+        case .beginStreamingCapture, .endStreamingCapture:
+            break   // streaming mode not yet wired in this coordinator
         }
         phase = machine.phase
         if phase == .idle { level = 0 }

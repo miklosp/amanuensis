@@ -8,6 +8,7 @@ enum DictationOverlayState: Equatable {
     case listening
     case transcribing
     case inserted
+    case dictating       // live streaming
     case flash(String)
 }
 
@@ -75,6 +76,12 @@ struct DictationOverlayView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                 Text("Inserted")
+            }
+        case .dictating:
+            pill {
+                Image(systemName: "waveform")
+                    .symbolEffect(.variableColor.iterative, options: .repeating)
+                Text("Dictating…")
             }
         case .flash(let message):
             Text(message)

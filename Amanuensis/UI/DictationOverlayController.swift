@@ -65,6 +65,8 @@ final class DictationOverlayController {
         case .listening: return .listening
         case .transcribing: return .transcribing
         case .inserting: return .inserted
+        case .streaming: return .dictating
+        case .finalizing: return .transcribing
         }
     }
 
