@@ -2,9 +2,16 @@ import Foundation
 
 public enum ModelStorage {
     public static func base() throws -> URL {
-        let support = try FileManager.default.url(for: .applicationSupportDirectory,
-                                                  in: .userDomainMask, appropriateFor: nil, create: true)
-        let dir = support.appendingPathComponent("Amanuensis/Models", isDirectory: true)
+        let dir: URL
+        // Opt-in override so a non-sandboxed process (e.g. `swift test`) can point
+        // at the app's sandbox-container Models dir, which it otherwise can't see.
+        if let override = ProcessInfo.processInfo.environment["AMANUENSIS_MODELS_DIR"], !override.isEmpty {
+            dir = URL(fileURLWithPath: override, isDirectory: true)
+        } else {
+            let support = try FileManager.default.url(for: .applicationSupportDirectory,
+                                                      in: .userDomainMask, appropriateFor: nil, create: true)
+            dir = support.appendingPathComponent("Amanuensis/Models", isDirectory: true)
+        }
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
