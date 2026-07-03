@@ -49,11 +49,7 @@ public final class RecordingsLibrary {
         await refresh()
     }
 
-    private nonisolated static let metadataDecoder: JSONDecoder = {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return decoder
-    }()
+    private nonisolated static let metadataDecoder = RecordingMetadata.makeDecoder()
 
     private nonisolated static func scan(baseURL: URL) -> [RecordingItem] {
         let fileManager = FileManager.default
@@ -120,9 +116,5 @@ public struct RecordingItem: Identifiable, Sendable {
             .joined(separator: " + ")
     }
 
-    private nonisolated static let decoder: JSONDecoder = {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return decoder
-    }()
+    private nonisolated static let decoder = RecordingMetadata.makeDecoder()
 }

@@ -67,6 +67,15 @@ public struct RecordingMetadata: Sendable {
         let data = try encoder.encode(self)
         try data.write(to: url, options: .atomic)
     }
+
+    // The one place the meta.json date strategy is defined, so every reader
+    // stays in sync with `write(to:)`'s encoder above. Returns a fresh decoder
+    // per call; callers cache their own instance.
+    nonisolated static func makeDecoder() -> JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }
 }
 
 // Conformances in a nonisolated extension so the synthesized encode/decode
