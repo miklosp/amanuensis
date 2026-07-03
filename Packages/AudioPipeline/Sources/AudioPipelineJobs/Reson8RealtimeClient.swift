@@ -76,3 +76,6 @@ public final class Reson8RealtimeClient: @unchecked Sendable {
         }
     }
 }
+
+// The client already exposes start()/send(_:)/finish() with matching signatures.
+extension Reson8RealtimeClient: RealtimeSTTSession {}
