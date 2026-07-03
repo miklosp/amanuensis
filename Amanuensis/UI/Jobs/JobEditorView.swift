@@ -116,7 +116,7 @@ struct JobEditorView: View {
             Button("Save repair") { save() }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!canSave)
-                .buttonStyle(.glassProminent)
+                .glassProminentButtonStyle()
         }
         .padding(24)
     }
@@ -182,7 +182,7 @@ struct JobEditorView: View {
                 Button("Save") { save() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canSave)
-                    .buttonStyle(.glassProminent)
+                    .glassProminentButtonStyle()
             }
             .padding(12)
         }

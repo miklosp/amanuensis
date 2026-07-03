@@ -17,7 +17,7 @@ struct SidebarActivityBar: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .glassEffect(.regular, in: .rect(cornerRadius: 9))
+            .glassBackground(in: .rect(cornerRadius: 9))
             .padding(.horizontal, 8)
             .padding(.bottom, 6)
             .transition(.move(edge: .bottom).combined(with: .opacity))

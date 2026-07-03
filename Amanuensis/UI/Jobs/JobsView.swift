@@ -42,7 +42,7 @@ struct JobsView: View {
                     Button("Go to Providers") {
                         sidebarSelection = .providers
                     }
-                    .buttonStyle(.glassProminent)
+                    .glassProminentButtonStyle()
                 }
             } else {
                 HStack(spacing: 0) {
