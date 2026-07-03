@@ -91,4 +91,16 @@ public enum LocalModelCatalog {
         guard !downloaded.contains(current), let first = downloaded.first else { return nil }
         return first
     }
+
+    /// The language a local-model selection should default to when `current` isn't
+    /// one the model supports: the model's first supported language, or nil to keep
+    /// `current`. IndicConformer requires an explicit supported language and lists
+    /// Hindi first, so selecting it defaults the language to Hindi. Returns nil for
+    /// unknown ids (e.g. cloud models), leaving their language untouched.
+    public static func defaultLanguage(forModel modelID: String, current: String) -> String? {
+        guard let m = model(id: modelID),
+              !m.supportedLanguages.isEmpty,
+              !m.supportedLanguages.contains(current) else { return nil }
+        return m.supportedLanguages.first
+    }
 }

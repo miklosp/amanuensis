@@ -44,3 +44,13 @@ import Testing
 @Test func defaultedSelectionIsNilWhenNothingDownloaded() {
     #expect(LocalModelCatalog.defaultedSelection(current: "", downloaded: []) == nil)
 }
+
+@Test func defaultLanguageSnapsToModelFirstWhenUnsupported() {
+    // IndicConformer lists Hindi first and doesn't support "en" → defaults to Hindi.
+    #expect(LocalModelCatalog.defaultLanguage(forModel: "indic-conformer-600m", current: "en") == "hi")
+    // A language the model already supports is kept (nil = no change).
+    #expect(LocalModelCatalog.defaultLanguage(forModel: "indic-conformer-600m", current: "bn") == nil)
+    #expect(LocalModelCatalog.defaultLanguage(forModel: "indic-conformer-600m", current: "hi") == nil)
+    // Unknown / cloud model id → nil (left untouched).
+    #expect(LocalModelCatalog.defaultLanguage(forModel: "gpt-4o-transcribe", current: "en") == nil)
+}

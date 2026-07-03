@@ -60,6 +60,7 @@ struct DictationView: View {
                     isBusy: coordinator.localModelsStore.loadingModelID != nil
                         || coordinator.localModelsStore.unloadingModelID != nil)
                 .onChange(of: settings.dictation.model) { _, _ in
+                    reconcileDictationLanguage()
                     Task { await coordinator.syncDictationWarmModel() }
                 }
             }
@@ -74,6 +75,19 @@ struct DictationView: View {
         }
         .formStyle(.grouped)
         .navigationTitle("Dictation")
+        .onAppear(perform: reconcileDictationLanguage)
+    }
+
+    /// Keep the dictation language valid for the selected local model. When a
+    /// model that doesn't support the current language is chosen (e.g. selecting
+    /// IndicConformer while the language is still "en"), snap to the model's
+    /// default supported language — Hindi for IndicConformer. No-op for cloud
+    /// models and for languages the model already supports.
+    private func reconcileDictationLanguage() {
+        if let lang = LocalModelCatalog.defaultLanguage(
+            forModel: settings.dictation.model, current: settings.dictation.language) {
+            settings.dictation.language = lang
+        }
     }
 
     private var downloadedLocalIDs: [String] {
