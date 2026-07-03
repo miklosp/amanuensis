@@ -64,6 +64,15 @@ final class HotkeyTapMonitor {
     }
 
     private func handle(type: CGEventType, event: CGEvent) {
+        // Ignore key events this app synthesized for text insertion. Live
+        // streaming insertion posts keystrokes while the trigger is still held;
+        // without this guard they'd read as `.foreignInput`, cancel the gesture,
+        // and the real trigger release would be missed (dictation stuck on).
+        // Tap-disabled notifications carry no user data, so they still fall
+        // through to re-enable the tap below.
+        if event.getIntegerValueField(.eventSourceUserData) == syntheticEventUserData {
+            return
+        }
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }

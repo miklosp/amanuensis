@@ -28,18 +28,29 @@ final class KeystrokeDiffInserter: InsertionStrategy {
         let source = CGEventSource(stateID: .combinedSessionState)
         let deleteKey: CGKeyCode = 51   // kVK_Delete (Backspace)
         for _ in 0..<backspaces {
-            CGEvent(keyboardEventSource: source, virtualKey: deleteKey, keyDown: true)?
-                .post(tap: .cgSessionEventTap)
-            CGEvent(keyboardEventSource: source, virtualKey: deleteKey, keyDown: false)?
-                .post(tap: .cgSessionEventTap)
+            post(CGEvent(keyboardEventSource: source, virtualKey: deleteKey, keyDown: true))
+            post(CGEvent(keyboardEventSource: source, virtualKey: deleteKey, keyDown: false))
         }
         guard !insert.isEmpty else { return }
         var utf16 = Array(insert.utf16)
         let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true)
         down?.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: &utf16)
-        down?.post(tap: .cgSessionEventTap)
+        post(down)
         let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
         up?.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: &utf16)
-        up?.post(tap: .cgSessionEventTap)
+        post(up)
+    }
+
+    /// Posts one synthesized key event after (1) clearing its modifier flags — so a
+    /// physically-held trigger during hold-to-speak (e.g. ⌘) can't turn Backspace
+    /// into ⌘⌫ (delete-to-line-start) or a letter into a shortcut — and (2) tagging
+    /// it with `syntheticEventUserData` so `HotkeyTapMonitor` ignores it instead of
+    /// reading our own live insertion as foreign input (which cancels the gesture
+    /// and swallows the trigger release).
+    private static func post(_ event: CGEvent?) {
+        guard let event else { return }
+        event.flags = []
+        event.setIntegerValueField(.eventSourceUserData, value: syntheticEventUserData)
+        event.post(tap: .cgSessionEventTap)
     }
 }
