@@ -356,12 +356,12 @@ final class DictationCoordinator {
                         Task { @MainActor in self?.handleStreamError(error) }
                     })
                 session.start()
+                self.streamingSession = session
                 let rec = try DictationRecorder(
                     url: url,
                     onLevel: { [weak self] lvl in Task { @MainActor in self?.level = lvl } },
                     onChunk: { session.send($0) })
                 try rec.start()
-                self.streamingSession = session
                 self.recorder = rec
             } catch {
                 self.log("Dictation streaming setup failed: \(error.localizedDescription)")
@@ -369,6 +369,7 @@ final class DictationCoordinator {
                 self.teardownStream(delete: true)
                 _ = self.machine.failed(error.localizedDescription)
                 self.phase = self.machine.phase
+                self.overlay.update(phase: self.machine.phase, enabled: self.settings.dictation.showOverlay)
             }
         }
     }
@@ -388,6 +389,7 @@ final class DictationCoordinator {
         teardownStream(delete: true)
         _ = machine.failed(error.localizedDescription)
         phase = machine.phase
+        overlay.update(phase: machine.phase, enabled: settings.dictation.showOverlay)
     }
 
     /// Normal stop: flush the socket, drain trailing finals, then idle.
