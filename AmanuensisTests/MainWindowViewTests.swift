@@ -2,19 +2,26 @@ import Testing
 @testable import Amanuensis
 
 @Suite struct MainWindowViewTests {
-    @Test func sidebarDestination_hasExpectedCases() {
-        let all: Set<SidebarDestination> = [.recordings, .jobs]
-        #expect(all.count == 2)
-        #expect(all.contains(.recordings))
-        #expect(all.contains(.jobs))
+    /// Enumerates every `SidebarDestination` via the compiler-synthesized
+    /// `allCases`. The `switch` has no `default`, so adding a case makes this
+    /// test fail to compile until the case is handled here — the tripwire that
+    /// stops this enumeration from silently going stale, as the old
+    /// hardcoded two-case version did.
+    @Test func everyDestinationIsEnumerated() {
+        for destination in SidebarDestination.allCases {
+            switch destination {
+            case .dictation, .recordings, .jobs, .providers, .localModels, .logs:
+                break
+            }
+        }
+        #expect(SidebarDestination.allCases.count == 6)
     }
 
-    @Test func sidebarDestination_isHashable() {
-        let dict: [SidebarDestination: String] = [
-            .recordings: "Recordings",
-            .jobs: "Jobs"
-        ]
-        #expect(dict[.recordings] == "Recordings")
-        #expect(dict[.jobs] == "Jobs")
+    @Test func destinationsAreDistinctAndHashable() {
+        // Placing them in a Set proves Hashable conformance (the sidebar
+        // selection binding relies on it) and confirms `allCases` has no
+        // accidental duplicates.
+        let all = SidebarDestination.allCases
+        #expect(Set(all).count == all.count)
     }
 }

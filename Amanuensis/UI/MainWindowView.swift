@@ -61,6 +61,6 @@ struct MainWindowView: View {
     }
 }
 
-enum SidebarDestination: Hashable {
+enum SidebarDestination: Hashable, CaseIterable {
     case dictation, recordings, jobs, providers, localModels, logs
 }
