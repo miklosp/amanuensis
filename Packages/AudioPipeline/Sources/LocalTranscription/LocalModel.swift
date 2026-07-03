@@ -22,7 +22,22 @@ public struct LocalModel: Identifiable, Hashable, Sendable {
     /// Only dedicated- or primary-language models declare one (IndicConformer →
     /// Hindi, the Japanese model → ja, SenseVoice → zh); broad auto-detecting
     /// models leave it nil so no language is forced on them.
-    public var defaultLanguage: String? = nil
+    public let defaultLanguage: String?
+
+    public init(id: String, displayName: String, summary: String, languages: String,
+                supportedLanguages: [String], approxBytes: Int64, runner: LocalRunner,
+                selector: String, recommended: Bool, defaultLanguage: String? = nil) {
+        self.id = id
+        self.displayName = displayName
+        self.summary = summary
+        self.languages = languages
+        self.supportedLanguages = supportedLanguages
+        self.approxBytes = approxBytes
+        self.runner = runner
+        self.selector = selector
+        self.recommended = recommended
+        self.defaultLanguage = defaultLanguage
+    }
 }
 
 public enum LocalModelCatalog {
@@ -100,15 +115,25 @@ public enum LocalModelCatalog {
         return first
     }
 
-    /// The language a local-model selection should snap to when `current` isn't one
-    /// the model supports: the model's declared `defaultLanguage`, or nil to keep
-    /// `current`. Only dedicated-language models declare a default (IndicConformer →
-    /// Hindi, the Japanese model → ja, SenseVoice → zh); broad auto-detecting models
-    /// and unknown/cloud ids return nil so no language is forced on them.
-    public static func defaultLanguage(forModel modelID: String, current: String) -> String? {
-        guard let m = model(id: modelID),
-              let preferred = m.defaultLanguage,
-              !m.supportedLanguages.contains(current) else { return nil }
-        return preferred
+    /// The language to actually pass to an engine for `modelID`, given the persisted
+    /// `requested` value (which may be nil, blank, or a stale code left over from a
+    /// different model). A supported explicit choice is kept as-is; anything the model
+    /// can't handle resolves to the model's declared `defaultLanguage` (Hindi for
+    /// IndicConformer, ja for the Japanese model, …), or nil — auto-detect — for broad
+    /// models that declare none. Applying this at the dispatch boundary normalizes
+    /// persisted app state so a stale code never reaches an engine's language guard.
+    public static func resolvedLanguage(forModel modelID: String, requested: String?) -> String? {
+        guard let m = model(id: modelID) else { return requested }
+        let current = requested?.trimmingCharacters(in: .whitespaces) ?? ""
+        if m.supportedLanguages.contains(current) { return current }
+        return m.defaultLanguage
+    }
+
+    /// The value a language Picker should bind to for `modelID`, given the user's
+    /// `current` selection. Same rule as `resolvedLanguage`, but auto-detect is the
+    /// empty string "" (a valid Picker tag) rather than nil, so the Picker never holds
+    /// an out-of-range selection after switching to a model with a disjoint language set.
+    public static func pickerLanguage(forModel modelID: String, current: String) -> String {
+        resolvedLanguage(forModel: modelID, requested: current) ?? ""
     }
 }

@@ -5,6 +5,7 @@ actor FakeEngine: LocalTranscriptionEngine {
     var downloaded: Set<String> = []
     var transcript = "fake transcript"
     var lastTranscribedModel: String?
+    var lastLanguage: String?
     var residentID: String?
     var transientTranscribes = 0
     var reuseTranscribes = 0
@@ -30,6 +31,7 @@ actor FakeEngine: LocalTranscriptionEngine {
     func transcribe(audioURL: URL, model: LocalModel, language: String?) async throws -> String {
         guard downloaded.contains(model.id) else { throw LocalTranscriptionError.modelNotDownloaded(model.displayName) }
         lastTranscribedModel = model.id
+        lastLanguage = language
         if residentID == model.id { reuseTranscribes += 1 } else { transientTranscribes += 1 }
         return transcript
     }

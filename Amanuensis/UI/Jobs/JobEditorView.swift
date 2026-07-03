@@ -172,11 +172,26 @@ struct JobEditorView: View {
                     Section("Parameters") {
                         JobFieldFormView(preset: preset, values: $fields)
                     }
+                } else if source == .local, let localModel = LocalModelCatalog.model(id: model),
+                          localModel.supportedLanguages.count > 1 {
+                    Section("Parameters") {
+                        Picker("Language", selection: localLanguageBinding) {
+                            // Auto-detecting models (no declared default) get an explicit
+                            // Auto-detect entry so a stale code from another model lands on
+                            // a valid selection rather than a blank row.
+                            if localModel.defaultLanguage == nil {
+                                Text("Auto-detect").tag("")
+                            }
+                            ForEach(localModel.supportedLanguages, id: \.self) { code in
+                                Text(Self.languageLabel(code)).tag(code)
+                            }
+                        }
+                    }
                 }
             }
             .formStyle(.grouped)
-            .onAppear(perform: reconcileLocalJobLanguage)
-            .onChange(of: model) { _, _ in applyModelDefaultJobLanguage() }
+            .onAppear(perform: normalizeLocalJobLanguage)
+            .onChange(of: model) { _, _ in normalizeLocalJobLanguage() }
 
             Divider()
             HStack {
@@ -231,21 +246,22 @@ struct JobEditorView: View {
         }
     }
 
-    // On model change: set a local job's language field to the newly-selected
-    // model's declared default (IndicConformer → Hindi, Japanese → ja, SenseVoice
-    // → zh). No-op for cloud jobs and auto-detect models.
-    private func applyModelDefaultJobLanguage() {
-        guard source == .local, let def = LocalModelCatalog.model(id: model)?.defaultLanguage else { return }
-        fields["language"] = def
+    // Snap a local job's language field to one the selected model can handle: keep a
+    // supported explicit choice, otherwise fall to the model's declared default
+    // (IndicConformer → Hindi, …) or "" (auto-detect) for broad models. Runs on appear
+    // (fixes stale saved values) and on model change. No-op for cloud jobs, whose
+    // language lives in the preset's own fields.
+    private func normalizeLocalJobLanguage() {
+        guard source == .local, LocalModelCatalog.model(id: model) != nil else { return }
+        fields["language"] = LocalModelCatalog.pickerLanguage(forModel: model, current: fields["language"] ?? "")
     }
 
-    // On appear: only fix a language the selected local model can't handle,
-    // preserving a valid saved value. No-op for cloud jobs and auto-detect models.
-    private func reconcileLocalJobLanguage() {
-        guard source == .local,
-              let lang = LocalModelCatalog.defaultLanguage(forModel: model, current: fields["language"] ?? "")
-        else { return }
-        fields["language"] = lang
+    private var localLanguageBinding: Binding<String> {
+        Binding(get: { fields["language"] ?? "" }, set: { fields["language"] = $0 })
+    }
+
+    private static func languageLabel(_ code: String) -> String {
+        Locale.current.localizedString(forLanguageCode: code)?.capitalized ?? code.uppercased()
     }
 
     // A preset that suggests exactly one model pre-fills it; otherwise the user
