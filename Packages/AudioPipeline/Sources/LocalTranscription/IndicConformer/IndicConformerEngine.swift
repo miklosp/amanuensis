@@ -50,6 +50,13 @@ public actor IndicConformerEngine: LocalTranscriptionEngine {
     }
 
     public func transcribe(audioURL: URL, model: LocalModel, language: String?) async throws -> String {
+        // IndicConformer has no auto-detect: require an explicit supported language
+        // rather than silently defaulting to Hindi for an unsupported request.
+        guard let lang = IndicConformerLanguage.supported(language) else {
+            throw LocalTranscriptionError.transcriptionFailed(
+                "IndicConformer needs an explicit supported language (\(IndicConformerLanguage.supportedCodes)); "
+                + "got \(language.map { "\"\($0)\"" } ?? "none").")
+        }
         guard await isDownloaded(model) else {
             throw LocalTranscriptionError.modelNotDownloaded(model.displayName)
         }
@@ -62,7 +69,6 @@ public actor IndicConformerEngine: LocalTranscriptionEngine {
             models = try await IndicConformerModels.load(root: try root())
         }
 
-        let lang = IndicConformerLanguage.resolved(language)
         let samples = try AudioConverter().resampleAudioFile(audioURL)
 
         let sr = IndicConformerConfig.sampleRate

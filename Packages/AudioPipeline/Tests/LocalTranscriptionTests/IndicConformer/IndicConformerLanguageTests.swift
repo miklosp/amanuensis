@@ -2,16 +2,17 @@ import Testing
 @testable import LocalTranscription
 
 @Test func resolvesKnownCodesCaseAndWhitespaceInsensitive() {
-    #expect(IndicConformerLanguage.resolved("hi") == .hi)
-    #expect(IndicConformerLanguage.resolved("  HI ") == .hi)
-    #expect(IndicConformerLanguage.resolved("bn") == .bn)
+    #expect(IndicConformerLanguage.supported("hi") == .hi)
+    #expect(IndicConformerLanguage.supported("  HI ") == .hi)
+    #expect(IndicConformerLanguage.supported("bn") == .bn)
+    #expect(IndicConformerLanguage.supported("hi-IN") == .hi)   // region-qualified still resolves
 }
 
-@Test func blankNilAndUnknownFallBackToHindi() {
-    #expect(IndicConformerLanguage.resolved(nil) == .hi)
-    #expect(IndicConformerLanguage.resolved("") == .hi)
-    #expect(IndicConformerLanguage.resolved("en") == .hi)
-    #expect(IndicConformerLanguage.resolved("hi-IN") == .hi)   // base-code fallback
+@Test func blankNilAndUnsupportedReturnNil() {
+    #expect(IndicConformerLanguage.supported(nil) == nil)
+    #expect(IndicConformerLanguage.supported("") == nil)
+    #expect(IndicConformerLanguage.supported("en") == nil)     // no silent fallback to Hindi
+    #expect(IndicConformerLanguage.supported("ja") == nil)
 }
 
 @Test func postNetPackageMatchesCode() {

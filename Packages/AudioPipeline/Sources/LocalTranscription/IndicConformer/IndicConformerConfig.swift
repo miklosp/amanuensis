@@ -3,8 +3,6 @@ import Foundation
 public enum IndicConformerLanguage: String, CaseIterable, Sendable {
     case hi, bn, mr, te, ta, ml, kn
 
-    public static let fallback: Self = .hi
-
     public var label: String {
         switch self {
         case .hi: return "Hindi"; case .bn: return "Bengali"; case .mr: return "Marathi"
@@ -15,16 +13,22 @@ public enum IndicConformerLanguage: String, CaseIterable, Sendable {
 
     public var postNetPackage: String { "indic_conformer_joint_post_net_\(rawValue).mlpackage" }
 
-    /// Normalizes an incoming language code to one of the seven supported languages,
-    /// falling back to Hindi for blank / nil / unsupported codes. The model has no
-    /// auto-detect, so a language is always chosen.
-    public static func resolved(_ code: String?) -> Self {
+    /// Resolves an incoming language code to one of the seven supported languages,
+    /// or `nil` when the code is blank or unsupported. IndicConformer has no
+    /// language auto-detect and no meaningful default, so the caller must pass an
+    /// explicit supported code — there is deliberately no fallback. Guessing (the
+    /// old default-to-Hindi behavior) would silently transcribe an unsupported
+    /// request with the wrong language's post-net.
+    public static func supported(_ code: String?) -> Self? {
         let normalized = code?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard let normalized, !normalized.isEmpty else { return fallback }
+        guard let normalized, !normalized.isEmpty else { return nil }
         if let exact = Self(rawValue: normalized) { return exact }
         let base = normalized.split(separator: "-").first.map(String.init) ?? normalized
-        return Self(rawValue: base) ?? fallback
+        return Self(rawValue: base)
     }
+
+    /// Supported codes as a comma-separated list, for error messages.
+    public static var supportedCodes: String { allCases.map(\.rawValue).joined(separator: ", ") }
 }
 
 enum IndicConformerConfig {
