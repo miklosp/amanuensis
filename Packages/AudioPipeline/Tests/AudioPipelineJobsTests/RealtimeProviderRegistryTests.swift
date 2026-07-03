@@ -24,4 +24,13 @@ import Testing
                 onEvent: { _ in }, onError: { _ in })
         }
     }
+    @Test func sonioxIsStreamingCapable() {
+        #expect(RealtimeProviderRegistry.provider(for: "soniox") != nil)
+    }
+    @Test func sonioxProviderBuildsASession() throws {
+        let session = try SonioxRealtimeProvider().makeSession(
+            baseURL: "https://api.soniox.com", apiKey: "k", language: "en",
+            onEvent: { _ in }, onError: { _ in })
+        #expect(session is SonioxRealtimeClient)
+    }
 }
