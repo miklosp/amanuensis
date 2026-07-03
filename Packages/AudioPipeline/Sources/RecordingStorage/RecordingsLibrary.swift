@@ -33,6 +33,24 @@ public final class RecordingsLibrary {
         await refresh()
     }
 
+    // Renames a recording by writing a display `title` into its meta.json.
+    // Non-destructive: the folder (the recording's identity) is untouched.
+    // A blank/whitespace title clears it, reverting the name to the folder.
+    // Throws if the metadata can't be read, decoded, or written back, so the
+    // caller can surface the failure instead of showing an accepted-looking
+    // edit that never persisted. `refresh()` only runs after a successful write.
+    public func rename(_ item: RecordingItem, to newTitle: String) async throws {
+        let metadataURL = item.folderURL.appending(path: "meta.json", directoryHint: .notDirectory)
+        let data = try Data(contentsOf: metadataURL)
+        var meta = try Self.metadataDecoder.decode(RecordingMetadata.self, from: data)
+        let trimmed = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        meta.title = trimmed.isEmpty ? nil : trimmed
+        try meta.write(to: metadataURL)
+        await refresh()
+    }
+
+    private nonisolated static let metadataDecoder = RecordingMetadata.makeDecoder()
+
     private nonisolated static func scan(baseURL: URL) -> [RecordingItem] {
         let fileManager = FileManager.default
         guard let entries = try? fileManager.contentsOfDirectory(
@@ -66,7 +84,7 @@ public struct RecordingItem: Identifiable, Sendable {
         }
 
         id = meta.folderName
-        name = meta.folderName
+        name = Self.displayName(title: meta.title, folderName: meta.folderName)
         self.folderURL = folderURL
         startedAt = meta.startedAt
         duration = meta.durationSeconds
@@ -94,9 +112,15 @@ public struct RecordingItem: Identifiable, Sendable {
             .joined(separator: " + ")
     }
 
-    private nonisolated static let decoder: JSONDecoder = {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return decoder
-    }()
+    // A trimmed, non-empty `title` wins; otherwise the folder name (the
+    // recording's identity) is the display name. Kept out of init? so the
+    // initializer stays simple.
+    private nonisolated static func displayName(title: String?, folderName: String) -> String {
+        if let title = title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
+            return title
+        }
+        return folderName
+    }
+
+    private nonisolated static let decoder = RecordingMetadata.makeDecoder()
 }

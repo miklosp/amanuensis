@@ -10,6 +10,11 @@ public enum MicrophonePermission {
         AVCaptureDevice.authorizationStatus(for: .audio)
     }
 
+    // True when microphone capture is already authorized (never prompts).
+    public static func isAuthorized() -> Bool {
+        currentStatus() == .authorized
+    }
+
     // Ensures microphone capture is authorized, presenting the system prompt
     // once when the status is undetermined. Returns the final authorization.
     public static func requestIfNeeded() async -> Bool {

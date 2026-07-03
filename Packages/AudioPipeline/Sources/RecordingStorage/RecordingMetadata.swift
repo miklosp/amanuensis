@@ -12,6 +12,7 @@ public struct RecordingMetadata: Sendable {
     public var system: TrackMetadata?
     public var hostAppVersion: String?
     public var notes: String?
+    public var title: String?
 
     public init(
         folderName: String,
@@ -22,7 +23,8 @@ public struct RecordingMetadata: Sendable {
         mic: TrackMetadata? = nil,
         system: TrackMetadata? = nil,
         hostAppVersion: String? = nil,
-        notes: String? = nil
+        notes: String? = nil,
+        title: String? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.folderName = folderName
@@ -33,6 +35,7 @@ public struct RecordingMetadata: Sendable {
         self.system = system
         self.hostAppVersion = hostAppVersion
         self.notes = notes
+        self.title = title
     }
 
     public struct TrackMetadata: Sendable {
@@ -63,6 +66,15 @@ public struct RecordingMetadata: Sendable {
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(self)
         try data.write(to: url, options: .atomic)
+    }
+
+    // The one place the meta.json date strategy is defined, so every reader
+    // stays in sync with `write(to:)`'s encoder above. Returns a fresh decoder
+    // per call; callers cache their own instance.
+    nonisolated static func makeDecoder() -> JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
     }
 }
 
