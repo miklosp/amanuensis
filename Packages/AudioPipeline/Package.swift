@@ -50,6 +50,7 @@ let package = Package(
                 .product(name: "WhisperKit", package: "WhisperKit"),
                 .product(name: "FluidAudio", package: "FluidAudio"),
             ],
+            exclude: ["NOTICE.md"],   // third-party attribution doc, not a build input
             swiftSettings: nonisolatedSettings
         ),
         .testTarget(
@@ -85,6 +86,9 @@ let package = Package(
         .testTarget(
             name: "LocalTranscriptionTests",
             dependencies: ["LocalTranscription"],
+            // Gated-e2e audio fixtures are read from disk via #filePath, not as
+            // bundle resources; exclude so SwiftPM doesn't flag them as unhandled.
+            exclude: ["IndicConformer/Fixtures"],
             swiftSettings: nonisolatedSettings
         ),
     ]
