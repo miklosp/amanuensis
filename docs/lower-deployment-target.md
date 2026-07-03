@@ -7,8 +7,10 @@ lower that so older macs can run the app. It came up while adopting Liquid Glass
 the dictation overlay and mic cue — "graceful degradation on older macs" only means
 something if there are older macs in scope, which today there aren't.
 
-**Status: deferred.** Captured 2026-06-27 as a potential future improvement. The
-glass-HUD polish proceeds independently at the 26.3 target.
+**Status: done (2026-07-03).** Implemented per
+`docs/superpowers/specs/2026-07-03-lower-deployment-floor-and-intel-gate-design.md`.
+Floor lowered to 14.4; Liquid Glass branched via the `GlassPanel.swift` seam; two
+macOS-15 APIs replaced; local models gated to Apple Silicon.
 
 ---
 
