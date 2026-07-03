@@ -907,7 +907,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ## Task 8: Soniox realtime URL (`AudioPipelineJobs`)
 
-> **Wire-format note:** Soniox's realtime endpoint, config field names, and token shape (Tasks 8–10) must be confirmed against the current Soniox realtime WebSocket docs. The *structure* below is fixed (mirrors the Reson8 trio); the flagged constants are the unknowns. Every Soniox task carries a verification step.
+> **Wire-format note (VERIFIED 2026-07-03 against Soniox realtime docs):** endpoint `wss://stt-rt.soniox.com/transcribe-websocket`; config first-message JSON `{api_key, model:"stt-rt-v5", audio_format:"pcm_s16le", sample_rate:16000, num_channels:1, language_hints:[…]}`; responses `{tokens:[{text, is_final, …}], finished:bool, …}`; end-of-audio = empty WS frame. The constants in Tasks 8–10 are confirmed, not guesses; each task's Step 1 records the verification.
 
 **Files:**
 - Create: `Packages/AudioPipeline/Sources/AudioPipelineJobs/SonioxRealtimeURL.swift`
@@ -916,9 +916,9 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `SonioxRealtimeURL.make() -> URL` — the fixed realtime `wss` endpoint (Soniox realtime uses its own host, not the batch `api.soniox.com`; auth + config go in the first message, not the query string).
 
-- [ ] **Step 1: Verify the endpoint**
+- [ ] **Step 1: Endpoint (VERIFIED 2026-07-03 against Soniox docs)**
 
-Confirm the realtime WS URL in Soniox's docs (as of writing: `wss://stt-rt.soniox.com/transcribe-websocket`). Update the constant in Step 3 if it differs.
+Confirmed: `wss://stt-rt.soniox.com/transcribe-websocket`. Use it as-is in Step 3.
 
 - [ ] **Step 2: Write the failing test**
 
@@ -983,9 +983,9 @@ Soniox streams **tokens** (each with an `is_final` flag), not whole-transcript s
 **Interfaces:**
 - Produces: `SonioxToken { text: String; isFinal: Bool }`; `SonioxRealtimeFrame { tokens: [SonioxToken]; finished: Bool }`; `SonioxRealtimeDecoder.decode(_ json: String) -> SonioxRealtimeFrame`; `SonioxTranscriptFolder` (`mutating func fold(_ frame:) -> [TranscriptEvent]`).
 
-- [ ] **Step 1: Verify the token JSON shape**
+- [ ] **Step 1: Token JSON shape (VERIFIED 2026-07-03 against Soniox docs)**
 
-Confirm against Soniox realtime docs: message shape `{"tokens":[{"text":"…","is_final":true|false}], "finished":true?}` and the end-of-utterance signal. Adjust `CodingKeys`/`finished` handling in Step 3 to match.
+Confirmed message shape: `{"tokens":[{"text":"…","is_final":true|false, "speaker":…, "language":…}], "finished":true|false, "final_audio_proc_ms":…, "total_audio_proc_ms":…}`. The session-end message is `{"tokens":[], "finished":true}`. Per-token `is_final` progressively locks tokens; `finished:true` marks end of the whole session (which, for one hotkey-press dictation, is exactly one utterance). The Step 3 decoder ignores the extra fields (`speaker`/`language`/`*_proc_ms`) — it only reads `tokens[].text`, `tokens[].is_final`, and top-level `finished`. No change needed.
 
 - [ ] **Step 2: Write the failing tests**
 
@@ -1121,9 +1121,9 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 - Consumes: `SonioxRealtimeURL`, `SonioxRealtimeDecoder`, `SonioxTranscriptFolder`, `TranscriptEvent`.
 - Produces: `SonioxRealtimeClient: RealtimeSTTSession` — `init(url:apiKey:model:language:session:onEvent:onError:)`, config-first `start()`, binary-frame `send(_:)`, `finish()`.
 
-- [ ] **Step 1: Verify the config message + finish sentinel**
+- [ ] **Step 1: Config message + finish sentinel (VERIFIED 2026-07-03 against Soniox docs)**
 
-Confirm against Soniox realtime docs: the first message's JSON keys (`api_key`, `model`, `audio_format`, `sample_rate`, `num_channels`, `language_hints`) and how a client signals end-of-audio (typically an empty binary/text frame). Adjust Step 2 to match.
+Confirmed. Config first message JSON keys: `api_key`, `model` (`"stt-rt-v5"`), `audio_format` (`"pcm_s16le"`), `sample_rate` (`16000`), `num_channels` (`1`), `language_hints` (`["<lang>"]`). End-of-audio = an **empty WebSocket frame** (binary or text) → the server finalizes remaining tokens and replies with `finished:true`. Step 2 matches; no change needed.
 
 - [ ] **Step 2: Implement the client**
 
@@ -1148,7 +1148,7 @@ public final class SonioxRealtimeClient: RealtimeSTTSession, @unchecked Sendable
 
     public init(url: URL = SonioxRealtimeURL.make(),
                 apiKey: String,
-                model: String = "stt-rt-preview",
+                model: String = "stt-rt-v5",
                 language: String,
                 session: URLSession = .shared,
                 onEvent: @escaping @Sendable (TranscriptEvent) -> Void,
