@@ -29,7 +29,8 @@ func makeMetadata(
     mic: RecordingMetadata.TrackMetadata? = .fixtureMic,
     system: RecordingMetadata.TrackMetadata? = .fixtureSystem,
     hostAppVersion: String? = "test",
-    notes: String? = nil
+    notes: String? = nil,
+    title: String? = nil
 ) -> RecordingMetadata {
     RecordingMetadata(
         folderName: folderName,
@@ -39,7 +40,8 @@ func makeMetadata(
         mic: mic,
         system: system,
         hostAppVersion: hostAppVersion,
-        notes: notes
+        notes: notes,
+        title: title
     )
 }
 

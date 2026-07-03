@@ -9,18 +9,18 @@ struct MainWindowView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
-                Section("Library") {
-                    Label("Recordings", systemImage: "waveform")
-                        .tag(SidebarDestination.recordings)
-                    Label("Jobs", systemImage: "wand.and.stars")
-                        .tag(SidebarDestination.jobs)
-                    Label("Providers", systemImage: "key")
-                        .tag(SidebarDestination.providers)
-                    Label("Local Models", systemImage: "cpu")
-                        .tag(SidebarDestination.localModels)
-                    Label("Logs", systemImage: "list.bullet.rectangle")
-                        .tag(SidebarDestination.logs)
-                }
+                Label("Dictation", systemImage: "text.bubble")
+                    .tag(SidebarDestination.dictation)
+                Label("Recordings", systemImage: "waveform")
+                    .tag(SidebarDestination.recordings)
+                Label("Jobs", systemImage: "wand.and.stars")
+                    .tag(SidebarDestination.jobs)
+                Label("Providers", systemImage: "key")
+                    .tag(SidebarDestination.providers)
+                Label("Local Models", systemImage: "cpu")
+                    .tag(SidebarDestination.localModels)
+                Label("Logs", systemImage: "list.bullet.rectangle")
+                    .tag(SidebarDestination.logs)
             }
             .listStyle(.sidebar)
             .navigationSplitViewColumnWidth(min: 180, ideal: 210, max: 260)
@@ -29,6 +29,8 @@ struct MainWindowView: View {
             }
         } detail: {
             switch selection {
+            case .dictation:
+                DictationView(settings: coordinator.settings, coordinator: coordinator)
             case .recordings:
                 RecordingsView(library: coordinator.library, coordinator: coordinator)
                     .navigationTitle("Recordings")
@@ -59,6 +61,6 @@ struct MainWindowView: View {
     }
 }
 
-enum SidebarDestination: Hashable {
-    case recordings, jobs, providers, localModels, logs
+enum SidebarDestination: Hashable, CaseIterable {
+    case dictation, recordings, jobs, providers, localModels, logs
 }
