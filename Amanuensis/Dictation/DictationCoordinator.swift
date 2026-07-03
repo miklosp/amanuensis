@@ -242,7 +242,8 @@ final class DictationCoordinator {
         case .local:
             let job = Job(
                 name: "Dictation", providerID: Provider.localID,
-                model: settings.dictation.model, fields: [:], outputExt: "txt")
+                model: settings.dictation.model,
+                fields: ["language": settings.dictation.language], outputExt: "txt")
             // Transient placeholder — LocalTranscriptionSender ignores provider/apiKey.
             return TranscriberInputs(job: job, provider: .localPlaceholder, shape: .localTranscription)
         case .provider(let id):
