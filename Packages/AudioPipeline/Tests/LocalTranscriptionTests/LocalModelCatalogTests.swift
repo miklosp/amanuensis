@@ -11,7 +11,9 @@ import Testing
     let m = LocalModelCatalog.model(id: "indic-conformer-600m")
     #expect(m?.runner == .indicConformer)
     #expect(m?.recommended == false)   // global recommended stays Parakeet 110m
-    #expect(m?.languages.contains("Hindi") == true)
+    for language in ["Hindi", "Bengali", "Marathi", "Telugu", "Tamil", "Malayalam", "Kannada"] {
+        #expect(m?.languages.contains(language) == true)
+    }
 }
 
 @Test func recommendedModelIsParakeet110m() {

@@ -3,7 +3,7 @@ import Foundation
 
 /// Core ML conformer of the `IndicConformerInference` seam: runs the encoder, prediction LSTM,
 /// and split joint network via `MLModel`. Ported from the MIT reference `IndicASRRNNTGreedyDecoder`
-/// (docs/superpowers/reference/muesli-IndicASRBackend.swift, lines 783-1164), restructured into the
+/// (ported from Muesli, github.com/pHequals7/muesli, MIT; see NOTICE.md), restructured into the
 /// three seam methods. Per-call decoder caching now lives in `IndicConformerGreedyDecoder`; this class
 /// is stateless per call except the stashed `encoderFrames`.
 ///
@@ -114,7 +114,7 @@ nonisolated final class CoreMLIndicInference: IndicConformerInference {
         (0..<min(count, array.count)).map { Self.floatValue(array, linearIndex: $0) }
     }
 
-    // MARK: - Ported from IndicASRRNNTGreedyDecoder (muesli-IndicASRBackend.swift, lines 815-1124)
+    // MARK: - Ported from IndicASRRNNTGreedyDecoder (Muesli, github.com/pHequals7/muesli, MIT; see NOTICE.md)
 
     private final class DecodeWorkspace {
         let encoderFrameInput: MLMultiArray

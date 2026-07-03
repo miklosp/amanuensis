@@ -56,7 +56,13 @@ nonisolated struct IndicConformerModels {
                 try fm.createDirectory(at: packageURL.appendingPathComponent("Data/com.apple.CoreML/weights"),
                                        withIntermediateDirectories: true)
             }
-            let temp = try await MLModel.compileModel(at: packageURL)
+            let temp: URL
+            do {
+                temp = try await MLModel.compileModel(at: packageURL)
+            } catch {
+                throw LocalTranscriptionError.transcriptionFailed(
+                    "Failed to load IndicConformer model \(name): \(error.localizedDescription)")
+            }
             try? fm.removeItem(at: compiledURL)
             try fm.copyItem(at: temp, to: compiledURL)
             try? fm.removeItem(at: temp)
@@ -66,6 +72,11 @@ nonisolated struct IndicConformerModels {
         // isn't Sendable, but it's only read here (computeUnits set once by the caller), and CoreML's
         // async load API predates structured concurrency's Sendable checking.
         nonisolated(unsafe) let config = config
-        return try await MLModel.load(contentsOf: modelURL, configuration: config)
+        do {
+            return try await MLModel.load(contentsOf: modelURL, configuration: config)
+        } catch {
+            throw LocalTranscriptionError.transcriptionFailed(
+                "Failed to load IndicConformer model \(name): \(error.localizedDescription)")
+        }
     }
 }
