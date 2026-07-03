@@ -19,9 +19,12 @@ export HF_HUB_DOWNLOAD_TIMEOUT="${HF_HUB_DOWNLOAD_TIMEOUT:-120}"
 # your login and force unauthenticated, rate-limited downloads.
 export LANGS="${*:-hi bn mr te ta ml kn}"
 mkdir -p "$DEST"
-uv run --with datasets --with soundfile - <<'PY'
-import os, soundfile as sf
-from datasets import load_dataset
+# Only `datasets` is needed: we read the audio column with decode=False and
+# write the raw (WAV) bytes ourselves, so newer datasets' torchcodec-based
+# audio decoding (which would pull in torch + ffmpeg) is never invoked.
+uv run --with datasets - <<'PY'
+import os
+from datasets import load_dataset, Audio
 
 out = os.environ["DEST"]
 config_for = {
@@ -38,8 +41,14 @@ for code in os.environ["LANGS"].split():
         print(f"{code}: already present, skipping")
         continue
     ds = load_dataset("google/fleurs", config, split="test", streaming=True)
+    ds = ds.cast_column("audio", Audio(decode=False))
     row = next(iter(ds))
-    sf.write(wav, row["audio"]["array"], row["audio"]["sampling_rate"])
+    data = row["audio"]["bytes"]
+    if data is None:  # some builds hand back a path instead of inline bytes
+        with open(row["audio"]["path"], "rb") as f:
+            data = f.read()
+    with open(wav, "wb") as f:
+        f.write(data)
     with open(os.path.join(out, f"fleurs_{code}.txt"), "w") as f:
         f.write(row["transcription"])
     print(f"{code}: {row['transcription'][:60]}")
