@@ -84,11 +84,7 @@ public struct RecordingItem: Identifiable, Sendable {
         }
 
         id = meta.folderName
-        if let title = meta.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
-            name = title
-        } else {
-            name = meta.folderName
-        }
+        name = Self.displayName(title: meta.title, folderName: meta.folderName)
         self.folderURL = folderURL
         startedAt = meta.startedAt
         duration = meta.durationSeconds
@@ -114,6 +110,16 @@ public struct RecordingItem: Identifiable, Sendable {
         formatSummary = [hasCAF ? "caf" : nil, hasFLAC ? "flac" : nil]
             .compactMap { $0 }
             .joined(separator: " + ")
+    }
+
+    // A trimmed, non-empty `title` wins; otherwise the folder name (the
+    // recording's identity) is the display name. Kept out of init? so the
+    // initializer stays simple.
+    private nonisolated static func displayName(title: String?, folderName: String) -> String {
+        if let title = title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
+            return title
+        }
+        return folderName
     }
 
     private nonisolated static let decoder = RecordingMetadata.makeDecoder()
