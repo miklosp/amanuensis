@@ -60,8 +60,16 @@ struct DictationView: View {
                     isBusy: coordinator.localModelsStore.loadingModelID != nil
                         || coordinator.localModelsStore.unloadingModelID != nil)
                 .onChange(of: settings.dictation.model) { _, _ in
-                    reconcileDictationLanguage()
+                    applyModelDefaultLanguage()
                     Task { await coordinator.syncDictationWarmModel() }
+                }
+
+                if let languages = localDictationLanguages, languages.count > 1 {
+                    Picker("Language", selection: $settings.dictation.language) {
+                        ForEach(languages, id: \.self) { code in
+                            Text(Self.languageLabel(code)).tag(code)
+                        }
+                    }
                 }
             }
 
@@ -78,11 +86,19 @@ struct DictationView: View {
         .onAppear(perform: reconcileDictationLanguage)
     }
 
-    /// Keep the dictation language valid for the selected local model. When a
-    /// model that doesn't support the current language is chosen (e.g. selecting
-    /// IndicConformer while the language is still "en"), snap to the model's
-    /// default supported language — Hindi for IndicConformer. No-op for cloud
-    /// models and for languages the model already supports.
+    /// On model change: apply the newly-selected local model's declared default
+    /// language (Hindi for IndicConformer, ja for the Japanese model, zh for
+    /// SenseVoice). No-op for auto-detect and cloud models, which keep the current
+    /// language.
+    private func applyModelDefaultLanguage() {
+        if let def = LocalModelCatalog.model(id: settings.dictation.model)?.defaultLanguage {
+            settings.dictation.language = def
+        }
+    }
+
+    /// On appear: only fix a language the selected local model can't handle (a
+    /// stale/blank value), preserving a valid explicit choice. No-op for cloud
+    /// models and already-supported languages.
     private func reconcileDictationLanguage() {
         if let lang = LocalModelCatalog.defaultLanguage(
             forModel: settings.dictation.model, current: settings.dictation.language) {
@@ -92,6 +108,17 @@ struct DictationView: View {
 
     private var downloadedLocalIDs: [String] {
         LocalModelCatalog.all.map(\.id).filter { coordinator.localModelsStore.states[$0]?.isDownloaded == true }
+    }
+
+    /// Supported language codes of the selected local dictation model, or nil for
+    /// cloud dictation (whose language lives in the provider's own fields).
+    private var localDictationLanguages: [String]? {
+        guard TranscriptionSource(providerID: settings.dictation.providerID) == .local else { return nil }
+        return LocalModelCatalog.model(id: settings.dictation.model)?.supportedLanguages
+    }
+
+    private static func languageLabel(_ code: String) -> String {
+        Locale.current.localizedString(forLanguageCode: code)?.capitalized ?? code.uppercased()
     }
 
     private var dictationSuggestedModels: [String] {

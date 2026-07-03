@@ -175,6 +175,8 @@ struct JobEditorView: View {
                 }
             }
             .formStyle(.grouped)
+            .onAppear(perform: reconcileLocalJobLanguage)
+            .onChange(of: model) { _, _ in applyModelDefaultJobLanguage() }
 
             Divider()
             HStack {
@@ -227,6 +229,23 @@ struct JobEditorView: View {
             fields = p?.defaults ?? [:]
             outputExt = p?.defaultOutputExt ?? "txt"
         }
+    }
+
+    // On model change: set a local job's language field to the newly-selected
+    // model's declared default (IndicConformer → Hindi, Japanese → ja, SenseVoice
+    // → zh). No-op for cloud jobs and auto-detect models.
+    private func applyModelDefaultJobLanguage() {
+        guard source == .local, let def = LocalModelCatalog.model(id: model)?.defaultLanguage else { return }
+        fields["language"] = def
+    }
+
+    // On appear: only fix a language the selected local model can't handle,
+    // preserving a valid saved value. No-op for cloud jobs and auto-detect models.
+    private func reconcileLocalJobLanguage() {
+        guard source == .local,
+              let lang = LocalModelCatalog.defaultLanguage(forModel: model, current: fields["language"] ?? "")
+        else { return }
+        fields["language"] = lang
     }
 
     // A preset that suggests exactly one model pre-fills it; otherwise the user

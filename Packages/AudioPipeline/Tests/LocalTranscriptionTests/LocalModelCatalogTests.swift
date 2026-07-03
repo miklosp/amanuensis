@@ -45,12 +45,28 @@ import Testing
     #expect(LocalModelCatalog.defaultedSelection(current: "", downloaded: []) == nil)
 }
 
-@Test func defaultLanguageSnapsToModelFirstWhenUnsupported() {
-    // IndicConformer lists Hindi first and doesn't support "en" → defaults to Hindi.
+@Test func dedicatedModelsDeclareADefaultLanguage() {
+    // The models the user cares about declare their primary language; broad
+    // auto-detect models declare none.
+    #expect(LocalModelCatalog.model(id: "indic-conformer-600m")?.defaultLanguage == "hi")
+    #expect(LocalModelCatalog.model(id: "parakeet-tdt-ja")?.defaultLanguage == "ja")
+    #expect(LocalModelCatalog.model(id: "sensevoice-small")?.defaultLanguage == "zh")
+    #expect(LocalModelCatalog.model(id: "whisper-large-v3-turbo")?.defaultLanguage == nil)
+    #expect(LocalModelCatalog.model(id: "parakeet-tdt-v3")?.defaultLanguage == nil)
+}
+
+@Test func defaultLanguageFixesOnlyUnsupportedCurrent() {
+    // Snap to the declared default only when the current language isn't supported
+    // (blank or a code outside the model's set) — otherwise keep the current one.
     #expect(LocalModelCatalog.defaultLanguage(forModel: "indic-conformer-600m", current: "en") == "hi")
-    // A language the model already supports is kept (nil = no change).
+    #expect(LocalModelCatalog.defaultLanguage(forModel: "indic-conformer-600m", current: "") == "hi")
+    #expect(LocalModelCatalog.defaultLanguage(forModel: "parakeet-tdt-ja", current: "en") == "ja")
+    // Already-supported languages are preserved (nil = no change) — incl. "en" on
+    // SenseVoice, which supports it. Selecting the model still applies "zh" via the
+    // model-change override; this fix-invalid path only guards against bad values.
+    #expect(LocalModelCatalog.defaultLanguage(forModel: "sensevoice-small", current: "en") == nil)
     #expect(LocalModelCatalog.defaultLanguage(forModel: "indic-conformer-600m", current: "bn") == nil)
-    #expect(LocalModelCatalog.defaultLanguage(forModel: "indic-conformer-600m", current: "hi") == nil)
-    // Unknown / cloud model id → nil (left untouched).
+    // Auto-detect models declare no default → never forced. Unknown/cloud → nil.
+    #expect(LocalModelCatalog.defaultLanguage(forModel: "whisper-large-v3-turbo", current: "") == nil)
     #expect(LocalModelCatalog.defaultLanguage(forModel: "gpt-4o-transcribe", current: "en") == nil)
 }

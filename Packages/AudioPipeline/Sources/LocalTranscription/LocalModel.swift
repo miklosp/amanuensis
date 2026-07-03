@@ -18,6 +18,11 @@ public struct LocalModel: Identifiable, Hashable, Sendable {
     public let runner: LocalRunner
     public let selector: String   // version case name or WhisperKit variant id
     public let recommended: Bool
+    /// The language a picker/setting should default to for this model, when set.
+    /// Only dedicated- or primary-language models declare one (IndicConformer →
+    /// Hindi, the Japanese model → ja, SenseVoice → zh); broad auto-detecting
+    /// models leave it nil so no language is forced on them.
+    public var defaultLanguage: String? = nil
 }
 
 public enum LocalModelCatalog {
@@ -68,19 +73,22 @@ public enum LocalModelCatalog {
                    summary: "Dedicated Japanese model.",
                    languages: "Japanese", supportedLanguages: ["ja"],
                    approxBytes: 590 * MB,
-                   runner: .fluidAudioParakeet, selector: "tdtJa", recommended: false),
+                   runner: .fluidAudioParakeet, selector: "tdtJa", recommended: false,
+                   defaultLanguage: "ja"),
         LocalModel(id: "sensevoice-small", displayName: "SenseVoice Small",
                    summary: "Fast multilingual; strong on Chinese.",
                    languages: "50+ (Chinese, Japanese, Korean, English…)",
                    supportedLanguages: ["zh", "yue", "en", "ja", "ko"],
                    approxBytes: 450 * MB,
-                   runner: .fluidAudioSenseVoice, selector: "fp16", recommended: false),
+                   runner: .fluidAudioSenseVoice, selector: "fp16", recommended: false,
+                   defaultLanguage: "zh"),
         LocalModel(id: "indic-conformer-600m", displayName: "IndicConformer 600M",
                    summary: "Best Hindi accuracy. On-device RNN-T; 7 Indic languages.",
                    languages: "Hindi, Bengali, Marathi, Telugu, Tamil, Malayalam, Kannada",
                    supportedLanguages: ["hi", "bn", "mr", "te", "ta", "ml", "kn"],
                    approxBytes: 700 * MB,
-                   runner: .indicConformer, selector: "multilingual", recommended: false),
+                   runner: .indicConformer, selector: "multilingual", recommended: false,
+                   defaultLanguage: "hi"),
     ]
     public static func model(id: String) -> LocalModel? { all.first { $0.id == id } }
 
@@ -92,15 +100,15 @@ public enum LocalModelCatalog {
         return first
     }
 
-    /// The language a local-model selection should default to when `current` isn't
-    /// one the model supports: the model's first supported language, or nil to keep
-    /// `current`. IndicConformer requires an explicit supported language and lists
-    /// Hindi first, so selecting it defaults the language to Hindi. Returns nil for
-    /// unknown ids (e.g. cloud models), leaving their language untouched.
+    /// The language a local-model selection should snap to when `current` isn't one
+    /// the model supports: the model's declared `defaultLanguage`, or nil to keep
+    /// `current`. Only dedicated-language models declare a default (IndicConformer →
+    /// Hindi, the Japanese model → ja, SenseVoice → zh); broad auto-detecting models
+    /// and unknown/cloud ids return nil so no language is forced on them.
     public static func defaultLanguage(forModel modelID: String, current: String) -> String? {
         guard let m = model(id: modelID),
-              !m.supportedLanguages.isEmpty,
+              let preferred = m.defaultLanguage,
               !m.supportedLanguages.contains(current) else { return nil }
-        return m.supportedLanguages.first
+        return preferred
     }
 }
