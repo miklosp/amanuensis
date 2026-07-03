@@ -34,6 +34,23 @@ private func fixtureText(_ name: String) -> String? {
     return try? String(contentsOf: url, encoding: .utf8)
 }
 
+/// Detects a chunk-merge "stutter": the same two-word phrase re-emitted within
+/// `window` words. Catches verbatim overlap duplication (as the kn clip showed
+/// before the merger fix). Note it's a coarse net — orthographic-variant
+/// near-repeats (the ml clip's `കൂടുതൽ`/`കൂടുതല്`) drift below word-level
+/// equality; `IndicConformerMergerTests` covers that shape deterministically.
+private func hasNearRepeatedBigram(_ text: String, window: Int = 5) -> Bool {
+    let words = text.split(whereSeparator: \.isWhitespace).map(String.init)
+    guard words.count >= 4 else { return false }
+    for i in 0...(words.count - 2) {
+        let bigram = [words[i], words[i + 1]]
+        let hi = min(words.count - 2, i + 1 + window)   // last j with words[j+1] valid
+        guard hi >= i + 2 else { continue }
+        for j in (i + 2)...hi where [words[j], words[j + 1]] == bigram { return true }
+    }
+    return false
+}
+
 /// Gated end-to-end test across all seven Indic languages. Skips (passes) when
 /// the real ~700 MB model isn't downloaded or no FLEURS fixtures are present —
 /// so CI/dev without the weights stays green. When the model + fixtures are
@@ -61,5 +78,8 @@ private func fixtureText(_ name: String) -> String? {
         #expect(
             text.unicodeScalars.contains { lang.scriptRange.contains($0.value) },
             "\(lang.name): transcript has no \(lang.name) script")
+        #expect(
+            !hasNearRepeatedBigram(text),
+            "\(lang.name): repeated phrase — chunk-merge duplication artifact")
     }
 }
