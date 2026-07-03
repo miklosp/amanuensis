@@ -5,7 +5,7 @@ import LocalTranscription
 struct ModelsView: View {
     @Bindable var store: LocalModelsStore
 
-    private let columns = [GridItem(.adaptive(minimum: 300), spacing: 12)]
+    private let columns = [GridItem(.flexible())]
 
     var body: some View {
         ScrollView {
