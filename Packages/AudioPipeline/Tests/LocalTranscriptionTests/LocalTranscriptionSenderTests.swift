@@ -14,7 +14,7 @@ private let stubProvider = Provider(
 @Test func senderTranscribesViaServiceUsingJobModel() async throws {
     let fa = FakeEngine()
     try await fa.download(LocalModelCatalog.model(id: "parakeet-tdt-ctc-110m")!) { _ in }
-    let svc = LocalTranscriptionService(fluidAudio: fa, whisperKit: FakeEngine())
+    let svc = LocalTranscriptionService(fluidAudio: fa, whisperKit: FakeEngine(), indicConformer: FakeEngine())
     let sender = LocalTranscriptionSender(service: svc)
     var job = Job.makeDraft()
     job.model = "parakeet-tdt-ctc-110m"
@@ -27,7 +27,7 @@ private let stubProvider = Provider(
 
 @Test func senderRejectsUnknownModel() async throws {
     let sender = LocalTranscriptionSender(
-        service: LocalTranscriptionService(fluidAudio: FakeEngine(), whisperKit: FakeEngine())
+        service: LocalTranscriptionService(fluidAudio: FakeEngine(), whisperKit: FakeEngine(), indicConformer: FakeEngine())
     )
     var job = Job.makeDraft()
     job.model = "bogus"

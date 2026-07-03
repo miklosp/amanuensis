@@ -4,7 +4,7 @@ import Testing
 
 private func svc() -> (LocalTranscriptionService, FakeEngine, FakeEngine) {
     let fa = FakeEngine(); let wk = FakeEngine()
-    return (LocalTranscriptionService(fluidAudio: fa, whisperKit: wk), fa, wk)
+    return (LocalTranscriptionService(fluidAudio: fa, whisperKit: wk, indicConformer: FakeEngine()), fa, wk)
 }
 
 @Test func preloadPinsResident() async throws {

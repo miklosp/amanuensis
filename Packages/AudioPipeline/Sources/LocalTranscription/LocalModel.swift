@@ -5,6 +5,7 @@ public enum LocalRunner: String, Codable, Sendable, Hashable {
     case fluidAudioSenseVoice    // SenseVoiceManager
     case fluidAudioCohere        // CoherePipeline
     case whisperKit              // WhisperKit
+    case indicConformer          // IndicConformer (catalog row + service wiring: Task 10)
 }
 
 public struct LocalModel: Identifiable, Hashable, Sendable {
@@ -74,6 +75,12 @@ public enum LocalModelCatalog {
                    supportedLanguages: ["zh", "yue", "en", "ja", "ko"],
                    approxBytes: 450 * MB,
                    runner: .fluidAudioSenseVoice, selector: "fp16", recommended: false),
+        LocalModel(id: "indic-conformer-600m", displayName: "IndicConformer 600M",
+                   summary: "Best Hindi accuracy. On-device RNN-T; 7 Indic languages.",
+                   languages: "Hindi, Bengali, Marathi, Telugu, Tamil, Malayalam, Kannada",
+                   supportedLanguages: ["hi", "bn", "mr", "te", "ta", "ml", "kn"],
+                   approxBytes: 700 * MB,
+                   runner: .indicConformer, selector: "multilingual", recommended: false),
     ]
     public static func model(id: String) -> LocalModel? { all.first { $0.id == id } }
 

@@ -3,16 +3,20 @@ import Foundation
 public actor LocalTranscriptionService {
     private let fluidAudio: any LocalTranscriptionEngine
     private let whisperKit: any LocalTranscriptionEngine
+    private let indicConformer: any LocalTranscriptionEngine
 
-    public init(fluidAudio: any LocalTranscriptionEngine, whisperKit: any LocalTranscriptionEngine) {
+    public init(fluidAudio: any LocalTranscriptionEngine, whisperKit: any LocalTranscriptionEngine,
+                indicConformer: any LocalTranscriptionEngine) {
         self.fluidAudio = fluidAudio
         self.whisperKit = whisperKit
+        self.indicConformer = indicConformer
     }
 
     private func resolve(_ modelID: String) throws -> (LocalModel, any LocalTranscriptionEngine) {
         guard let m = LocalModelCatalog.model(id: modelID) else { throw LocalTranscriptionError.unsupportedModel(modelID) }
         switch m.runner {
         case .whisperKit: return (m, whisperKit)
+        case .indicConformer: return (m, indicConformer)
         case .fluidAudioParakeet, .fluidAudioSenseVoice, .fluidAudioCohere: return (m, fluidAudio)
         }
     }

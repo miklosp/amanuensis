@@ -1,10 +1,19 @@
 import Testing
 @testable import LocalTranscription
 
-@Test func catalogHasSixModelsWithUniqueIDs() {
+@Test func catalogHasSevenModelsWithUniqueIDs() {
     let all = LocalModelCatalog.all
-    #expect(all.count == 6)
-    #expect(Set(all.map(\.id)).count == 6)
+    #expect(all.count == 7)
+    #expect(Set(all.map(\.id)).count == 7)
+}
+
+@Test func indicConformerIsPresentWithSevenLanguages() {
+    let m = LocalModelCatalog.model(id: "indic-conformer-600m")
+    #expect(m?.runner == .indicConformer)
+    #expect(m?.recommended == false)   // global recommended stays Parakeet 110m
+    for language in ["Hindi", "Bengali", "Marathi", "Telugu", "Tamil", "Malayalam", "Kannada"] {
+        #expect(m?.languages.contains(language) == true)
+    }
 }
 
 @Test func recommendedModelIsParakeet110m() {
