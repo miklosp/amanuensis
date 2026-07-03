@@ -5,6 +5,7 @@ public enum LocalRunner: String, Codable, Sendable, Hashable {
     case fluidAudioSenseVoice    // SenseVoiceManager
     case fluidAudioCohere        // CoherePipeline
     case whisperKit              // WhisperKit
+    case indicConformer          // IndicConformer (catalog row + service wiring: Task 10)
 }
 
 public struct LocalModel: Identifiable, Hashable, Sendable {

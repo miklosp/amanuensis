@@ -14,6 +14,7 @@ public actor LocalTranscriptionService {
         switch m.runner {
         case .whisperKit: return (m, whisperKit)
         case .fluidAudioParakeet, .fluidAudioSenseVoice, .fluidAudioCohere: return (m, fluidAudio)
+        case .indicConformer: throw LocalTranscriptionError.unsupportedModel(modelID) // routing lands in Task 10; no catalog row yet
         }
     }
 

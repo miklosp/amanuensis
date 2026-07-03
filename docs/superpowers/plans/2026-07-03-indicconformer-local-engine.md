@@ -979,7 +979,7 @@ git commit -m "feat(indic): Core ML inference conformer (encoder/decoder/joint)"
 **Interfaces:**
 - Produces:
   - `enum IndicConformerModelStore { static func root() throws -> URL; static func packageURL(_ name: String, root: URL) -> URL; static func compiledURL(_ name: String, root: URL) -> URL; static func metadataURL(_ file: String, root: URL) -> URL; static func isDownloaded(root: URL) -> Bool; static func remoteURL(for relativePath: String) -> URL; static func download(root: URL, progress: @Sendable (Double) -> Void) async throws }`. `root()` = `ModelStorage.runnerDir(.indicConformer)`.
-  - `struct IndicConformerModels { let inference: CoreMLIndicInference; let vocab: IndicConformerVocab; static func load(root: URL) async throws -> IndicConformerModels }` — compiles/loads the 12 packages, builds mel + vocab, returns a ready `CoreMLIndicInference`.
+  - `struct IndicConformerModels { let encoder/decoder/jointEnc/jointPred/jointPreNet: MLModel; let jointPostNets: [IndicConformerLanguage: MLModel]; let mel: IndicConformerMel; let vocab: IndicConformerVocab; func makeInference() throws -> CoreMLIndicInference; static func load(root: URL) async throws -> IndicConformerModels }` — compiles/loads the 12 packages + mel + vocab as **shared read-only** state. `makeInference()` vends a **fresh per-transcribe** `CoreMLIndicInference` (its own `DecodeWorkspace` + encoder-frame stash) so concurrent/reentrant transcribes never share mutable session state (matches the reference's per-chunk workspace; the MLModels + mel are thread-safe to share).
 - Consumes: `ModelStorage`, `IndicConformerConfig`, `CoreMLIndicInference`, `IndicConformerMel`, `IndicConformerVocab`, `IndicConformerPreprocessorConstants`.
 
 - [ ] **Step 1: Write the failing test** (layout + isDownloaded over a fabricated tree; remoteURL pinning):
@@ -1111,8 +1111,23 @@ import CoreML
 import Foundation
 
 nonisolated struct IndicConformerModels {
-    let inference: CoreMLIndicInference
+    let encoder: MLModel
+    let decoder: MLModel
+    let jointEnc: MLModel
+    let jointPred: MLModel
+    let jointPreNet: MLModel
+    let jointPostNets: [IndicConformerLanguage: MLModel]
+    let mel: IndicConformerMel
     let vocab: IndicConformerVocab
+
+    /// A fresh per-transcribe inference session — its own `DecodeWorkspace` + encoder-frame
+    /// stash — sharing the resident read-only MLModels + mel. Concurrent/reentrant transcribes
+    /// MUST each build their own session; never share one `CoreMLIndicInference` across them.
+    func makeInference() throws -> CoreMLIndicInference {
+        try CoreMLIndicInference(encoder: encoder, decoder: decoder, jointEnc: jointEnc,
+                                 jointPred: jointPred, jointPreNet: jointPreNet,
+                                 jointPostNets: jointPostNets, mel: mel)
+    }
 
     static func load(root: URL) async throws -> IndicConformerModels {
         let config = MLModelConfiguration()
@@ -1133,10 +1148,9 @@ nonisolated struct IndicConformerModels {
         let mel = try IndicConformerMel(constants: constants)
         let vocab = try IndicConformerVocab(vocabURL: IndicConformerModelStore.metadataURL(IndicConformerConfig.vocabFile, root: root))
 
-        let inference = try CoreMLIndicInference(
+        return IndicConformerModels(
             encoder: encoder, decoder: decoder, jointEnc: jointEnc, jointPred: jointPred,
-            jointPreNet: jointPreNet, jointPostNets: postNets, mel: mel)
-        return IndicConformerModels(inference: inference, vocab: vocab)
+            jointPreNet: jointPreNet, jointPostNets: postNets, mel: mel, vocab: vocab)
     }
 
     private static func loadModel(_ name: String, root: URL, config: MLModelConfiguration) async throws -> MLModel {
@@ -1279,7 +1293,7 @@ public actor IndicConformerEngine: LocalTranscriptionEngine {
         let sr = IndicConformerConfig.sampleRate
         let chunkSize = max(1, Int(IndicConformerConfig.chunkSeconds * Double(sr)))
         let stepSize = max(1, Int((IndicConformerConfig.chunkSeconds - IndicConformerConfig.overlapSeconds) * Double(sr)))
-        let decoder = IndicConformerGreedyDecoder(inference: models.inference)
+        let decoder = IndicConformerGreedyDecoder(inference: try models.makeInference())  // fresh per-transcribe session
 
         var tokenChunks: [[Int]] = []
         var textChunks: [String] = []
