@@ -6,7 +6,7 @@ public enum RealtimeProviderRegistry {
     public static func provider(for presetID: String) -> RealtimeSTTProvider? {
         switch presetID {
         case "reson8": return Reson8RealtimeProvider()
-        case "soniox": return SonioxRealtimeProvider()
+        case "soniox-async": return SonioxRealtimeProvider()
         default: return nil
         }
     }

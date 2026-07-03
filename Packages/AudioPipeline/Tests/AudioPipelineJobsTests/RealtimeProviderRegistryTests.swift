@@ -25,7 +25,8 @@ import Testing
         }
     }
     @Test func sonioxIsStreamingCapable() {
-        #expect(RealtimeProviderRegistry.provider(for: "soniox") != nil)
+        #expect(RealtimeProviderRegistry.provider(for: "soniox-async") != nil)
+        #expect(RealtimeProviderRegistry.provider(for: "soniox") == nil)
     }
     @Test func sonioxProviderBuildsASession() throws {
         let session = try SonioxRealtimeProvider().makeSession(
