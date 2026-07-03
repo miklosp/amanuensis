@@ -46,6 +46,11 @@ public enum LocalModelCatalog {
                    summary: "Fast multilingual; strong on Chinese.",
                    languages: "50+ (Chinese, Japanese, Korean, English…)", approxBytes: 450 * MB,
                    runner: .fluidAudioSenseVoice, selector: "fp16", recommended: false),
+        LocalModel(id: "indic-conformer-600m", displayName: "IndicConformer 600M",
+                   summary: "Best Hindi accuracy. On-device RNN-T; 7 Indic languages.",
+                   languages: "Hindi, Bengali, Marathi, Telugu, Tamil, Malayalam, Kannada",
+                   approxBytes: 700 * MB,
+                   runner: .indicConformer, selector: "multilingual", recommended: false),
     ]
     public static func model(id: String) -> LocalModel? { all.first { $0.id == id } }
 
