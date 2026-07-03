@@ -71,20 +71,18 @@ public actor IndicConformerEngine: LocalTranscriptionEngine {
         let decoder = IndicConformerGreedyDecoder(inference: try models.makeInference())  // fresh per-transcribe session
 
         var tokenChunks: [[Int]] = []
-        var textChunks: [String] = []
         var start = 0
         while start < samples.count {
             let end = min(start + chunkSize, samples.count)
             let chunk = Array(samples[start..<end])
             let ids = try await decoder.decodeChunk(audio: chunk, language: lang)
-            if !ids.isEmpty { tokenChunks.append(ids); textChunks.append(models.vocab.decode(ids, language: lang)) }
+            if !ids.isEmpty { tokenChunks.append(ids) }
             if end == samples.count { break }
             start += stepSize
         }
 
         guard !tokenChunks.isEmpty else { return "" }
-        let (mergedIds, applied) = IndicConformerMerger.mergeTokens(tokenChunks)
-        if applied { return models.vocab.decode(mergedIds, language: lang) }
-        return IndicConformerMerger.mergeTexts(textChunks)
+        let mergedIds = IndicConformerMerger.mergeTokens(tokenChunks)
+        return models.vocab.decode(mergedIds, language: lang)
     }
 }
