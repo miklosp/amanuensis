@@ -37,6 +37,15 @@ final class DictationCoordinator {
     private var holdTask: Task<Void, Never>?
     private var transcribeTask: Task<Void, Never>?
 
+    // Streaming
+    private var commit = CommitController(stabilityCount: 3)
+    private let streamInserter = KeystrokeDiffInserter()
+    private var streamingSession: (any RealtimeSTTSession)?
+    private var streamContinuation: AsyncStream<TranscriptEvent>.Continuation?
+    private var streamConsumeTask: Task<Void, Never>?
+    private var streamSetupTask: Task<Void, Never>?
+    private var isStoppingStream = false
+
     init(settings: AppSettings,
          keychain: any KeychainProviding,
          providerLookup: @escaping (UUID) -> Provider?,
@@ -109,6 +118,9 @@ final class DictationCoordinator {
                 self.applyGesture(self.recognizer.holdElapsed())
             }
         case .toggle, .pttStart:
+            if machine.phase == .idle {
+                machine = DictationStateMachine(mode: currentMode())
+            }
             applyAction(machine.startOrToggle())
         case .pttEnd:
             applyAction(machine.release())
@@ -136,8 +148,10 @@ final class DictationCoordinator {
             overlay.flash("Dictation failed")
         case .showEmpty:
             overlay.flash("Nothing heard")
-        case .beginStreamingCapture, .endStreamingCapture:
-            break   // streaming mode not yet wired in this coordinator
+        case .beginStreamingCapture:
+            beginStreamingCapture()
+        case .endStreamingCapture:
+            endStreamingCapture()
         }
         phase = machine.phase
         if phase == .idle { level = 0 }
@@ -187,6 +201,9 @@ final class DictationCoordinator {
     /// dictation disabled). `flash` shows a user message; nil aborts silently.
     private func abortCapture(flash: String?) {
         holdTask?.cancel(); holdTask = nil
+        if streamingSession != nil || streamSetupTask != nil || streamContinuation != nil {
+            teardownStream(delete: true)
+        }
         transcribeTask?.cancel(); transcribeTask = nil
         if let rec = recorder {
             recorder = nil
@@ -277,6 +294,134 @@ final class DictationCoordinator {
             return TranscriberInputs(job: job, provider: provider, shape: preset.shape)
         case .none:
             return nil
+        }
+    }
+
+    /// Streaming iff enabled in settings AND the selected provider has an adapter.
+    private func currentMode() -> DictationStateMachine.Mode {
+        guard settings.dictation.streamLive,
+              let pid = settings.dictation.providerID,
+              let provider = providerLookup(pid),
+              RealtimeProviderRegistry.provider(for: provider.presetID) != nil
+        else { return .batch }
+        return .streaming
+    }
+
+    private struct StreamingInputs { let provider: Provider; let realtime: any RealtimeSTTProvider }
+
+    private func resolveStreamingInputs() -> StreamingInputs? {
+        guard let pid = settings.dictation.providerID,
+              let provider = providerLookup(pid),
+              let realtime = RealtimeProviderRegistry.provider(for: provider.presetID)
+        else { return nil }
+        return StreamingInputs(provider: provider, realtime: realtime)
+    }
+
+    private func beginStreamingCapture() {
+        guard let inputs = resolveStreamingInputs() else {
+            log("Dictation: no streaming provider configured")
+            overlay.flash("Set a streaming dictation provider in Settings")
+            _ = machine.failed("no streaming provider")
+            phase = machine.phase
+            return
+        }
+        isStoppingStream = false
+        commit = CommitController(stabilityCount: 3)
+        streamInserter.reset()
+        _ = TextInserter.requestPostEventAccess()
+
+        let url = tempStore.newCaptureURL()
+        captureURL = url
+
+        // Off-thread client callbacks → this MainActor via a single stream.
+        let (stream, cont) = AsyncStream<TranscriptEvent>.makeStream()
+        streamContinuation = cont
+        streamConsumeTask = Task { [weak self] in
+            for await event in stream { self?.handleStreamEvent(event) }
+        }
+
+        // Async connect: key fetch → session → mic. Runs on this MainActor
+        // (default isolation), so the property writes are hop-free.
+        streamSetupTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let apiKey = try await self.keychain.get(account: inputs.provider.apiKeyRef.account)
+                if Task.isCancelled { return }
+                let session = try inputs.realtime.makeSession(
+                    baseURL: inputs.provider.baseURL,
+                    apiKey: apiKey,
+                    language: self.settings.dictation.language,
+                    onEvent: { cont.yield($0) },
+                    onError: { [weak self] error in
+                        Task { @MainActor in self?.handleStreamError(error) }
+                    })
+                session.start()
+                let rec = try DictationRecorder(
+                    url: url,
+                    onLevel: { [weak self] lvl in Task { @MainActor in self?.level = lvl } },
+                    onChunk: { session.send($0) })
+                try rec.start()
+                self.streamingSession = session
+                self.recorder = rec
+            } catch {
+                self.log("Dictation streaming setup failed: \(error.localizedDescription)")
+                self.overlay.flash("Dictation provider unavailable")
+                self.teardownStream(delete: true)
+                _ = self.machine.failed(error.localizedDescription)
+                self.phase = self.machine.phase
+            }
+        }
+    }
+
+    private func handleStreamEvent(_ event: TranscriptEvent) {
+        switch event {
+        case .partial(let t): commit.update(partial: t)
+        case .final(let t): commit.finalize(t)
+        }
+        _ = streamInserter.apply(committed: commit.committed, fullHypothesis: commit.fullHypothesis)
+    }
+
+    private func handleStreamError(_ error: Error) {
+        if isStoppingStream { return }   // benign: our own finish()/cancel
+        log("Dictation streaming error: \(error.localizedDescription)")
+        overlay.flash("Dictation connection failed")
+        teardownStream(delete: true)
+        _ = machine.failed(error.localizedDescription)
+        phase = machine.phase
+    }
+
+    /// Normal stop: flush the socket, drain trailing finals, then idle.
+    private func endStreamingCapture() {
+        streamSetupTask?.cancel(); streamSetupTask = nil
+        isStoppingStream = true
+        let session = streamingSession; streamingSession = nil
+        let rec = recorder; recorder = nil
+        let cont = streamContinuation; streamContinuation = nil
+        let consume = streamConsumeTask; streamConsumeTask = nil
+        let url = captureURL; captureURL = nil
+        Task { [weak self] in
+            _ = await rec?.stop()
+            await session?.finish()   // trailing finals arrive via cont → handleStreamEvent
+            cont?.finish()
+            await consume?.value
+            if let url { self?.tempStore.delete(url) }
+            self?.applyAction(self?.machine.finalized() ?? .none)
+        }
+    }
+
+    /// Error/abort teardown (no finalize transition; caller drives the machine).
+    private func teardownStream(delete: Bool) {
+        isStoppingStream = true
+        streamSetupTask?.cancel(); streamSetupTask = nil
+        streamConsumeTask?.cancel(); streamConsumeTask = nil
+        streamContinuation?.finish(); streamContinuation = nil
+        let session = streamingSession; streamingSession = nil
+        let rec = recorder; recorder = nil
+        let url = captureURL; captureURL = nil
+        Task {
+            _ = await rec?.stop()
+            await session?.finish()
+            if delete, let url { tempStore.delete(url) }
         }
     }
 }
