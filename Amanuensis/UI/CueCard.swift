@@ -15,6 +15,11 @@ struct CueCard: View {
     let onAction: () -> Void
     let onDismiss: () -> Void
 
+    // Red lightened ~45% toward white. Was `Color.red.mix(with: .white, by: 0.45)`
+    // (macOS 15+); this precomputed sRGB constant keeps the pulse highlight
+    // essentially identical below the deployment floor.
+    private static let pulseRed = Color(red: 1.0, green: 0.45, blue: 0.45)
+
     @State private var hovering = false
     @State private var pulse = false
 
@@ -55,7 +60,7 @@ struct CueCard: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 34, height: 34)
-                .background(pulse ? Color.red.mix(with: .white, by: 0.45) : .red, in: Circle())
+                .background(pulse ? Self.pulseRed : .red, in: Circle())
         }
         .buttonStyle(.plain)
         .onHover { isHovering in
