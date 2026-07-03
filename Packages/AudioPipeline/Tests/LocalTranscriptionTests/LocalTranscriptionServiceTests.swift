@@ -5,7 +5,7 @@ import Testing
 
 private func makeService() -> (LocalTranscriptionService, FakeEngine, FakeEngine) {
     let fa = FakeEngine(); let wk = FakeEngine()
-    return (LocalTranscriptionService(fluidAudio: fa, whisperKit: wk), fa, wk)
+    return (LocalTranscriptionService(fluidAudio: fa, whisperKit: wk, indicConformer: FakeEngine()), fa, wk)
 }
 
 @Test func routesWhisperModelToWhisperEngine() async throws {
@@ -28,4 +28,14 @@ private func makeService() -> (LocalTranscriptionService, FakeEngine, FakeEngine
     await #expect(throws: LocalTranscriptionError.self) {
         _ = try await svc.transcribe(audioURL: URL(fileURLWithPath: "/x"), modelID: "nope", language: nil)
     }
+}
+
+@Test func routesIndicModelToIndicEngine() async throws {
+    let indic = FakeEngine()
+    try await indic.download(LocalModelCatalog.model(id: "indic-conformer-600m")!, progress: { _ in })
+    let service = LocalTranscriptionService(fluidAudio: FakeEngine(), whisperKit: FakeEngine(), indicConformer: indic)
+    let text = try await service.transcribe(audioURL: URL(fileURLWithPath: "/x.wav"),
+                                            modelID: "indic-conformer-600m", language: "hi")
+    #expect(text == "fake transcript")
+    #expect(await indic.lastTranscribedModel == "indic-conformer-600m")
 }

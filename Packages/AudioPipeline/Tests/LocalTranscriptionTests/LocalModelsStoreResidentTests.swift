@@ -4,7 +4,7 @@ import Testing
 @testable import LocalTranscription
 
 @MainActor @Test func preloadUpdatesResidentModelID() async {
-    let store = LocalModelsStore(service: LocalTranscriptionService(fluidAudio: FakeEngine(), whisperKit: FakeEngine()))
+    let store = LocalModelsStore(service: LocalTranscriptionService(fluidAudio: FakeEngine(), whisperKit: FakeEngine(), indicConformer: FakeEngine()))
     await store.preload(modelID: "parakeet-tdt-ctc-110m")
     #expect(store.residentModelID == "parakeet-tdt-ctc-110m")
     await store.preload(modelID: nil)   // unload
@@ -13,7 +13,7 @@ import Testing
 
 @MainActor @Test func preloadExposesLoadingModelIDWhileInFlight() async {
     let fa = FakeEngine()
-    let store = LocalModelsStore(service: LocalTranscriptionService(fluidAudio: fa, whisperKit: FakeEngine()))
+    let store = LocalModelsStore(service: LocalTranscriptionService(fluidAudio: fa, whisperKit: FakeEngine(), indicConformer: FakeEngine()))
     await fa.setPreloadShouldBlock(true)
     let t = Task { await store.preload(modelID: "parakeet-tdt-ctc-110m") }
     while store.loadingModelID == nil { await Task.yield() }
@@ -27,7 +27,7 @@ import Testing
 
 @MainActor @Test func failedPreloadClearsLoadingModelID() async {
     let fa = FakeEngine()
-    let store = LocalModelsStore(service: LocalTranscriptionService(fluidAudio: fa, whisperKit: FakeEngine()))
+    let store = LocalModelsStore(service: LocalTranscriptionService(fluidAudio: fa, whisperKit: FakeEngine(), indicConformer: FakeEngine()))
     await fa.setPreloadShouldThrow(true)
     await store.preload(modelID: "parakeet-tdt-ctc-110m")
     #expect(store.loadingModelID == nil)
@@ -37,7 +37,7 @@ import Testing
 @MainActor @Test func slowUnloadShowsUnloadingModelIDAfterDelay() async {
     let fa = FakeEngine()
     let store = LocalModelsStore(
-        service: LocalTranscriptionService(fluidAudio: fa, whisperKit: FakeEngine()),
+        service: LocalTranscriptionService(fluidAudio: fa, whisperKit: FakeEngine(), indicConformer: FakeEngine()),
         unloadSpinnerDelay: .zero)                  // fire the delayed spinner at once for the test
     await store.preload(modelID: "parakeet-tdt-ctc-110m")
     await fa.setUnloadShouldBlock(true)
@@ -53,7 +53,7 @@ import Testing
 @MainActor @Test func fastUnloadNeverShowsUnloadingModelID() async {
     let fa = FakeEngine()
     let store = LocalModelsStore(
-        service: LocalTranscriptionService(fluidAudio: fa, whisperKit: FakeEngine()),
+        service: LocalTranscriptionService(fluidAudio: fa, whisperKit: FakeEngine(), indicConformer: FakeEngine()),
         unloadSpinnerDelay: .seconds(30))           // long delay; a fast unload beats it
     await store.preload(modelID: "parakeet-tdt-ctc-110m")
     await store.preload(modelID: nil)               // unloads immediately, no block
@@ -63,7 +63,7 @@ import Testing
 
 @MainActor @Test func deletingModelMidPreloadDoesNotResurrectResident() async {
     let fa = FakeEngine()
-    let store = LocalModelsStore(service: LocalTranscriptionService(fluidAudio: fa, whisperKit: FakeEngine()))
+    let store = LocalModelsStore(service: LocalTranscriptionService(fluidAudio: fa, whisperKit: FakeEngine(), indicConformer: FakeEngine()))
     let model = LocalModelCatalog.model(id: "parakeet-tdt-ctc-110m")!
     await store.download(model)
     await fa.setPreloadShouldBlock(true)
@@ -78,7 +78,7 @@ import Testing
 }
 
 @MainActor @Test func deletingResidentDictationModelClearsBadges() async {
-    let store = LocalModelsStore(service: LocalTranscriptionService(fluidAudio: FakeEngine(), whisperKit: FakeEngine()))
+    let store = LocalModelsStore(service: LocalTranscriptionService(fluidAudio: FakeEngine(), whisperKit: FakeEngine(), indicConformer: FakeEngine()))
     let model = LocalModelCatalog.model(id: "parakeet-tdt-ctc-110m")!
     await store.download(model)
     await store.preload(modelID: model.id)
@@ -92,7 +92,7 @@ import Testing
 }
 
 @MainActor @Test func deletingOtherModelKeepsDictationSelection() async {
-    let store = LocalModelsStore(service: LocalTranscriptionService(fluidAudio: FakeEngine(), whisperKit: FakeEngine()))
+    let store = LocalModelsStore(service: LocalTranscriptionService(fluidAudio: FakeEngine(), whisperKit: FakeEngine(), indicConformer: FakeEngine()))
     let dictation = LocalModelCatalog.model(id: "parakeet-tdt-ctc-110m")!
     let other = LocalModelCatalog.model(id: "whisper-large-v3-turbo")!
     store.dictationModelID = dictation.id

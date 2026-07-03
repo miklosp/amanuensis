@@ -4,7 +4,7 @@ import Testing
 @testable import LocalTranscription
 
 @MainActor @Test func downloadThenDeleteUpdatesState() async {
-    let svc = LocalTranscriptionService(fluidAudio: FakeEngine(), whisperKit: FakeEngine())
+    let svc = LocalTranscriptionService(fluidAudio: FakeEngine(), whisperKit: FakeEngine(), indicConformer: FakeEngine())
     let store = LocalModelsStore(service: svc)
     let model = LocalModelCatalog.model(id: "parakeet-tdt-ctc-110m")!
 
