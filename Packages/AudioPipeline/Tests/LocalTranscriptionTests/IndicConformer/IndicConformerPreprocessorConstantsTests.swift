@@ -44,3 +44,16 @@ private func write(_ data: Data) throws -> URL {
         _ = try IndicConformerPreprocessorConstants.load(from: try write(makeBlob(extraFloats: 3)))
     }
 }
+
+// A corrupted blob that keeps the valid magic but has garbage shape fields large
+// enough that `nMels * nBins * MemoryLayout<Float>.stride` overflows. Must be
+// rejected via `throws`, not trap the process. No float payload is appended.
+@Test func rejectsOverflowingShapeWithoutCrashing() throws {
+    var d = Data()
+    d.append(contentsOf: Array("IASRPC01".utf8))
+    for v in [Int32(512), Int32(400), Int32.max, Int32.max] { var le = v.littleEndian; withUnsafeBytes(of: &le) { d.append(contentsOf: $0) } }
+    for f in [Float(0.97), Float(1e-5), Float(1e-5)] { var le = f; withUnsafeBytes(of: &le) { d.append(contentsOf: $0) } }
+    #expect(throws: (any Error).self) {
+        _ = try IndicConformerPreprocessorConstants.load(from: try write(d))
+    }
+}

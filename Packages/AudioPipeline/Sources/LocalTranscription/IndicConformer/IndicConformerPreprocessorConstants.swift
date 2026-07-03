@@ -29,13 +29,18 @@ nonisolated struct IndicConformerPreprocessorConstants: Sendable {
         let preemphasis = float32(at: 24)
         let logZeroGuard = float32(at: 28)
         let normGuard = float32(at: 32)
-        let expectedFloatCount = winLength + nMels * nBins
-        let expectedSize = headerSize + expectedFloatCount * MemoryLayout<Float>.stride
+        // Validate the raw header shape BEFORE any arithmetic on it: a corrupted blob
+        // with garbage nMels/nBins would otherwise overflow the size computation below
+        // and trap the process instead of throwing.
         guard nFFT == IndicConformerConfig.nFFT,
               winLength == IndicConformerConfig.winLength,
               nBins == IndicConformerConfig.nFFT / 2 + 1,
-              nMels == IndicConformerConfig.nMels,
-              data.count == expectedSize else {
+              nMels == IndicConformerConfig.nMels else {
+            throw LocalTranscriptionError.transcriptionFailed("IndicConformer preprocessor constants do not match the expected model shape.")
+        }
+        let expectedFloatCount = winLength + nMels * nBins
+        let expectedSize = headerSize + expectedFloatCount * MemoryLayout<Float>.stride
+        guard data.count == expectedSize else {
             throw LocalTranscriptionError.transcriptionFailed("IndicConformer preprocessor constants do not match the expected model shape.")
         }
         var values = [Float](repeating: 0, count: expectedFloatCount)
