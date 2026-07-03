@@ -36,15 +36,16 @@ public final class RecordingsLibrary {
     // Renames a recording by writing a display `title` into its meta.json.
     // Non-destructive: the folder (the recording's identity) is untouched.
     // A blank/whitespace title clears it, reverting the name to the folder.
-    public func rename(_ item: RecordingItem, to newTitle: String) async {
+    // Throws if the metadata can't be read, decoded, or written back, so the
+    // caller can surface the failure instead of showing an accepted-looking
+    // edit that never persisted. `refresh()` only runs after a successful write.
+    public func rename(_ item: RecordingItem, to newTitle: String) async throws {
         let metadataURL = item.folderURL.appending(path: "meta.json", directoryHint: .notDirectory)
-        guard let data = try? Data(contentsOf: metadataURL),
-              var meta = try? Self.metadataDecoder.decode(RecordingMetadata.self, from: data) else {
-            return
-        }
+        let data = try Data(contentsOf: metadataURL)
+        var meta = try Self.metadataDecoder.decode(RecordingMetadata.self, from: data)
         let trimmed = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         meta.title = trimmed.isEmpty ? nil : trimmed
-        try? meta.write(to: metadataURL)
+        try meta.write(to: metadataURL)
         await refresh()
     }
 

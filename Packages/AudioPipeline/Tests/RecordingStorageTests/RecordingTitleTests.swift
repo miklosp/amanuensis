@@ -41,7 +41,7 @@ import RecordingStorage
             await library.refresh()
             let item = try #require(library.recordings.first { $0.id == "rec1" })
 
-            await library.rename(item, to: "My recording")
+            try await library.rename(item, to: "My recording")
 
             #expect(library.recordings.first { $0.id == "rec1" }?.name == "My recording")
             let reread = try #require(RecordingItem(folderURL: item.folderURL))
@@ -56,9 +56,27 @@ import RecordingStorage
             await library.refresh()
             let item = try #require(library.recordings.first { $0.id == "rec2" })
 
-            await library.rename(item, to: "   ")
+            try await library.rename(item, to: "   ")
 
             #expect(library.recordings.first { $0.id == "rec2" }?.name == "rec2")
+        }
+    }
+
+    @Test func rename_whenMetaUnreadable_throws() async throws {
+        try await withTempDirectory { baseURL in
+            try makeRecordingFolderOnDisk(in: baseURL, name: "rec3", metadata: makeMetadata(folderName: "rec3"))
+            let library = RecordingsLibrary { baseURL }
+            await library.refresh()
+            let item = try #require(library.recordings.first { $0.id == "rec3" })
+
+            // Remove meta.json so the read fails: rename must surface the error,
+            // not swallow it and look like it succeeded.
+            try FileManager.default.removeItem(
+                at: item.folderURL.appending(path: "meta.json", directoryHint: .notDirectory))
+
+            await #expect(throws: (any Error).self) {
+                try await library.rename(item, to: "whatever")
+            }
         }
     }
 }

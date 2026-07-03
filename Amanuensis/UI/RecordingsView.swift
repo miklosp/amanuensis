@@ -10,6 +10,7 @@ struct RecordingsView: View {
     @State private var pendingDelete: [RecordingItem] = []
     @State private var pendingRename: RecordingItem?
     @State private var renameText: String = ""
+    @State private var renameError: String?
 
     var body: some View {
         Table(library.recordings, selection: $selection) {
@@ -90,11 +91,28 @@ struct RecordingsView: View {
                 guard let item = pendingRename else { return }
                 let newName = renameText
                 pendingRename = nil
-                Task { await library.rename(item, to: newName) }
+                Task {
+                    do {
+                        try await library.rename(item, to: newName)
+                    } catch {
+                        renameError = error.localizedDescription
+                    }
+                }
             }
             Button("Cancel", role: .cancel) { pendingRename = nil }
         } message: {
             Text("Enter a display name for this recording. Leave blank to use the original folder name.")
+        }
+        .alert(
+            "Rename failed",
+            isPresented: Binding(
+                get: { renameError != nil },
+                set: { if !$0 { renameError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { renameError = nil }
+        } message: {
+            Text(renameError ?? "")
         }
         .toolbar {
             Button {
