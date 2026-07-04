@@ -1,8 +1,9 @@
-# Lowering the Deployment Target (research, deferred)
+# Lowering the Deployment Target (done 2026-07-03)
 
-The app currently targets **macOS 26.3** (`MACOSX_DEPLOYMENT_TARGET` in
-`Amanuensis.xcodeproj/project.pbxproj`, four configs; `platforms: [.macOS("26.3")]`
-in `Packages/AudioPipeline/Package.swift`). This note records what it would take to
+The app previously targeted **macOS 26.3** and now targets **macOS 14.4**
+(`MACOSX_DEPLOYMENT_TARGET` in `Amanuensis.xcodeproj/project.pbxproj`, four
+configs; `platforms: [.macOS("14.4")]` in `Packages/AudioPipeline/Package.swift`).
+This note records what it would take to
 lower that so older macs can run the app. It came up while adopting Liquid Glass for
 the dictation overlay and mic cue — "graceful degradation on older macs" only means
 something if there are older macs in scope, which today there aren't.

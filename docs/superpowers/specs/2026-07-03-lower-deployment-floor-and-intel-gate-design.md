@@ -129,3 +129,11 @@ Make `LocalModelCatalog.all` return `[]` on Intel (gate at the data layer). Clea
 
 - The change is reversible: raising the target back to 26.3 leaves the `#available` branches as harmless dead fallbacks.
 - Ongoing tax: every future macOS-26 nicety now needs an availability guard. The `GlassPanel.swift` seam + `glassProminentButton()` helper keep that cost localized for the glass family.
+
+---
+
+## Amendment (2026-07-04) — distribution & dictation gate
+
+- **Distribution: separate single-arch builds, never a universal binary.** Ship an **arm64** build (with local models) and an **x86_64** build (local models disabled at runtime via `LocalModelSupport.isSupported == false`). The release pipeline builds/notarizes the two arches separately (e.g. `xcodebuild … ARCHS=arm64 …` and `… ARCHS=x86_64 …`) rather than a fat universal archive. `ARCHS` is left at the project default; per-arch selection happens at archive time.
+- **x86_64 compile fix.** The IndicConformer engine's `Float(Float16)` read (`CoreMLIndicInference.swift`) is arm64-only; the x86_64 slice uses `MLMultiArray`'s portable NSNumber accessor. Local code is compiled (not omitted) on x86_64 but never runs (runtime-gated).
+- **Dictation gate.** The Jobs-only defensive scope in Component 5 is extended to Dictation: `syncDictationWarmModel` and `DictationCoordinator.resolveTranscriberInputs` now also require `LocalModelSupport.isSupported`, so no local warm-load or transcription is attempted on Intel.
