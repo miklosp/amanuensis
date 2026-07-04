@@ -54,7 +54,10 @@ nonisolated final class CoreMLIndicInference: IndicConformerInference {
                                           values: melValues)
         let lengthArray = try MLMultiArray(shape: [1], dataType: .int32)
         lengthArray[0] = NSNumber(value: Int32(realFrames))
-        let input = try MLDictionaryFeatureProvider(dictionary: [
+        // MLDictionaryFeatureProvider isn't Sendable; prediction(from:) is documented safe to call this
+        // way (read-only models). Older toolchains (CI's Xcode 26.3) flag the direct isolated →
+        // global-executor send on the x86 slice, so mark input sendable at its declaration, as predict() does.
+        nonisolated(unsafe) let input = try MLDictionaryFeatureProvider(dictionary: [
             "audio_signal": MLFeatureValue(multiArray: melArray),
             "length": MLFeatureValue(multiArray: lengthArray),
         ])
@@ -73,7 +76,8 @@ nonisolated final class CoreMLIndicInference: IndicConformerInference {
         let hArr = try makeFloatArray(shape: [IndicConformerConfig.predLayers, 1, IndicConformerConfig.predHiddenDim], values: state.h)
         let cArr = try makeFloatArray(shape: [IndicConformerConfig.predLayers, 1, IndicConformerConfig.predHiddenDim], values: state.c)
         workspace.tokenArray[0] = NSNumber(value: Int32(previousToken))
-        let input = try MLDictionaryFeatureProvider(dictionary: [
+        // see encode(): non-Sendable provider, marked sendable at declaration
+        nonisolated(unsafe) let input = try MLDictionaryFeatureProvider(dictionary: [
             "targets": MLFeatureValue(multiArray: workspace.tokenArray),
             "target_length": MLFeatureValue(multiArray: workspace.tokenLength),
             "states_1": MLFeatureValue(multiArray: hArr),
