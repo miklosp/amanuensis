@@ -45,29 +45,9 @@ nonisolated struct IndicConformerModels {
     }
 
     private static func loadModel(_ name: String, root: URL, config: MLModelConfiguration) async throws -> MLModel {
-        let packageURL = IndicConformerModelStore.packageURL(name, root: root)
-        let compiledURL = IndicConformerModelStore.compiledURL(name, root: root)
-        let fm = FileManager.default
-        let modelURL: URL
-        if fm.fileExists(atPath: compiledURL.path) {
-            modelURL = compiledURL
-        } else {
-            if IndicConformerConfig.weightlessPackages.contains(name) {
-                try fm.createDirectory(at: packageURL.appendingPathComponent("Data/com.apple.CoreML/weights"),
-                                       withIntermediateDirectories: true)
-            }
-            let temp: URL
-            do {
-                temp = try await MLModel.compileModel(at: packageURL)
-            } catch {
-                throw LocalTranscriptionError.transcriptionFailed(
-                    "Failed to load IndicConformer model \(name): \(error.localizedDescription)")
-            }
-            try? fm.removeItem(at: compiledURL)
-            try fm.copyItem(at: temp, to: compiledURL)
-            try? fm.removeItem(at: temp)
-            modelURL = compiledURL
-        }
+        // Compiled at download time; this lazily compiles only if that was skipped or the
+        // `.mlmodelc` is missing (idempotent — see `IndicConformerModelStore.ensureCompiled`).
+        let modelURL = try await IndicConformerModelStore.ensureCompiled(name, root: root)
         // See CoreMLIndicInference's `predict(model:provider:outputName:)` note: MLModelConfiguration
         // isn't Sendable, but it's only read here (computeUnits set once by the caller), and CoreML's
         // async load API predates structured concurrency's Sendable checking.
