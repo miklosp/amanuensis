@@ -8,61 +8,42 @@
 >
 > a person whose job is to write down what another person says or to copy what another person has written
 
-A menu-bar audio recorder and transcription pipeline for macOS. It records your
-microphone and other apps' system audio at once, with no virtual audio driver,
-and saves everything locally. From there, a recording can optionally go to a
-transcription or audio-capable model of your choice.
+An audio recording, transcription, and dictation app for macOS that lives in the
+menu bar. It records your microphone and other apps' system audio at once, with no
+virtual audio driver, and saves everything locally. From there a recording can go
+to a transcription model, or to an audio-capable model that transcribes and
+summarizes in one pass. Hold a modifier key for push-to-talk dictation, and the
+transcript is pasted at your cursor.
 
-## Why Amanuensis?
+Transcription runs in the cloud or on-device. Local models need Apple Silicon; on
+an Intel Mac you use the cloud providers.
 
-- **Cloud-first, no multi-gigabyte local model.** Most Mac "Whisper apps" make
-  you download a model before you can transcribe anything. Amanuensis bundles
-  none. Point it at whatever cloud provider you want, or an OpenAI-compatible
-  endpoint you run yourself, and you get the latest models without the local
-  compute and disk cost. You're not tied to one vendor.
-- **Minimal privileges.** It runs under the App Sandbox with the Hardened
-  Runtime and asks only for what it needs. API keys live in your macOS Keychain,
-  recordings and settings stay on disk under your control, and nothing leaves
-  your machine unless you configure a job that sends it. See
+## Philosophy
+
+- **Maximum compatibility.** Runs on macOS 14.4 and up. That's the floor the
+  system-audio process-tap API sets, not an arbitrary cutoff.
+- **Minimum permissions.** Sandboxed, with the Hardened Runtime, and it asks for
+  exactly what it needs, nothing speculative. See
   [Permissions](#permissions-the-app-requests) for the full breakdown.
-- **Free and open source (MIT).** No subscription, no account, no telemetry, and
-  you can audit the whole thing. PRs and feature requests welcome.
-
-A few more things that make it pleasant:
-
-- **Recording is the product.** Transcription is one optional pipeline stage, not
-  the point of the app.
-- **No kernel extension, no BlackHole.** Your mic and other apps' audio are
-  captured together through the macOS Core Audio process-tap API.
-- **Push-to-talk dictation.** Hold a modifier key, speak, and the transcript is
-  inserted at your cursor.
+- **Minimum footprint.** The app bundles no models, so its download stays under
+  10 MB. Local transcription is opt-in, and the Core ML models run on the Neural
+  Engine with a small memory footprint — the English model needs under ~100 MB of
+  RAM.
+- **Free and open source.** MIT-licensed. No account, no subscription, no
+  telemetry, and you can audit the whole thing.
 - **Signed and notarized.** Release builds are Developer ID–signed and notarized
-  by Apple, so they open straight from Gatekeeper, without the usual right-click
-  workaround or "unidentified developer" warning.
+  by Apple, so they open straight from Gatekeeper without the right-click
+  workaround or the "unidentified developer" warning.
 
 > Naming note: the app ships as **Amanuensis** (`work.miklos.amanuensis`), but the
 > internal SPM package and its modules keep their original `AudioPipeline` names
 > (e.g. `import AudioPipelineJobs`). Intentional, and purely cosmetic.
 
-## Screenshots
-
-The Recordings library, with each capture's date, duration, size, and format:
-
-<p align="center">
-  <img src="Screenshots/recordings.png" alt="Recordings list view" width="900">
-</p>
-
-Settings: where recordings are saved, what happens after a recording stops, the meeting record cue, and dictation:
-
-<p align="center">
-  <img src="Screenshots/settings.png" alt="Settings window" width="460">
-</p>
-
 ## Requirements
 
 - macOS 14.4 or later. The system-audio process-tap API (macOS 14.2+) sets the
-  floor; 14.4 is the practical minimum. On-device (local) transcription requires
-  an Apple Silicon Mac; Intel Macs use cloud providers only.
+  floor; 14.4 is the practical minimum. On-device transcription requires an Apple
+  Silicon Mac; Intel Macs use cloud providers only.
 - Apple Silicon or Intel. Releases ship separate `arm64` and `x86_64` builds, so
   grab the one that matches your Mac.
 - Xcode 26 / Swift 6.2 to build from source.
@@ -85,36 +66,32 @@ open <BUILT_PRODUCTS_DIR>/Amanuensis.app
 
 See [`CLAUDE.md`](CLAUDE.md) for the test surfaces and project structure details.
 
-## Permissions the app requests
+## Local models (on-device, Apple Silicon only)
 
-Amanuensis runs under the **App Sandbox** with the **Hardened Runtime**, and asks
-only for what it needs. For the full breakdown, with the exact entitlement keys
-and where each one is declared, see [`docs/permissions.md`](docs/permissions.md).
+Nothing is bundled. You download a model from inside the app, and after that
+transcription runs entirely on your Mac with no network call. The models are tuned
+for the Neural Engine and won't run on Intel, so the whole local surface is hidden
+there.
 
-### Entitlements (granted at build/install time)
+| Model | Languages | Download | Notes |
+|---|---|---|---|
+| Parakeet TDT-CTC 110M | English | 217 MB | Tiny and fastest. Best default for English. |
+| Parakeet TDT v3 | 25 European languages | 460 MB | Multilingual, auto-detects language. |
+| SenseVoice Small | 50+ (Chinese, Japanese, Korean, English…) | 450 MB | Fast; strong on Chinese. |
+| Parakeet TDT Japanese | Japanese | 590 MB | Dedicated Japanese model. |
+| Whisper large-v3-turbo | 99 languages | 627 MB | Broadest coverage, near-large-v3 accuracy. |
+| IndicConformer 600M | Hindi, Bengali, Marathi, Telugu, Tamil, Malayalam, Kannada | 700 MB | Best Hindi accuracy; on-device RNN-T. |
+| Cohere Transcribe | 14 (incl. Japanese, Chinese, Korean) | 2.1 GB | Highest accuracy; heavier, transcribes long audio in 35s chunks. |
 
-| Entitlement | Why |
-|---|---|
-| App Sandbox (`com.apple.security.app-sandbox`) | Runs the app sandboxed. |
-| Network client (`com.apple.security.network.client`) | Outbound calls to the transcription / audio-understanding APIs you configure. No network traffic happens otherwise. |
-| Audio input (`com.apple.security.device.audio-input`) | Microphone capture and the Core Audio process tap. |
-| Music assets read/write (`com.apple.security.assets.music.read-write`) | Promptless access to `~/Music`; the default recordings folder is `~/Music/Amanuensis`. |
-| User-selected files read/write (`com.apple.security.files.user-selected.read-write`) | Read/write a recordings folder you pick yourself, remembered as a security-scoped bookmark. (Injected via the `ENABLE_USER_SELECTED_FILES` build setting, not the entitlements plist.) |
+The FluidAudio (Parakeet, SenseVoice, Cohere) and WhisperKit engines do the heavy
+lifting. The IndicConformer decoder is ported from
+[Muesli](https://github.com/pHequals7/muesli) (MIT, © 2026 Pranav Hari), running a
+Core ML quantization by
+[phequals](https://huggingface.co/phequals/indic-conformer-600m-multilingual-coreml-rnnt)
+of AI4Bharat's `indic-conformer-600m-multilingual`. Full attribution is in
+[`NOTICE.md`](Packages/AudioPipeline/Sources/LocalTranscription/NOTICE.md).
 
-### Runtime permissions (you approve these via system prompts / System Settings)
-
-| Permission | Why |
-|---|---|
-| **Microphone** | Record the mic, and capture audio for dictation. Asked the first time you record. |
-| **System Audio Capture** | Capture other apps' audio output through the Core Audio process tap. Without it, the system track records silence. |
-| **Input Monitoring** | A listen-only global key tap that detects the dictation trigger key. It observes; it never consumes or logs keystrokes. |
-| **Accessibility (post events)** | Synthesize a ⌘V to paste dictated text at your cursor. This is the narrow "post events" capability, not full Accessibility control. |
-
-The System Audio Capture grant uses a private TCC API, which is the one thing
-keeping Amanuensis off the Mac App Store today; every other permission is
-App-Store-compatible.
-
-## Providers supported out of the box
+## Cloud providers
 
 Amanuensis ships with the providers below preconfigured (base URLs, suggested
 models, field hints). They're all bring-your-own-key: you add your API key, and
@@ -151,25 +128,34 @@ These take the audio plus a free-text instruction and return Markdown (e.g.
 | OpenRouter | — | Route to any OpenRouter-hosted model. |
 | OpenAI-compatible Chat | — | Any OpenAI-style `/chat/completions` endpoint. |
 
-## On-device transcription (experimental)
+## Permissions the app requests
 
-Amanuensis is cloud-first, but there's now one local exception you can opt into:
-an experimental on-device engine for Indic languages. It runs IndicConformer-600M,
-a Core ML RNN-T model covering Hindi, Marathi, Bengali, Telugu, Tamil, Malayalam,
-and Kannada. Nothing is bundled. It's a ~700 MB download you trigger from the app,
-and once it's on disk, transcription runs entirely on your Mac with no network call.
+Amanuensis runs under the **App Sandbox** with the **Hardened Runtime**, and asks
+only for what it needs. For the full breakdown, with the exact entitlement keys
+and where each one is declared, see [`docs/permissions.md`](docs/permissions.md).
 
-Treat it as experimental. It's Indic-only, the download is large, and quality
-varies by language and by how clean the audio is. If you want dependable
-transcription across languages today, the cloud providers above are still the
-safer bet.
+### Entitlements (granted at build/install time)
 
-The model is a Core ML quantization by
-[phequals](https://huggingface.co/phequals/indic-conformer-600m-multilingual-coreml-rnnt)
-of AI4Bharat's `indic-conformer-600m-multilingual`, and the Swift decoder is ported
-from [Muesli](https://github.com/pHequals7/muesli) (MIT, © 2026 Pranav Hari). Full
-attribution is in
-[`NOTICE.md`](Packages/AudioPipeline/Sources/LocalTranscription/NOTICE.md).
+| Entitlement | Why |
+|---|---|
+| App Sandbox (`com.apple.security.app-sandbox`) | Runs the app sandboxed. |
+| Network client (`com.apple.security.network.client`) | Outbound calls to the transcription / audio-understanding APIs you configure. No network traffic happens otherwise. |
+| Audio input (`com.apple.security.device.audio-input`) | Microphone capture and the Core Audio process tap. |
+| Music assets read/write (`com.apple.security.assets.music.read-write`) | Promptless access to `~/Music`; the default recordings folder is `~/Music/Amanuensis`. |
+| User-selected files read/write (`com.apple.security.files.user-selected.read-write`) | Read/write a recordings folder you pick yourself, remembered as a security-scoped bookmark. (Injected via the `ENABLE_USER_SELECTED_FILES` build setting, not the entitlements plist.) |
+
+### Runtime permissions (you approve these via system prompts / System Settings)
+
+| Permission | Why |
+|---|---|
+| **Microphone** | Record the mic, and capture audio for dictation. Asked the first time you record. |
+| **System Audio Capture** | Capture other apps' audio output through the Core Audio process tap. Without it, the system track records silence. |
+| **Input Monitoring** | A listen-only global key tap that detects the dictation trigger key. It observes; it never consumes or logs keystrokes. |
+| **Accessibility (post events)** | Synthesize a ⌘V to paste dictated text at your cursor. This is the narrow "post events" capability, not full Accessibility control. |
+
+The System Audio Capture grant uses a private TCC API, which is the one thing
+keeping Amanuensis off the Mac App Store today; every other permission is
+App-Store-compatible.
 
 ## Contributing
 
