@@ -20,58 +20,30 @@ an Intel Mac you use the cloud providers.
 
 ## Philosophy
 
-- **Maximum compatibility.** Runs on macOS 14.4 and up. That's the floor the
-  system-audio process-tap API sets, not an arbitrary cutoff.
+- **Maximum compatibility.** Runs on macOS 14.4 and up. Based on system-audio
+  process-tap API availability.
 - **Minimum permissions.** Sandboxed, with the Hardened Runtime, and it asks for
-  exactly what it needs, nothing speculative. See
-  [Permissions](#permissions-the-app-requests) for the full breakdown.
-- **Minimum footprint.** The app bundles no models, so its download stays under
-  10 MB. Local transcription is opt-in, and the Core ML models run on the Neural
-  Engine with a small memory footprint — the English model needs under ~100 MB of
-  RAM.
+  exactly what it needs. See [Permissions](#permissions-the-app-requests) for the full breakdown.
+- **Minimum footprint.** Download under 10 MB. Local models are opt-in, and the
+  Core ML models run on ANE with a small memory footprint (English under ~100 MB)
 - **Free and open source.** MIT-licensed. No account, no subscription, no
-  telemetry, and you can audit the whole thing.
+  telemetry, and open source.
 - **Signed and notarized.** Release builds are Developer ID–signed and notarized
-  by Apple, so they open straight from Gatekeeper without the right-click
-  workaround or the "unidentified developer" warning.
-
-> Naming note: the app ships as **Amanuensis** (`work.miklos.amanuensis`), but the
-> internal SPM package and its modules keep their original `AudioPipeline` names
-> (e.g. `import AudioPipelineJobs`). Intentional, and purely cosmetic.
+  by Apple, so they open straight without the "unidentified developer" warning.
 
 ## Requirements
 
-- macOS 14.4 or later. The system-audio process-tap API (macOS 14.2+) sets the
-  floor; 14.4 is the practical minimum. On-device transcription requires an Apple
-  Silicon Mac; Intel Macs use cloud providers only.
+- macOS 14.4 or later. The system-audio process-tap API requires 14.4.
+- On-device transcription requires Apple Silicon; Intel Macs use cloud providers only.
 - Apple Silicon or Intel. Releases ship separate `arm64` and `x86_64` builds, so
   grab the one that matches your Mac.
 - Xcode 26 / Swift 6.2 to build from source.
 
-## Build & run
-
-There is no Xcode workspace, only the `.xcodeproj`:
-
-```bash
-xcodebuild -project Amanuensis.xcodeproj -scheme Amanuensis -configuration Debug build
-```
-
-Or open `Amanuensis.xcodeproj` in Xcode and press ⌘R. To find the built app:
-
-```bash
-xcodebuild -project Amanuensis.xcodeproj -scheme Amanuensis -configuration Debug \
-  -showBuildSettings | grep BUILT_PRODUCTS_DIR
-open <BUILT_PRODUCTS_DIR>/Amanuensis.app
-```
-
-See [`CLAUDE.md`](CLAUDE.md) for the test surfaces and project structure details.
-
 ## Local models (on-device, Apple Silicon only)
 
-Nothing is bundled. You download a model from inside the app, and after that
-transcription runs entirely on your Mac with no network call. The models are tuned
-for the Neural Engine and won't run on Intel, so the whole local surface is hidden
-there.
+Download a model from inside the app, and after that transcription runs entirely on
+your Mac with no network call. The models are tuned for the Neural Engine and the option
+is not available for Intel Macs.
 
 | Model | Languages | Download | Notes |
 |---|---|---|---|
@@ -81,7 +53,7 @@ there.
 | Parakeet TDT Japanese | Japanese | 590 MB | Dedicated Japanese model. |
 | Whisper large-v3-turbo | 99 languages | 627 MB | Broadest coverage, near-large-v3 accuracy. |
 | IndicConformer 600M | Hindi, Bengali, Marathi, Telugu, Tamil, Malayalam, Kannada | 700 MB | Best Hindi accuracy; on-device RNN-T. |
-| Cohere Transcribe | 14 (incl. Japanese, Chinese, Korean) | 2.1 GB | Highest accuracy; heavier, transcribes long audio in 35s chunks. |
+| Cohere Transcribe | 14 (incl. Japanese, Chinese, Korean) | 2.1 GB | High accuracy; heavier, transcribes long audio in 35s chunks. |
 
 The FluidAudio (Parakeet, SenseVoice, Cohere) and WhisperKit engines do the heavy
 lifting. The IndicConformer decoder is ported from
@@ -93,12 +65,11 @@ of AI4Bharat's `indic-conformer-600m-multilingual`. Full attribution is in
 
 ## Cloud providers
 
-Amanuensis ships with the providers below preconfigured (base URLs, suggested
+Amanuensis ships with presets for the providers below (base URLs, suggested
 models, field hints). They're all bring-your-own-key: you add your API key, and
-it lives in the Keychain. The two "OpenAI-compatible" entries are generic, so you
-can point them at any endpoint that speaks the OpenAI API (a self-hosted server,
-LM Studio, a gateway). Providers are defined as plain data in
-[`presets.json`](Packages/AudioPipeline/Sources/AudioPipelineJobs/Resources/presets.json),
+it lives in the Keychain. Generic "OpenAI-compatible" entries are also available for
+any endpoint that speaks the OpenAI API (a self-hosted server, LM Studio, a gateway).
+Providers are defined as plain data in [`presets.json`](Packages/AudioPipeline/Sources/AudioPipelineJobs/Resources/presets.json),
 and you can add your own from the in-app Providers UI.
 
 ### Speech-to-text (transcription)
@@ -149,13 +120,35 @@ and where each one is declared, see [`docs/permissions.md`](docs/permissions.md)
 | Permission | Why |
 |---|---|
 | **Microphone** | Record the mic, and capture audio for dictation. Asked the first time you record. |
-| **System Audio Capture** | Capture other apps' audio output through the Core Audio process tap. Without it, the system track records silence. |
+| **System Audio Capture** | Capture other apps' audio output through the Core Audio process tap. |
 | **Input Monitoring** | A listen-only global key tap that detects the dictation trigger key. It observes; it never consumes or logs keystrokes. |
 | **Accessibility (post events)** | Synthesize a ⌘V to paste dictated text at your cursor. This is the narrow "post events" capability, not full Accessibility control. |
 
 The System Audio Capture grant uses a private TCC API, which is the one thing
 keeping Amanuensis off the Mac App Store today; every other permission is
 App-Store-compatible.
+
+## Build & run
+
+There is no Xcode workspace, only the `.xcodeproj`:
+
+```bash
+xcodebuild -project Amanuensis.xcodeproj -scheme Amanuensis -configuration Debug build
+```
+
+Or open `Amanuensis.xcodeproj` in Xcode and press ⌘R. To find the built app:
+
+```bash
+xcodebuild -project Amanuensis.xcodeproj -scheme Amanuensis -configuration Debug \
+  -showBuildSettings | grep BUILT_PRODUCTS_DIR
+open <BUILT_PRODUCTS_DIR>/Amanuensis.app
+```
+
+See [`CLAUDE.md`](CLAUDE.md) for the test surfaces and project structure details.
+
+> Naming note: the app ships as **Amanuensis** (`work.miklos.amanuensis`), but the
+> internal SPM package and its modules keep their original `AudioPipeline` names
+> (e.g. `import AudioPipelineJobs`).
 
 ## Contributing
 
