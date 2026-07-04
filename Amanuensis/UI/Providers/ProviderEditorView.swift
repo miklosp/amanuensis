@@ -68,7 +68,7 @@ struct ProviderEditorView: View {
                 Button("Save") { save() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canSave)
-                    .buttonStyle(.glassProminent)
+                    .glassProminentButtonStyle()
             }
             .padding(12)
         }

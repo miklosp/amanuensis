@@ -37,7 +37,18 @@ struct DictationOverlayView: View {
             .glassTile(in: Capsule())
             .fixedSize()
             .animation(.smooth(duration: 0.3), value: model.state)
-            .onGeometryChange(for: CGSize.self) { $0.size } action: { onResize($0) }
+            .background {
+                // Pre-macOS-15 size reporting: a background GeometryReader
+                // doesn't affect the pill's layout, and `.onChange` fires on the
+                // main actor as the animated width changes. Replaces the macOS-15
+                // `.onGeometryChange`.
+                GeometryReader { proxy in
+                    Color.clear
+                        .onChange(of: proxy.size, initial: true) { _, newSize in
+                            onResize(newSize)
+                        }
+                }
+            }
     }
 
     @ViewBuilder
