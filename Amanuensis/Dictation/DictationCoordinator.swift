@@ -145,6 +145,13 @@ final class DictationCoordinator {
     // MARK: Effects
 
     private func beginCapture() {
+        if localDictationUnsupported {
+            log("Dictation: local models require Apple Silicon")
+            overlay.flash("Local dictation needs an Apple Silicon Mac")
+            _ = machine.failed("local unsupported")   // returns to idle
+            phase = machine.phase
+            return
+        }
         guard resolveTranscriberInputs() != nil else {
             log("Dictation: no provider configured")
             overlay.flash("Set a dictation provider in Settings")
@@ -204,6 +211,10 @@ final class DictationCoordinator {
     }
 
     private func endCaptureAndTranscribe() {
+        if localDictationUnsupported {
+            abortCapture(flash: "Local dictation needs an Apple Silicon Mac")
+            return
+        }
         guard let recorder, let url = captureURL,
               let inputs = resolveTranscriberInputs() else {
             abortCapture(flash: "Dictation provider unavailable")
@@ -238,12 +249,17 @@ final class DictationCoordinator {
 
     private struct TranscriberInputs { let job: Job; let provider: Provider; let shape: JobShape }
 
+    // Dictation is set to Local, but this Mac can't run on-device models. The
+    // capture paths preflight on this so the user sees an Apple Silicon-specific
+    // message (not the generic "no provider") and local never runs on Intel.
+    private var localDictationUnsupported: Bool {
+        TranscriptionSource(providerID: settings.dictation.providerID) == .local
+            && !LocalModelSupport.isSupported
+    }
+
     private func resolveTranscriberInputs() -> TranscriberInputs? {
         switch TranscriptionSource(providerID: settings.dictation.providerID) {
         case .local:
-            // Local models require Apple Silicon; on Intel there is no local
-            // transcriber (matches the hidden UI + the runJob guard).
-            guard LocalModelSupport.isSupported else { return nil }
             let job = Job(
                 name: "Dictation", providerID: Provider.localID,
                 model: settings.dictation.model, fields: [:], outputExt: "txt")
