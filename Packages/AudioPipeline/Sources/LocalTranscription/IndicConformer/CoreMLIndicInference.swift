@@ -1,4 +1,9 @@
-import CoreML
+// CoreML predates Swift 6 concurrency: MLModel / MLDictionaryFeatureProvider aren't Sendable and
+// prediction(from:) is @concurrent, so passing a locally-built provider into it trips the region
+// checker on strict toolchains (Xcode 26.3 errors; 26.6 doesn't). The calls are safe — the models
+// are read-only and prediction(from:) is documented callable this way — so treat CoreML's
+// Sendable-related diagnostics as the warnings they are.
+@preconcurrency import CoreML
 import Foundation
 
 /// Core ML conformer of the `IndicConformerInference` seam: runs the encoder, prediction LSTM,
@@ -54,10 +59,7 @@ nonisolated final class CoreMLIndicInference: IndicConformerInference {
                                           values: melValues)
         let lengthArray = try MLMultiArray(shape: [1], dataType: .int32)
         lengthArray[0] = NSNumber(value: Int32(realFrames))
-        // MLDictionaryFeatureProvider isn't Sendable; prediction(from:) is documented safe to call this
-        // way (read-only models). Older toolchains (CI's Xcode 26.3) flag the direct isolated →
-        // global-executor send on the x86 slice, so mark input sendable at its declaration, as predict() does.
-        nonisolated(unsafe) let input = try MLDictionaryFeatureProvider(dictionary: [
+        let input = try MLDictionaryFeatureProvider(dictionary: [
             "audio_signal": MLFeatureValue(multiArray: melArray),
             "length": MLFeatureValue(multiArray: lengthArray),
         ])
@@ -76,8 +78,7 @@ nonisolated final class CoreMLIndicInference: IndicConformerInference {
         let hArr = try makeFloatArray(shape: [IndicConformerConfig.predLayers, 1, IndicConformerConfig.predHiddenDim], values: state.h)
         let cArr = try makeFloatArray(shape: [IndicConformerConfig.predLayers, 1, IndicConformerConfig.predHiddenDim], values: state.c)
         workspace.tokenArray[0] = NSNumber(value: Int32(previousToken))
-        // see encode(): non-Sendable provider, marked sendable at declaration
-        nonisolated(unsafe) let input = try MLDictionaryFeatureProvider(dictionary: [
+        let input = try MLDictionaryFeatureProvider(dictionary: [
             "targets": MLFeatureValue(multiArray: workspace.tokenArray),
             "target_length": MLFeatureValue(multiArray: workspace.tokenLength),
             "states_1": MLFeatureValue(multiArray: hArr),
