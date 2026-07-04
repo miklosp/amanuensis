@@ -144,7 +144,7 @@ final class AppCoordinator {
     // unloads any resident model. Cloud dictation keeps nothing warm.
     func syncDictationWarmModel() async {
         switch TranscriptionSource(providerID: settings.dictation.providerID) {
-        case .local where localModelsStore.states[settings.dictation.model]?.isDownloaded == true:
+        case .local where LocalModelSupport.isSupported && localModelsStore.states[settings.dictation.model]?.isDownloaded == true:
             await localModelsStore.preload(modelID: settings.dictation.model)
             localModelsStore.dictationModelID = settings.dictation.model
         default:
