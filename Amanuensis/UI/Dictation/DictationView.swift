@@ -60,7 +60,22 @@ struct DictationView: View {
                     isBusy: coordinator.localModelsStore.loadingModelID != nil
                         || coordinator.localModelsStore.unloadingModelID != nil)
                 .onChange(of: settings.dictation.model) { _, _ in
+                    normalizeDictationLanguage()
                     Task { await coordinator.syncDictationWarmModel() }
+                }
+
+                if let model = selectedLocalModel, model.supportedLanguages.count > 1 {
+                    Picker("Language", selection: $settings.dictation.language) {
+                        // Auto-detecting models (no declared default) get an explicit
+                        // Auto-detect entry so switching from a disjoint-language model
+                        // lands on a valid selection rather than a blank row.
+                        if model.defaultLanguage == nil {
+                            Text("Auto-detect").tag("")
+                        }
+                        ForEach(model.supportedLanguages, id: \.self) { code in
+                            Text(Self.languageLabel(code)).tag(code)
+                        }
+                    }
                 }
             }
 
@@ -74,11 +89,35 @@ struct DictationView: View {
         }
         .formStyle(.grouped)
         .navigationTitle("Dictation")
+        .onAppear(perform: normalizeDictationLanguage)
+    }
+
+    /// Snap the dictation language to one the selected local model can handle:
+    /// keep a supported explicit choice, otherwise fall to the model's declared
+    /// default (Hindi for IndicConformer, …) or "" (auto-detect) for broad models.
+    /// Runs on appear (fixes stale persisted state) and on model change. No-op for
+    /// cloud dictation, whose language lives in the provider's own fields.
+    private func normalizeDictationLanguage() {
+        guard TranscriptionSource(providerID: settings.dictation.providerID) == .local,
+              LocalModelCatalog.model(id: settings.dictation.model) != nil else { return }
+        settings.dictation.language = LocalModelCatalog.pickerLanguage(
+            forModel: settings.dictation.model, current: settings.dictation.language)
     }
 
     private var downloadedLocalIDs: [String] {
         guard LocalModelSupport.isSupported else { return [] }
         return LocalModelCatalog.all.map(\.id).filter { coordinator.localModelsStore.states[$0]?.isDownloaded == true }
+    }
+
+    /// The selected local dictation model, or nil for cloud dictation (whose
+    /// language lives in the provider's own fields, not this picker).
+    private var selectedLocalModel: LocalModel? {
+        guard TranscriptionSource(providerID: settings.dictation.providerID) == .local else { return nil }
+        return LocalModelCatalog.model(id: settings.dictation.model)
+    }
+
+    private static func languageLabel(_ code: String) -> String {
+        Locale.current.localizedString(forLanguageCode: code)?.capitalized ?? code.uppercased()
     }
 
     private var dictationSuggestedModels: [String] {

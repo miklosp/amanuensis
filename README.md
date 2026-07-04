@@ -151,6 +151,26 @@ These take the audio plus a free-text instruction and return Markdown (e.g.
 | OpenRouter | — | Route to any OpenRouter-hosted model. |
 | OpenAI-compatible Chat | — | Any OpenAI-style `/chat/completions` endpoint. |
 
+## On-device transcription (experimental)
+
+Amanuensis is cloud-first, but there's now one local exception you can opt into:
+an experimental on-device engine for Indic languages. It runs IndicConformer-600M,
+a Core ML RNN-T model covering Hindi, Marathi, Bengali, Telugu, Tamil, Malayalam,
+and Kannada. Nothing is bundled. It's a ~700 MB download you trigger from the app,
+and once it's on disk, transcription runs entirely on your Mac with no network call.
+
+Treat it as experimental. It's Indic-only, the download is large, and quality
+varies by language and by how clean the audio is. If you want dependable
+transcription across languages today, the cloud providers above are still the
+safer bet.
+
+The model is a Core ML quantization by
+[phequals](https://huggingface.co/phequals/indic-conformer-600m-multilingual-coreml-rnnt)
+of AI4Bharat's `indic-conformer-600m-multilingual`, and the Swift decoder is ported
+from [Muesli](https://github.com/pHequals7/muesli) (MIT, © 2026 Pranav Hari). Full
+attribution is in
+[`NOTICE.md`](Packages/AudioPipeline/Sources/LocalTranscription/NOTICE.md).
+
 ## Contributing
 
 PRs and feature requests are welcome. Open an issue or a pull request.

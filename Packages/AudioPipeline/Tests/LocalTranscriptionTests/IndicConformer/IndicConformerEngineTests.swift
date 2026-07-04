@@ -19,3 +19,16 @@ private let indicModel = LocalModelCatalog.model(id: "indic-conformer-600m")!
                                         model: indicModel, language: "hi")
     }
 }
+
+@Test func transcribeRejectsUnsupportedExplicitLanguage() async {
+    // An explicit unsupported code must fail loudly (before touching model/audio),
+    // not silently fall back to Hindi. Language validation runs first, so this
+    // holds regardless of whether a real bundle is present.
+    let engine = IndicConformerEngine()
+    for code in ["en", "ja", ""] {
+        await #expect(throws: LocalTranscriptionError.self) {
+            _ = try await engine.transcribe(audioURL: URL(fileURLWithPath: "/nonexistent.wav"),
+                                            model: indicModel, language: code)
+        }
+    }
+}

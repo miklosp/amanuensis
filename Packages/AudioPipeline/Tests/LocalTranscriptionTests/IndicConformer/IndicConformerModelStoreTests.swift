@@ -42,3 +42,20 @@ private func fabricateTree() throws -> URL {
     #expect(url.contains(IndicConformerConfig.repoRevision))
     #expect(url.hasSuffix("metadata/vocab.json?download=1"))
 }
+
+@Test func requireHTTPOKAccepts2xxAndRejectsErrors() throws {
+    let url = URL(string: "https://huggingface.co/x")!
+    // 2xx passes.
+    for code in [200, 206, 299] {
+        let ok = HTTPURLResponse(url: url, statusCode: code, httpVersion: nil, headerFields: nil)!
+        try IndicConformerModelStore.requireHTTPOK(ok, "a/b.bin")
+    }
+    // Non-2xx (rate-limit / not-found / server error / redirect) throws instead of
+    // letting an error page be cached as a model file.
+    for code in [301, 404, 429, 500, 503] {
+        let bad = HTTPURLResponse(url: url, statusCode: code, httpVersion: nil, headerFields: nil)!
+        #expect(throws: LocalTranscriptionError.self) {
+            try IndicConformerModelStore.requireHTTPOK(bad, "a/b.bin")
+        }
+    }
+}

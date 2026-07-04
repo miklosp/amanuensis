@@ -241,6 +241,12 @@ nonisolated final class CoreMLIndicInference: IndicConformerInference {
     }
 
     private func addArrays(_ lhs: MLMultiArray, _ rhs: MLMultiArray, into output: MLMultiArray) throws {
+        // floatValue indexes the data pointers directly, so both inputs must cover
+        // output.count — otherwise a shape mismatch reads unallocated memory.
+        guard lhs.count >= output.count, rhs.count >= output.count else {
+            throw LocalTranscriptionError.transcriptionFailed(
+                "joint add shape mismatch: lhs=\(lhs.count) rhs=\(rhs.count) out=\(output.count)")
+        }
         let ptr = output.dataPointer.bindMemory(to: Float.self, capacity: output.count)
         for index in 0..<output.count {
             ptr[index] = Self.floatValue(lhs, linearIndex: index) + Self.floatValue(rhs, linearIndex: index)

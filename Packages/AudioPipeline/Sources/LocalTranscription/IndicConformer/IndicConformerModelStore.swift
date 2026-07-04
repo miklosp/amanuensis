@@ -39,6 +39,19 @@ nonisolated enum IndicConformerModelStore {
         return comps.url!
     }
 
+    /// `URLSession.download` does not throw on HTTP-level errors, so a 404 / 429 /
+    /// 5xx hands back an error *page* as the "downloaded" file. Reject non-2xx
+    /// before it gets moved into the model tree — otherwise `isDownloaded` (which
+    /// only checks file existence) would treat the poisoned bundle as complete and
+    /// every future load would fail until the user deletes the model by hand.
+    static func requireHTTPOK(_ response: URLResponse, _ relativePath: String) throws {
+        guard let http = response as? HTTPURLResponse else { return }   // non-HTTP: nothing to check
+        guard (200..<300).contains(http.statusCode) else {
+            throw LocalTranscriptionError.transcriptionFailed(
+                "download of \(relativePath) failed with HTTP \(http.statusCode)")
+        }
+    }
+
     static func download(root: URL, progress: @Sendable (Double) -> Void) async throws {
         let fm = FileManager.default
         let packageFiles = IndicConformerConfig.allPackages.flatMap { name in
@@ -52,7 +65,9 @@ nonisolated enum IndicConformerModelStore {
             progress(Double(index) / Double(total))
             let destination = root.appendingPathComponent(relativePath)
             try fm.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let (temp, _) = try await URLSession.shared.download(from: remoteURL(for: relativePath))
+            let (temp, response) = try await URLSession.shared.download(from: remoteURL(for: relativePath))
+            do { try requireHTTPOK(response, relativePath) }
+            catch { try? fm.removeItem(at: temp); throw error }
             try? fm.removeItem(at: destination)
             try fm.moveItem(at: temp, to: destination)
         }
