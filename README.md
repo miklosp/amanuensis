@@ -60,8 +60,9 @@ Settings: where recordings are saved, what happens after a recording stops, the 
 
 ## Requirements
 
-- macOS 26.3 (Tahoe) or later. The system-audio process-tap API needs a recent
-  macOS, and the build targets 26.3.
+- macOS 14.4 or later. The system-audio process-tap API (macOS 14.2+) sets the
+  floor; 14.4 is the practical minimum. On-device (local) transcription requires
+  an Apple Silicon Mac; Intel Macs use cloud providers only.
 - Apple Silicon or Intel. Releases ship separate `arm64` and `x86_64` builds, so
   grab the one that matches your Mac.
 - Xcode 26 / Swift 6.2 to build from source.

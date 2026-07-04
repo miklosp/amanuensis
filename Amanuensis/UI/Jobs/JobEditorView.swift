@@ -64,7 +64,8 @@ struct JobEditorView: View {
 
     // Downloaded local models in stable catalog order (for the Picker).
     private var downloadedLocalIDs: [String] {
-        LocalModelCatalog.all.map(\.id).filter { localModelsStore.states[$0]?.isDownloaded == true }
+        guard LocalModelSupport.isSupported else { return [] }
+        return LocalModelCatalog.all.map(\.id).filter { localModelsStore.states[$0]?.isDownloaded == true }
     }
 
     // The JobShape backing a given providerID, used to decide whether a picker
@@ -116,7 +117,7 @@ struct JobEditorView: View {
             Button("Save repair") { save() }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!canSave)
-                .buttonStyle(.glassProminent)
+                .glassProminentButtonStyle()
         }
         .padding(24)
     }
@@ -199,7 +200,7 @@ struct JobEditorView: View {
                 Button("Save") { save() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canSave)
-                    .buttonStyle(.glassProminent)
+                    .glassProminentButtonStyle()
             }
             .padding(12)
         }

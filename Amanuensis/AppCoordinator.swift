@@ -144,7 +144,7 @@ final class AppCoordinator {
     // unloads any resident model. Cloud dictation keeps nothing warm.
     func syncDictationWarmModel() async {
         switch TranscriptionSource(providerID: settings.dictation.providerID) {
-        case .local where localModelsStore.states[settings.dictation.model]?.isDownloaded == true:
+        case .local where LocalModelSupport.isSupported && localModelsStore.states[settings.dictation.model]?.isDownloaded == true:
             await localModelsStore.preload(modelID: settings.dictation.model)
             localModelsStore.dictationModelID = settings.dictation.model
         default:
@@ -364,6 +364,11 @@ final class AppCoordinator {
             logs.log(.error, "Failed: '\(job.name)' — provider missing", category: .job)
             return .failure(JobRunError.providerMissing)
         case .local:
+            guard LocalModelSupport.isSupported else {
+                await self.flashActivity("Failed: '\(job.name)' — local models require an Apple Silicon Mac")
+                logs.log(.error, "Failed: '\(job.name)' — local models require an Apple Silicon Mac", category: .job)
+                return .failure(JobRunError.localModelUnsupported)
+            }
             provider = Provider.localPlaceholder
             shape = .localTranscription
         case .provider(let id):
@@ -618,6 +623,7 @@ final class AppCoordinator {
         case providerMissing
         case presetMissing
         case outputFolderAccessDenied
+        case localModelUnsupported
     }
 
     private static let log = Logger(subsystem: "work.miklos.amanuensis", category: "coordinator")

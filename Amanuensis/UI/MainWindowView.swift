@@ -1,3 +1,4 @@
+import LocalTranscription
 import SwiftUI
 
 struct MainWindowView: View {
@@ -17,8 +18,10 @@ struct MainWindowView: View {
                     .tag(SidebarDestination.jobs)
                 Label("Providers", systemImage: "key")
                     .tag(SidebarDestination.providers)
-                Label("Local Models", systemImage: "cpu")
-                    .tag(SidebarDestination.localModels)
+                if LocalModelSupport.isSupported {
+                    Label("Local Models", systemImage: "cpu")
+                        .tag(SidebarDestination.localModels)
+                }
                 Label("Logs", systemImage: "list.bullet.rectangle")
                     .tag(SidebarDestination.logs)
             }

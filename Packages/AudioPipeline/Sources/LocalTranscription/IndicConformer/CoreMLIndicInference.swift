@@ -262,7 +262,14 @@ nonisolated final class CoreMLIndicInference: IndicConformerInference {
         case .float32:
             return array.dataPointer.bindMemory(to: Float.self, capacity: array.count)[offset]
         case .float16:
+            #if arch(arm64)
             return Float(array.dataPointer.bindMemory(to: Float16.self, capacity: array.count)[offset])
+            #else
+            // `Float(Float16)` needs arm64 hardware; on the x86_64 slice (where
+            // local models are runtime-gated off and this never executes) use
+            // MLMultiArray's portable NSNumber accessor so the slice compiles.
+            return array[offset].floatValue
+            #endif
         case .double:
             return Float(array.dataPointer.bindMemory(to: Double.self, capacity: array.count)[offset])
         case .int32:

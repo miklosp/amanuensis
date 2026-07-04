@@ -28,7 +28,8 @@ struct JobsView: View {
     // A local-only user (no cloud providers) can still create + run a Local job
     // once any on-device model is downloaded.
     private var hasLocalModel: Bool {
-        LocalModelCatalog.all.contains { localModelsStore.states[$0.id]?.isDownloaded == true }
+        LocalModelSupport.isSupported
+            && LocalModelCatalog.all.contains { localModelsStore.states[$0.id]?.isDownloaded == true }
     }
 
     var body: some View {
@@ -42,7 +43,7 @@ struct JobsView: View {
                     Button("Go to Providers") {
                         sidebarSelection = .providers
                     }
-                    .buttonStyle(.glassProminent)
+                    .glassProminentButtonStyle()
                 }
             } else {
                 HStack(spacing: 0) {

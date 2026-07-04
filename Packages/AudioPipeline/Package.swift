@@ -14,7 +14,7 @@ let nonisolatedSettings: [SwiftSetting] = [
 
 let package = Package(
     name: "AudioPipeline",
-    platforms: [.macOS("26.3")],
+    platforms: [.macOS("14.4")],
     products: [
         .library(name: "AppSettings",        targets: ["AppSettings"]),
         .library(name: "RecordingStorage",   targets: ["RecordingStorage"]),

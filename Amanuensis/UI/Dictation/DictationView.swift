@@ -105,7 +105,8 @@ struct DictationView: View {
     }
 
     private var downloadedLocalIDs: [String] {
-        LocalModelCatalog.all.map(\.id).filter { coordinator.localModelsStore.states[$0]?.isDownloaded == true }
+        guard LocalModelSupport.isSupported else { return [] }
+        return LocalModelCatalog.all.map(\.id).filter { coordinator.localModelsStore.states[$0]?.isDownloaded == true }
     }
 
     /// The selected local dictation model, or nil for cloud dictation (whose
