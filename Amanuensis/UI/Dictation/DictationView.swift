@@ -77,6 +77,20 @@ struct DictationView: View {
                         }
                     }
                 }
+
+                if selectedProviderStreams {
+                    Toggle("Stream results live", isOn: $settings.dictation.streamLive)
+                        .onChange(of: settings.dictation.streamLive) { _, _ in
+                            coordinator.dictation.settingsChanged()
+                        }
+                    if settings.dictation.streamLive {
+                        Picker("Language", selection: $settings.dictation.language) {
+                            ForEach(dictationLanguages, id: \.code) { lang in
+                                Text(lang.name).tag(lang.code)
+                            }
+                        }
+                    }
+                }
             }
 
             Section {
@@ -127,9 +141,26 @@ struct DictationView: View {
         return preset.suggestedModels
     }
 
+    /// True when the selected provider is a cloud provider with a realtime adapter
+    /// (gates the "Stream results live" toggle). Local models and non-streaming
+    /// cloud providers return false.
+    private var selectedProviderStreams: Bool {
+        guard case .provider(let id) = TranscriptionSource(providerID: settings.dictation.providerID),
+              let provider = coordinator.allProviders.first(where: { $0.id == id })
+        else { return false }
+        return RealtimeProviderRegistry.provider(for: provider.presetID) != nil
+    }
+
     private var holdThresholdBinding: Binding<Double> {
         Binding(
             get: { Double(settings.dictation.holdThresholdMs) },
             set: { settings.dictation.holdThresholdMs = Int($0) })
     }
 }
+
+// Curated BCP-47 list for streaming dictation. Providers map/validate their own
+// supported codes; this is a shared starter set, extendable later.
+private let dictationLanguages: [(code: String, name: String)] = [
+    ("en", "English"), ("es", "Spanish"), ("fr", "French"), ("de", "German"),
+    ("it", "Italian"), ("pt", "Portuguese"), ("nl", "Dutch"),
+]

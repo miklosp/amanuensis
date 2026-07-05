@@ -83,80 +83,6 @@ struct SettingsView: View {
                     coordinator.setMicOffCueEnabled(newValue)
                 }
             }
-            Section("Dictation") {
-                Toggle("Enable dictation", isOn: $settings.dictation.enabled)
-                    .onChange(of: settings.dictation.enabled) { _, _ in
-                        coordinator.dictation.settingsChanged()
-                    }
-
-                Picker("Trigger key", selection: $settings.dictation.trigger) {
-                    ForEach(TriggerModifier.allCases, id: \.self) { modifier in
-                        Text(modifier.displayName).tag(modifier)
-                    }
-                }
-                .onChange(of: settings.dictation.trigger) { _, _ in
-                    coordinator.dictation.settingsChanged()
-                }
-                if settings.dictation.trigger == .function {
-                    Text("Fn may also trigger a macOS action (System Settings ▸ Keyboard ▸ “Press 🌐 to”).")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-
-                LabeledContent("Hold threshold") {
-                    HStack {
-                        Slider(value: holdThresholdBinding, in: 150...600, step: 50)
-                        Text("\(settings.dictation.holdThresholdMs) ms")
-                            .monospacedDigit().foregroundStyle(.secondary)
-                    }
-                }
-
-                Picker("Provider", selection: $settings.dictation.providerID) {
-                    Text("None").tag(UUID?.none)
-                    ForEach(coordinator.allProviders) { provider in
-                        Text(provider.name).tag(UUID?.some(provider.id))
-                    }
-                }
-
-                Toggle("Stream results live", isOn: $settings.dictation.streamLive)
-                    .disabled(!selectedProviderStreams)
-                    .onChange(of: settings.dictation.streamLive) { _, _ in
-                        coordinator.dictation.settingsChanged()
-                    }
-                if settings.dictation.streamLive && selectedProviderStreams {
-                    Picker("Language", selection: $settings.dictation.language) {
-                        ForEach(dictationLanguages, id: \.code) { lang in
-                            Text(lang.name).tag(lang.code)
-                        }
-                    }
-                } else if !selectedProviderStreams {
-                    Text("The selected provider doesn't support live streaming.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-
-                TextField("Model", text: $settings.dictation.model)
-
-                Picker("On finish", selection: $settings.dictation.insertMode) {
-                    Text("Insert at cursor").tag(InsertMode.autoInsert)
-                    Text("Copy to clipboard").tag(InsertMode.clipboardOnly)
-                }
-
-                Toggle("Show overlay while dictating", isOn: $settings.dictation.showOverlay)
-
-                permissionRow(
-                    title: "Input Monitoring (hotkey)",
-                    granted: inputMonitoringGranted,
-                    grant: {
-                        HotkeyTapMonitor.requestInputMonitoringAccess()
-                        refreshPermissions()
-                    })
-                permissionRow(
-                    title: "Accessibility · post events (auto-insert)",
-                    granted: postEventGranted,
-                    grant: {
-                        TextInserter.requestPostEventAccess()
-                        refreshPermissions()
-                    })
-            }
         }
         .formStyle(.grouped)
         .frame(width: 480, height: 560)
@@ -173,19 +99,6 @@ struct SettingsView: View {
         if panel.runModal() == .OK, let url = panel.url {
             coordinator.selectRecordingsFolder(url)
         }
-    }
-
-    private var selectedProviderStreams: Bool {
-        guard let pid = settings.dictation.providerID,
-              let provider = coordinator.allProviders.first(where: { $0.id == pid })
-        else { return false }
-        return RealtimeProviderRegistry.provider(for: provider.presetID) != nil
-    }
-
-    private var holdThresholdBinding: Binding<Double> {
-        Binding(
-            get: { Double(settings.dictation.holdThresholdMs) },
-            set: { settings.dictation.holdThresholdMs = Int($0) })
     }
 
     private func refreshPermissions() {
@@ -213,10 +126,3 @@ struct SettingsView: View {
         }
     }
 }
-
-// Curated BCP-47 list for streaming dictation. Providers map/validate their own
-// supported codes; this is a shared starter set, extendable later.
-private let dictationLanguages: [(code: String, name: String)] = [
-    ("en", "English"), ("es", "Spanish"), ("fr", "French"), ("de", "German"),
-    ("it", "Italian"), ("pt", "Portuguese"), ("nl", "Dutch"),
-]
