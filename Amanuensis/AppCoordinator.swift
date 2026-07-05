@@ -310,7 +310,10 @@ final class AppCoordinator {
             mic: micURL,
             system: systemURL,
             destination: combinedURL,
-            keepSourcesOnSuccess: keepCAF
+            micFlac: folder.micFlacURL,
+            systemFlac: systemURL == nil ? nil : folder.systemFlacURL,
+            keepSourcesOnSuccess: keepCAF,
+            keepSeparateTracks: settings.keepSeparateTracks
         )
 
         Task { @MainActor in
