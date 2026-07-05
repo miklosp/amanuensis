@@ -4,7 +4,7 @@
 // orphan-word handling and the no-speaker fallback all differ per provider — and
 // hands the finalized per-run text here for the common numbering and formatting.
 // Generic over the speaker key (Int for most providers, String for ElevenLabs).
-func formatSpeakerRuns<Speaker: Hashable>(_ runs: [(speaker: Speaker, text: String)]) -> String {
+public func formatSpeakerRuns<Speaker: Hashable>(_ runs: [(speaker: Speaker, text: String)]) -> String {
     var order: [Speaker: Int] = [:]
     var next = 1
     let lines = runs.map { run -> String in
