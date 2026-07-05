@@ -1,6 +1,7 @@
 # Realtime streaming ASR — research, design & feasibility
 
-> **Status:** research / design exploration (no code yet). Compiled 2026-06-29.
+> **Status:** research + design, now partly implemented. Compiled 2026-06-29; status updated 2026-07-04.
+> **Wired since:** four streaming adapters live in `Packages/AudioPipeline/Sources/AudioPipelineJobs/` — **Reson8**, **Soniox**, **Deepgram**, and **OpenAI** (realtime transcription; defaults to `gpt-4o-transcribe` + server VAD, and is the base64-PCM-in-JSON protocol outlier) — each a `RealtimeSTTProvider` (client + result decoder + URL builder), selected by preset id through `RealtimeProviderRegistry` (which also gates the Settings "Stream results live" toggle). AssemblyAI and the other providers below remain candidates, not yet built.
 > **Goal:** add a *live* dictation mode to Amanuensis where words appear on screen / in
 > the target app as you speak, with minimal perceived delay — versus today's
 > record-then-transcribe batch path.
@@ -63,15 +64,17 @@ time-to-first-partial and time-to-final — read them as rough tiers, not exact.
 
 | Provider / model | Partial style | Latency (claimed) | Streaming price | Streaming languages | Endpointing control | Notes |
 |---|---|---|---|---|---|---|
-| **Soniox** `stt-rt-v5/v4` | Revisable tokens (`is_final` per token) | ~249 ms median to final; partials "ms" | ~**$0.12/hr** | **60+**, auto-detect + mid-stream code-switching | Semantic endpoint + manual `finalize`, tunable | Direct-stream + temp-key model built for clients. **Quotas: 10 concurrent, 300-min hard session cap.** Diarization, translation, smart formatting bundled. |
-| **Deepgram** `nova-3` | Revisable interims (`is_final`/`speech_final`) | sub-300 ms TTFT | **$0.29/hr** mono, $0.35 multi | 10 via `language=multi` code-switch | `endpointing` ms + `UtteranceEnd` + `Finalize` | $200 free credit. 150 concurrent (PAYG). Community iOS sample (Starscream). Token survives mid-session expiry. |
+| ✅ **Soniox** `stt-rt-v5/v4` | Revisable tokens (`is_final` per token) | ~249 ms median to final; partials "ms" | ~**$0.12/hr** | **60+**, auto-detect + mid-stream code-switching | Semantic endpoint + manual `finalize`, tunable | Direct-stream + temp-key model built for clients. **Quotas: 10 concurrent, 300-min hard session cap.** Diarization, translation, smart formatting bundled. |
+| ✅ **Deepgram** `nova-3` | Revisable interims (`is_final`/`speech_final`) | sub-300 ms TTFT | **$0.29/hr** mono, $0.35 multi | 10 via `language=multi` code-switch | `endpointing` ms + `UtteranceEnd` + `Finalize` | $200 free credit. 150 concurrent (PAYG). Community iOS sample (Starscream). Token survives mid-session expiry. |
 | **AssemblyAI** Universal-Streaming v3 | **Immutable** (word-level `word_is_final`, Turn objects) | ~300 ms P50 | **$0.15/hr** (EN/multi); Pro ~$0.45 | EN-only or multilingual model (ES/FR/DE/IT/PT); Pro ~18 | Semantic+acoustic end-of-turn, `ForceEndpoint` | **Billed on connection-open time** — must send `Terminate`. v2 endpoint EOL ~Jan 2026, use v3. Immutable = no flicker, simplest insertion. |
 | **ElevenLabs** Scribe v2 Realtime | Revisable (`partial_transcript` → `committed_transcript`) | ~150 ms (markets "negative latency") | ~**$0.28/hr** | **90+**, auto-detect, code-switch | Manual `commit` or tunable VAD | Single-use 15-min token (may be required). Word+char timestamps, keyterms. **No realtime diarization.** GA (launched late 2025). |
 | **Cartesia** Ink (`ink-whisper`/`ink-2`) | Manual endpoint: revisable (`is_final`); **Auto endpoint: append-only** | ~66 ms median TTCT (ink-whisper) | ink-whisper ~**$0.13/hr**; ink-2 3× | ink-whisper multilingual (undocumented list); **ink-2 EN-only** | Manual `finalize`/`close`, or model auto-turn | STT-scoped 1-hr token. Fast/cheap but built for voice-agent turn-taking; no documented diarization. |
 | **Speechmatics** RT (Ursa) | Revisable (`AddPartialTranscript`/`AddTranscript`) | partials <500 ms; finals floor **0.7 s** (`max_delay`) | "from $0.129/hr" (unconfirmed) / older $1.04–1.35 | 55–80+, **no realtime auto-detect** (must set language) | `max_delay` 0.7–4 s + silence `EndOfUtterance` + `ForceEndOfUtterance` | Mature. **Self-hosting / on-prem (Docker/K8s/appliance)** — unique here. Diarization, custom vocab, translation. EU endpoint. |
 | **Gladia** Live v2 (Solaria-1) | Opt-in partials (`is_final`) | ~270 ms first response, ~100 ms partials claimed | **$0.75/hr**, 10 free hrs/mo | **100**, auto-detect + code-switching | `endpointing` 0.05–10 s (50 ms default) + `stop_recording` | **Init POST → returns token-bearing `wss://` URL** (slightly different flow). 30 concurrent (Starter). On-prem is enterprise roadmap. |
-| **OpenAI** Realtime (`gpt-realtime-whisper`) | Revisable deltas (`…transcription.delta`/`.completed`) | "low latency", `delay` knob; no number | ~$0.003–0.006/min (~$0.18–0.36/hr) | Whisper-lineage ~90+ (not enumerated for RT) | Server VAD, or manual `input_audio_buffer.commit` | WS **or WebRTC**; ephemeral client secrets. Audio is **base64 PCM inside JSON** (not raw binary frames) — a protocol outlier. Use `gpt-realtime-whisper`, not `gpt-4o-transcribe` (batch-leaning). |
-| **Reson8** RT | Opt-in interim (`include_interim`, `is_final`) | **not published** | 2 credits/min (~€20/6000cr) | **9** (EU langs), no documented auto-detect | **Manual flush only** (no silence VAD) | March-2026 startup, thin docs, no SDK, no published latency. **EU-only processing + zero retention** is the differentiator. Diarization (≤4), domain adaptation. |
+| ✅ **OpenAI** Realtime (`gpt-realtime-whisper`) | Revisable deltas (`…transcription.delta`/`.completed`) | "low latency", `delay` knob; no number | ~$0.003–0.006/min (~$0.18–0.36/hr) | Whisper-lineage ~90+ (not enumerated for RT) | Server VAD, or manual `input_audio_buffer.commit` | WS **or WebRTC**; ephemeral client secrets. Audio is **base64 PCM inside JSON** (not raw binary frames) — a protocol outlier. Use `gpt-realtime-whisper`, not `gpt-4o-transcribe` (batch-leaning). |
+| ✅ **Reson8** RT | Opt-in interim (`include_interim`, `is_final`) | **not published** | 2 credits/min (~€20/6000cr) | **9** (EU langs), no documented auto-detect | **Manual flush only** (no silence VAD) | March-2026 startup, thin docs, no SDK, no published latency. **EU-only processing + zero retention** is the differentiator. Diarization (≤4), domain adaptation. |
+
+> ✅ = streaming adapter already implemented in the app (`RealtimeSTTProvider` + `RealtimeProviderRegistry`). Everything else is a candidate.
 
 ### How to read this for your goal
 
@@ -278,7 +281,9 @@ Suggested phases (each independently shippable):
   common case. (Pick an immutable provider like AssemblyAI here to make commit trivially
   correct, or apply the commit window to a revisable one.)
 - **Phase 3 — provider abstraction:** extract `RealtimeSTTProvider`, add 2–3 adapters
-  (e.g. Soniox + Deepgram + AssemblyAI), wire the settings picker.
+  (e.g. Soniox + Deepgram + AssemblyAI), wire the settings picker. **Done:** Reson8,
+  Soniox, Deepgram, and OpenAI adapters + the settings toggle/language picker are
+  implemented; AssemblyAI remains a candidate.
 - **Phase 4 (optional) — in-place revision:** AX-first → keystroke-backspace → clipboard
   fallback chain for low-churn revision; add the Accessibility TCC request.
 

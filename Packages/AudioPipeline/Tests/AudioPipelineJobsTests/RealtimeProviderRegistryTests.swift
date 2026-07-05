@@ -34,4 +34,36 @@ import Testing
             onEvent: { _ in }, onError: { _ in })
         #expect(session is SonioxRealtimeClient)
     }
+    @Test func deepgramIsStreamingCapable() {
+        #expect(RealtimeProviderRegistry.provider(for: "deepgram") != nil)
+    }
+    @Test func deepgramProviderBuildsASession() throws {
+        let session = try DeepgramRealtimeProvider().makeSession(
+            baseURL: "https://api.deepgram.com", apiKey: "k", language: "es",
+            onEvent: { _ in }, onError: { _ in })
+        #expect(session is DeepgramRealtimeClient)
+    }
+    @Test func deepgramProviderThrowsOnBadBaseURL() {
+        #expect(throws: DeepgramRealtimeURL.BuildError.self) {
+            _ = try DeepgramRealtimeProvider().makeSession(
+                baseURL: "api.deepgram.com", apiKey: "k", language: "en",
+                onEvent: { _ in }, onError: { _ in })
+        }
+    }
+    @Test func openAIIsStreamingCapable() {
+        #expect(RealtimeProviderRegistry.provider(for: "openai-gpt4o-transcribe") != nil)
+    }
+    @Test func openAIProviderBuildsASession() throws {
+        let session = try OpenAIRealtimeProvider().makeSession(
+            baseURL: "https://api.openai.com", apiKey: "k", language: "es",
+            onEvent: { _ in }, onError: { _ in })
+        #expect(session is OpenAIRealtimeClient)
+    }
+    @Test func openAIProviderThrowsOnBadBaseURL() {
+        #expect(throws: OpenAIRealtimeURL.BuildError.self) {
+            _ = try OpenAIRealtimeProvider().makeSession(
+                baseURL: "api.openai.com", apiKey: "k", language: "en",
+                onEvent: { _ in }, onError: { _ in })
+        }
+    }
 }

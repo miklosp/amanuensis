@@ -7,6 +7,8 @@ public enum RealtimeProviderRegistry {
         switch presetID {
         case "reson8": return Reson8RealtimeProvider()
         case "soniox-async": return SonioxRealtimeProvider()
+        case "deepgram": return DeepgramRealtimeProvider()
+        case "openai-gpt4o-transcribe": return OpenAIRealtimeProvider()
         default: return nil
         }
     }
