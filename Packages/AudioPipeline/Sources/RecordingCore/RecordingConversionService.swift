@@ -26,13 +26,22 @@ public actor RecordingConversionService {
         _ mic: URL, _ system: URL?, _ destination: URL
     ) async throws -> Void
 
+    public typealias ExportTrack = @Sendable (_ source: URL, _ destination: URL) async throws -> Void
+
     private let combine: Combine
+    private let exportTrack: ExportTrack
     private var inflight: [String: Task<Outcome, Never>] = [:]
 
-    public init(combine: @escaping Combine = { mic, system, destination in
-        try await CombinedFLACExporter.combine(mic: mic, system: system, to: destination)
-    }) {
+    public init(
+        combine: @escaping Combine = { mic, system, destination in
+            try await CombinedFLACExporter.combine(mic: mic, system: system, to: destination)
+        },
+        exportTrack: @escaping ExportTrack = { source, destination in
+            try await CombinedFLACExporter.exportTrack(source: source, to: destination)
+        }
+    ) {
         self.combine = combine
+        self.exportTrack = exportTrack
     }
 
     public func startConversion(
@@ -40,14 +49,26 @@ public actor RecordingConversionService {
         mic: URL,
         system: URL?,
         destination: URL,
-        keepSourcesOnSuccess: Bool
+        micFlac: URL,
+        systemFlac: URL?,
+        keepSourcesOnSuccess: Bool,
+        keepSeparateTracks: Bool
     ) -> Task<Outcome, Never> {
         if let existing = inflight[folderName] { return existing }
         let combine = self.combine
+        let exportTrack = self.exportTrack
         let task = Task.detached(priority: .utility) {
             let outcome: Outcome
             do {
                 try await combine(mic, system, destination)
+                if keepSeparateTracks {
+                    do { try await exportTrack(mic, micFlac) }
+                    catch { Self.log.error("failed to export mic FLAC: \(String(describing: error), privacy: .public)") }
+                    if let system, let systemFlac {
+                        do { try await exportTrack(system, systemFlac) }
+                        catch { Self.log.error("failed to export system FLAC: \(String(describing: error), privacy: .public)") }
+                    }
+                }
                 if !keepSourcesOnSuccess {
                     do {
                         try FileManager.default.removeItem(at: mic)

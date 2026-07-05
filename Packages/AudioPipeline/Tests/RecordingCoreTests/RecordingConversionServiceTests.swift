@@ -27,11 +27,13 @@ import Testing
 
             let taskA = await service.startConversion(
                 folderName: "a", mic: micA, system: nil,
-                destination: destA, keepSourcesOnSuccess: true
+                destination: destA, micFlac: tmp.appending(path: "a-mic.flac"), systemFlac: nil,
+                keepSourcesOnSuccess: true, keepSeparateTracks: false
             )
             let taskB = await service.startConversion(
                 folderName: "b", mic: micB, system: nil,
-                destination: destB, keepSourcesOnSuccess: true
+                destination: destB, micFlac: tmp.appending(path: "b-mic.flac"), systemFlac: nil,
+                keepSourcesOnSuccess: true, keepSeparateTracks: false
             )
 
             #expect(await service.isConverting(folderName: "a"))
@@ -69,7 +71,8 @@ import Testing
 
             _ = await service.startConversion(
                 folderName: "rec", mic: mic, system: nil,
-                destination: dest, keepSourcesOnSuccess: true
+                destination: dest, micFlac: tmp.appending(path: "mic.flac"), systemFlac: nil,
+                keepSourcesOnSuccess: true, keepSeparateTracks: false
             )
 
             // Kick off a waiter; it should not return until we fire the signal.
@@ -110,7 +113,8 @@ import Testing
 
             let task = await service.startConversion(
                 folderName: "rec", mic: mic, system: system,
-                destination: dest, keepSourcesOnSuccess: false
+                destination: dest, micFlac: tmp.appending(path: "mic.flac"), systemFlac: nil,
+                keepSourcesOnSuccess: false, keepSeparateTracks: false
             )
             _ = await task.value
 
@@ -132,7 +136,8 @@ import Testing
 
             let task = await service.startConversion(
                 folderName: "rec", mic: mic, system: nil,
-                destination: dest, keepSourcesOnSuccess: true
+                destination: dest, micFlac: tmp.appending(path: "mic.flac"), systemFlac: nil,
+                keepSourcesOnSuccess: true, keepSeparateTracks: false
             )
             _ = await task.value
 
@@ -155,11 +160,13 @@ import Testing
 
             let task1 = await service.startConversion(
                 folderName: "x", mic: mic, system: nil,
-                destination: dest, keepSourcesOnSuccess: true
+                destination: dest, micFlac: tmp.appending(path: "mic.flac"), systemFlac: nil,
+                keepSourcesOnSuccess: true, keepSeparateTracks: false
             )
             let task2 = await service.startConversion(
                 folderName: "x", mic: mic, system: nil,
-                destination: dest, keepSourcesOnSuccess: true
+                destination: dest, micFlac: tmp.appending(path: "mic.flac"), systemFlac: nil,
+                keepSourcesOnSuccess: true, keepSeparateTracks: false
             )
 
             await signal.fire()
@@ -190,7 +197,8 @@ import Testing
 
             let task = await service.startConversion(
                 folderName: "rec", mic: mic, system: nil,
-                destination: dest, keepSourcesOnSuccess: false
+                destination: dest, micFlac: tmp.appending(path: "mic.flac"), systemFlac: nil,
+                keepSourcesOnSuccess: false, keepSeparateTracks: false
             )
             let outcome = await task.value
 
@@ -211,4 +219,50 @@ import Testing
 private actor Counter {
     private(set) var value: Int = 0
     func increment() { value += 1 }
+}
+
+@Test func conversionKeepsSeparateTracksWhenEnabled() async throws {
+    let dir = URL(filePath: NSTemporaryDirectory()).appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    let mic = dir.appending(path: "mic.caf");     FileManager.default.createFile(atPath: mic.path, contents: Data())
+    let sys = dir.appending(path: "system.caf");  FileManager.default.createFile(atPath: sys.path, contents: Data())
+    let combined = dir.appending(path: "combined.flac")
+    let micFlac = dir.appending(path: "mic.flac")
+    let sysFlac = dir.appending(path: "system.flac")
+
+    let svc = RecordingConversionService(
+        combine: { _, _, dest in FileManager.default.createFile(atPath: dest.path, contents: Data()) },
+        exportTrack: { _, dest in FileManager.default.createFile(atPath: dest.path, contents: Data()) })
+
+    let outcome = await svc.startConversion(
+        folderName: "f", mic: mic, system: sys, destination: combined,
+        micFlac: micFlac, systemFlac: sysFlac,
+        keepSourcesOnSuccess: false, keepSeparateTracks: true).value
+
+    #expect({ if case .success = outcome.result { return true } else { return false } }())
+    #expect(FileManager.default.fileExists(atPath: micFlac.path))   // separate FLAC kept
+    #expect(FileManager.default.fileExists(atPath: sysFlac.path))
+    #expect(!FileManager.default.fileExists(atPath: mic.path))      // .caf deleted (keepSources false)
+    try? FileManager.default.removeItem(at: dir)
+}
+
+@Test func conversionSkipsSeparateTracksWhenDisabled() async throws {
+    let dir = URL(filePath: NSTemporaryDirectory()).appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    let mic = dir.appending(path: "mic.caf");     FileManager.default.createFile(atPath: mic.path, contents: Data())
+    let combined = dir.appending(path: "combined.flac")
+    let micFlac = dir.appending(path: "mic.flac")
+
+    let svc = RecordingConversionService(
+        combine: { _, _, dest in FileManager.default.createFile(atPath: dest.path, contents: Data()) },
+        exportTrack: { _, dest in FileManager.default.createFile(atPath: dest.path, contents: Data()) })
+
+    _ = await svc.startConversion(
+        folderName: "f", mic: mic, system: nil, destination: combined,
+        micFlac: micFlac, systemFlac: nil,
+        keepSourcesOnSuccess: true, keepSeparateTracks: false).value
+
+    #expect(!FileManager.default.fileExists(atPath: micFlac.path)) // not produced when disabled
+    #expect(FileManager.default.fileExists(atPath: mic.path))      // .caf kept
+    try? FileManager.default.removeItem(at: dir)
 }
