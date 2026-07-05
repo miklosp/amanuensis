@@ -1,15 +1,25 @@
 import Foundation
+import FluidAudio
+import AudioPipelineJobs
 
 public actor LocalTranscriptionService {
     private let fluidAudio: any LocalTranscriptionEngine
     private let whisperKit: any LocalTranscriptionEngine
     private let indicConformer: any LocalTranscriptionEngine
+    private let diarizer: any SpeakerDiarizing
+    private let loadSamples: @Sendable (URL) throws -> [Float]
 
-    public init(fluidAudio: any LocalTranscriptionEngine, whisperKit: any LocalTranscriptionEngine,
-                indicConformer: any LocalTranscriptionEngine) {
+    public init(
+        fluidAudio: any LocalTranscriptionEngine, whisperKit: any LocalTranscriptionEngine,
+        indicConformer: any LocalTranscriptionEngine,
+        diarizer: any SpeakerDiarizing = FluidAudioDiarizer(),
+        loadSamples: @escaping @Sendable (URL) throws -> [Float] = { try AudioConverter().resampleAudioFile($0) }
+    ) {
         self.fluidAudio = fluidAudio
         self.whisperKit = whisperKit
         self.indicConformer = indicConformer
+        self.diarizer = diarizer
+        self.loadSamples = loadSamples
     }
 
     private func resolve(_ modelID: String) throws -> (LocalModel, any LocalTranscriptionEngine) {
@@ -54,6 +64,32 @@ public actor LocalTranscriptionService {
     public func transcribe(audioURL: URL, modelID: String, language: String?) async throws -> String {
         let (m, e) = try resolve(modelID)
         return try await e.transcribe(audioURL: audioURL, model: m, language: language)
+    }
+
+    public func transcribeDiarized(audioURL: URL, modelID: String, language: String?) async throws -> String {
+        let (m, e) = try resolve(modelID)
+        let words: [TimedWord]
+        do {
+            words = try await e.transcribeTimed(audioURL: audioURL, model: m, language: language)
+        } catch let error as LocalTranscriptionError {
+            // Engine can't produce word timestamps → plain transcript, no labels.
+            if case .timestampsUnsupported = error {
+                return try await e.transcribe(audioURL: audioURL, model: m, language: language)
+            }
+            throw error
+        }
+        let plain = words.map(\.text).joined().trimmingCharacters(in: .whitespaces)
+        let segments: [DiarizedSegment]
+        do {
+            let samples = try loadSamples(audioURL)
+            segments = try await diarizer.diarize(samples: samples)
+        } catch {
+            return plain   // diarization failure degrades to plain transcript
+        }
+        let runs = attributeSpeakers(words: words, segments: segments)
+        let distinct = Set(runs.map(\.speaker))
+        if distinct.count <= 1 { return plain }
+        return formatSpeakerRuns(runs)
     }
     public func isDownloaded(modelID: String) async throws -> Bool { let (m, e) = try resolve(modelID); return await e.isDownloaded(m) }
     public func installedBytes(modelID: String) async throws -> Int64 { let (m, e) = try resolve(modelID); return await e.installedBytes(m) }
