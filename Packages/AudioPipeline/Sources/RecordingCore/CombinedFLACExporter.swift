@@ -45,6 +45,18 @@ public enum CombinedFLACExporter {
         try Self.writeFLAC(buffer: mixed, to: destination)
     }
 
+    /// Encode a single source track to its own 16 kHz mono FLAC (no summing).
+    public nonisolated static func exportTrack(source: URL, to destination: URL) async throws {
+        guard let mixFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: 16_000,
+            channels: 1,
+            interleaved: false
+        ) else { throw ExportError.mixFormatUnavailable }
+        let buffer = try Self.readAndConvert(url: source, to: mixFormat)
+        try Self.writeFLAC(buffer: buffer, to: destination)
+    }
+
     // Read entire file → resample/downmix to mixFormat → return one big buffer.
     private nonisolated static func readAndConvert(
         url: URL, to mixFormat: AVAudioFormat
