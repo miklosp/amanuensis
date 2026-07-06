@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import FluidAudio
 @testable import LocalTranscription
 
 @Test func diarizesTwoSpeakerFixtureWhenModelsPresent() async throws {
