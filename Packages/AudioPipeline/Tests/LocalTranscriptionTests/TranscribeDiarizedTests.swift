@@ -19,6 +19,11 @@ private struct FakeDiarizer: SpeakerDiarizing {
     func diarize(samples: [Float]) async throws -> [DiarizedSegment] { segments }
 }
 
+private struct ThrowingDiarizer: SpeakerDiarizing {
+    let error: any Error
+    func diarize(samples: [Float]) async throws -> [DiarizedSegment] { throw error }
+}
+
 // A resampler seam is needed because the real AudioConverter reads a file.
 // If LocalTranscriptionService loads samples via an injected closure (see Step 3),
 // tests pass a stub. Otherwise these tests must point audioURL at a real 16k mono file.
@@ -46,6 +51,32 @@ private let turboID = "whisper-large-v3-turbo"
         whisperKit: FakeTimedEngine(words: words),
         indicConformer: FakeTimedEngine(words: []),
         diarizer: FakeDiarizer(segments: segs),
+        loadSamples: { _ in [] })
+    let out = try await service.transcribeDiarized(audioURL: URL(filePath: "/dev/null"), modelID: turboID, language: "en")
+    #expect(out == "a b")
+}
+
+@Test func diarizedRethrowsCancellationInsteadOfDegradingToPlain() async throws {
+    let words = [TimedWord(text: " a", start: 0, end: 0.5), TimedWord(text: " b", start: 0.5, end: 1)]
+    let service = LocalTranscriptionService(
+        fluidAudio: FakeTimedEngine(words: []),
+        whisperKit: FakeTimedEngine(words: words),
+        indicConformer: FakeTimedEngine(words: []),
+        diarizer: ThrowingDiarizer(error: CancellationError()),
+        loadSamples: { _ in [] })
+    await #expect(throws: CancellationError.self) {
+        try await service.transcribeDiarized(audioURL: URL(filePath: "/dev/null"), modelID: turboID, language: "en")
+    }
+}
+
+@Test func diarizedDegradesToPlainOnNonCancellationFailure() async throws {
+    struct Boom: Error {}
+    let words = [TimedWord(text: " a", start: 0, end: 0.5), TimedWord(text: " b", start: 0.5, end: 1)]
+    let service = LocalTranscriptionService(
+        fluidAudio: FakeTimedEngine(words: []),
+        whisperKit: FakeTimedEngine(words: words),
+        indicConformer: FakeTimedEngine(words: []),
+        diarizer: ThrowingDiarizer(error: Boom()),
         loadSamples: { _ in [] })
     let out = try await service.transcribeDiarized(audioURL: URL(filePath: "/dev/null"), modelID: turboID, language: "en")
     #expect(out == "a b")

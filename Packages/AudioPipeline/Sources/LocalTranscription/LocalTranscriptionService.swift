@@ -89,6 +89,8 @@ public actor LocalTranscriptionService {
         do {
             let samples = try await loadSamples(audioURL)
             segments = try await diarizer.diarize(samples: samples)
+        } catch is CancellationError {
+            throw CancellationError()   // honor cancellation; don't mask it as a completed plain transcript
         } catch {
             return plain   // diarization failure degrades to plain transcript
         }

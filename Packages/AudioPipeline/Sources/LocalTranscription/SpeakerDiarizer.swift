@@ -30,6 +30,13 @@ public actor FluidAudioDiarizer: SpeakerDiarizing {
 
     public func diarize(samples: [Float]) async throws -> [DiarizedSegment] {
         let models = try await ensureModels()
+        // The detached task below is unstructured and never `.cancel()`'d, so a check
+        // inside it would always read not-cancelled. Check on this (cancellable) task
+        // instead: a caller that already cancelled — e.g. during the resample step —
+        // never starts the 10–30 s CPU-bound diarization or pins the samples buffer.
+        // Mid-flight cancellation isn't possible; `performCompleteDiarization` has no
+        // cooperative checkpoints.
+        try Task.checkCancellation()
         return try await Task.detached(priority: .utility) {
             let manager = DiarizerManager(config: .default)   // numClusters: -1 → automatic speaker count
             manager.initialize(models: models)
