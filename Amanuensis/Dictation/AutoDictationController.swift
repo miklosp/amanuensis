@@ -85,15 +85,16 @@ final class AutoDictationController {
         overlay.setModelLoading(true)
         overlay.update(phase: .listening, enabled: settings.dictation.showOverlay)
 
+        runGeneration += 1
+        let gen = runGeneration
+
         // Serial transcription consumer: one segment at a time, in order.
         let (segStream, segCont) = AsyncStream<[Float]>.makeStream()
         segmentStream = segCont
         transcribeTask = Task { [weak self] in
-            for await samples in segStream { await self?.transcribeAndInsert(samples) }
+            for await samples in segStream { await self?.transcribeAndInsert(samples, generation: gen) }
         }
 
-        runGeneration += 1
-        let gen = runGeneration
         prepareTask = Task { [weak self] in
             guard let self else { return }
             do {
@@ -174,7 +175,8 @@ final class AutoDictationController {
         overlay.update(phase: .transcribing, enabled: settings.dictation.showOverlay)
     }
 
-    private func transcribeAndInsert(_ samples: [Float]) async {
+    private func transcribeAndInsert(_ samples: [Float], generation gen: Int) async {
+        guard isRunning, runGeneration == gen else { return }   // stale drained segment from a stopped/restarted session — skip write+transcribe entirely
         let url = tempStore.newCaptureURL()
         defer { tempStore.delete(url) }
         do {
@@ -201,7 +203,7 @@ final class AutoDictationController {
             return
         }
         let text = box.value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard isRunning else { return }   // toggled off mid-transcription: drop the tail utterance rather than insert into whatever is now focused
+        guard isRunning, runGeneration == gen else { return }   // toggled off (or restarted) mid-transcription: drop the tail utterance rather than insert into whatever is now focused
         if !text.isEmpty {
             _ = TextInserter().insert(" " + text, mode: settings.dictation.insertMode)
         }
