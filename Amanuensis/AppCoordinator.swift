@@ -53,6 +53,7 @@ final class AppCoordinator {
     let providers: ProvidersStore
     let logs: LogStore
     let dictation: DictationCoordinator
+    let autoDictation: AutoDictationController
     let localService: LocalTranscriptionService
     let localModelsStore: LocalModelsStore
     // Handler map including the on-device sender. Shared by batch jobs (runJob)
@@ -108,6 +109,16 @@ final class AppCoordinator {
             [.localTranscription: LocalTranscriptionSender(service: localService)]) { _, new in new }
         self.localHandlers = localHandlers
 
+        let autoDictation = AutoDictationController(
+            settings: settings,
+            keychain: keychain,
+            handlers: localHandlers,
+            ensureLocalModelResident: { [localModelsStore] id in await localModelsStore.preload(modelID: id) },
+            log: { [logs] message in logs.log(.error, message, category: .recording) },
+            vadModelDirectory: (try? ModelStorage.base().appendingPathComponent("FluidAudioVAD", isDirectory: true))
+                ?? FileManager.default.temporaryDirectory.appendingPathComponent("FluidAudioVAD", isDirectory: true))
+        self.autoDictation = autoDictation
+
         self.dictation = DictationCoordinator(
             settings: settings,
             keychain: keychain,
@@ -116,6 +127,7 @@ final class AppCoordinator {
             handlers: localHandlers,
             ensureLocalModelResident: { [localModelsStore] id in await localModelsStore.preload(modelID: id) },
             isLocalModelResident: { [localModelsStore] id in localModelsStore.residentModelID == id },
+            autoController: autoDictation,
             log: { [logs] message in logs.log(.error, message, category: .recording) }
         )
 
