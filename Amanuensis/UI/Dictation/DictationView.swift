@@ -24,6 +24,16 @@ struct DictationView: View {
                 .onChange(of: settings.dictation.trigger) { _, _ in
                     coordinator.dictation.settingsChanged()
                 }
+
+                Picker("Short tap", selection: $settings.dictation.shortTapAction) {
+                    Text("Start / stop one capture").tag(DictationSettings.ShortTapAction.oneShot)
+                    Text("Toggle auto-listening").tag(DictationSettings.ShortTapAction.autoListening)
+                }
+                .onChange(of: settings.dictation.shortTapAction) { _, _ in
+                    coordinator.dictation.settingsChanged()
+                }
+                .help("With auto-listening, a tap of the trigger turns hands-free dictation on or off. Hold still works as push-to-talk.")
+
                 if settings.dictation.trigger == .function {
                     Text("Fn may also trigger a macOS action (System Settings ▸ Keyboard ▸ “Press 🌐 to”).")
                         .font(.caption).foregroundStyle(.secondary)
