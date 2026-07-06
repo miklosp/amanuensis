@@ -22,3 +22,26 @@ import DictationCore
     #expect(reloaded.dictation.enabled == true)
     #expect(reloaded.dictation.model == "whisper-large-v3")
 }
+
+@Test func shortTapActionDefaultsToOneShot() {
+    #expect(DictationSettings().shortTapAction == .oneShot)
+}
+
+@Test func shortTapActionRoundTrips() throws {
+    var s = DictationSettings()
+    s.shortTapAction = .autoListening
+    let data = try JSONEncoder().encode(s)
+    let decoded = try JSONDecoder().decode(DictationSettings.self, from: data)
+    #expect(decoded.shortTapAction == .autoListening)
+}
+
+@Test func shortTapActionAbsentDecodesToOneShot() throws {
+    // A pre-auto-dictation blob has no shortTapAction key.
+    let json = """
+    {"enabled":false,"trigger":"rightCommand","holdThresholdMs":250,
+     "model":"whisper-large-v3-turbo","insertMode":"autoInsert",
+     "showOverlay":false,"keepAudio":false,"streamLive":false,"language":"en"}
+    """
+    let decoded = try JSONDecoder().decode(DictationSettings.self, from: Data(json.utf8))
+    #expect(decoded.shortTapAction == .oneShot)
+}
