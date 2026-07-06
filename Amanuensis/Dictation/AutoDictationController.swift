@@ -48,6 +48,16 @@ final class AutoDictationController {
     private var preRoll: [[Float]] = []
     private var current: [Float] = []
 
+    // Model + language are snapshotted at start() so every segment in a session
+    // transcribes with what the session was prepared with — a mid-session
+    // settings change can't feed later segments an invalid/remote model.
+    private var sessionModel = ""
+    private var sessionLanguage = ""
+    // No leading space before the first insert of a session (avoids a stray space
+    // in an empty field); subsequent utterances get one as a separator.
+    private var didInsertThisSession = false
+    private let inserter = TextInserter()
+
     init(settings: AppSettings,
          keychain: any KeychainProviding,
          handlers: [JobShape: any AudioJobSending],
@@ -98,6 +108,7 @@ final class AutoDictationController {
         frameStream?.finish(); frameStream = nil
         consumerTask?.cancel(); consumerTask = nil
         segmentStream?.finish(); segmentStream = nil   // lets the transcribe loop drain + exit
+        transcribeTask = nil                            // drop the handle; the task drains + exits on its own (generation guard blocks stale inserts)
         preRoll.removeAll(); current.removeAll()
         segmenter = AutoDictationSegmenter(maxSegmentFrames: Self.maxSegmentFrames)
         overlay.update(phase: .idle, enabled: true)
@@ -111,6 +122,10 @@ final class AutoDictationController {
             overlay.flash("Auto-dictation needs a local model on Apple Silicon")
             return
         }
+        // Snapshot the model/language this session runs with (see properties).
+        sessionModel = settings.dictation.model
+        sessionLanguage = settings.dictation.language
+        didInsertThisSession = false
         isRunning = true
         overlay.update(phase: .listening, enabled: true)   // always show the compact "listening" dot while on
 
@@ -211,6 +226,7 @@ final class AutoDictationController {
         case .rolloverSegment:
             finalizeCurrent()
             current = frame                    // this frame opens the next segment
+            overlay.update(phase: .listening, enabled: true)   // back to listening: the new segment is capturing, not transcribing
         }
     }
 
@@ -235,8 +251,8 @@ final class AutoDictationController {
         }
         let job = Job(
             name: "Dictation", providerID: Provider.localID,
-            model: settings.dictation.model,
-            fields: ["language": settings.dictation.language], outputExt: "txt")
+            model: sessionModel,
+            fields: ["language": sessionLanguage], outputExt: "txt")
         let transcriber = BatchTranscriber(
             job: job, provider: .localPlaceholder,
             shape: .localTranscription, keychain: keychain, handlers: handlers)
@@ -252,7 +268,13 @@ final class AutoDictationController {
         let text = box.value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard isRunning, runGeneration == gen else { return }   // toggled off (or restarted) mid-transcription: drop the tail utterance rather than insert into whatever is now focused
         if !text.isEmpty {
-            _ = TextInserter().insert(" " + text, mode: settings.dictation.insertMode)
+            let separator = didInsertThisSession ? " " : ""
+            let outcome = inserter.insert(separator + text, mode: settings.dictation.insertMode)
+            didInsertThisSession = true
+            if outcome == .clipboardFallback {
+                overlay.flash("Copied — press ⌘V")   // same cue one-shot gives when it can't paste
+                return                               // flash owns the overlay; don't clobber it back to listening
+            }
         }
         if isRunning { overlay.update(phase: .listening, enabled: true) }
     }

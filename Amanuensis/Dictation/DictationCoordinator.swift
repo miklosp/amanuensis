@@ -73,7 +73,9 @@ final class DictationCoordinator {
             stopMonitor()
             abortCapture(flash: nil)
         }
-        if !settings.dictation.enabled || settings.dictation.shortTapAction != .autoListening {
+        if !settings.dictation.enabled
+            || settings.dictation.shortTapAction != .autoListening
+            || TranscriptionSource(providerID: settings.dictation.providerID) != .local {
             autoController.stop()
         } else {
             autoController.warm()   // switching to auto-listening: preload ahead of the first toggle
@@ -86,6 +88,14 @@ final class DictationCoordinator {
     /// does.
     func autoPauseChanged() {
         autoController.pauseChanged()
+    }
+
+    /// The dictation provider or model changed. Stop any running auto loop so it
+    /// can't keep feeding later utterances a model it wasn't started with (the
+    /// user re-taps to resume with the new settings). Provider/model changes come
+    /// from Settings, which doesn't route through `settingsChanged()`.
+    func dictationSourceChanged() {
+        autoController.stop()
     }
 
     private func startMonitor() {

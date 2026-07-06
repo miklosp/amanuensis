@@ -73,6 +73,7 @@ struct DictationView: View {
                     }
                 }
                 .onChange(of: settings.dictation.providerID) { _, _ in
+                    coordinator.dictation.dictationSourceChanged()
                     Task { await coordinator.syncDictationWarmModel() }
                 }
 
@@ -84,6 +85,7 @@ struct DictationView: View {
                     isBusy: coordinator.localModelsStore.loadingModelID != nil
                         || coordinator.localModelsStore.unloadingModelID != nil)
                 .onChange(of: settings.dictation.model) { _, _ in
+                    coordinator.dictation.dictationSourceChanged()
                     normalizeDictationLanguage()
                     Task { await coordinator.syncDictationWarmModel() }
                 }

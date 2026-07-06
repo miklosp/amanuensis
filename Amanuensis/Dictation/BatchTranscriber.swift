@@ -11,6 +11,12 @@ struct BatchTranscriber: DictationTranscriber {
     let keychain: any KeychainProviding
     var handlers: [JobShape: any AudioJobSending] = JobRunner.defaultHandlers
 
+    /// Invariant relied on by callers: `onFinal` is invoked exactly once,
+    /// synchronously, before this method returns — the `await` is the
+    /// happens-before barrier. Callers (`DictationCoordinator.ResultRef`,
+    /// `AutoDictationController.TranscriptBox`) use unsynchronized boxes on that
+    /// basis; a future streaming transcriber that calls `onFinal` off-thread must
+    /// update those call sites.
     func transcribe(
         audioFile: URL,
         onPartial: @Sendable (String) -> Void,
