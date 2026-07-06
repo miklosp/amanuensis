@@ -46,15 +46,15 @@ public enum SegmentAudioWriter {
             pcmFormat: outFormat, frameCapacity: AVAudioFrameCount(samples.count)) else {
             throw WriterError.bufferAllocationFailed
         }
-        var err: NSError?
-        var fed = false
-        converter.convert(to: intBuffer, error: &err) { _, status in
-            if fed { status.pointee = .noDataNow; return nil }
-            fed = true
-            status.pointee = .haveData
-            return floatBuffer
+        // One-shot float32→Int16 conversion (no sample-rate change, so the
+        // whole input converts in a single call — available since macOS 12,
+        // well under our 14.4 floor). Guard the output frame count against a
+        // silent truncation before writing: the manual pull-block form discards
+        // the output status and can write a short/empty buffer without error.
+        try converter.convert(to: intBuffer, from: floatBuffer)
+        guard intBuffer.frameLength == AVAudioFrameCount(samples.count) else {
+            throw WriterError.bufferAllocationFailed
         }
-        if let err { throw err }
         try file.write(from: intBuffer)
         // file is released here → AVAudioFile finalizes the WAV container on disk.
     }
