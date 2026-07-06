@@ -45,3 +45,27 @@ import DictationCore
     let decoded = try JSONDecoder().decode(DictationSettings.self, from: Data(json.utf8))
     #expect(decoded.shortTapAction == .oneShot)
 }
+
+@Test func autoPauseMsDefaultsTo600() {
+    #expect(DictationSettings().autoPauseMs == 600)
+}
+
+@Test func autoPauseMsRoundTrips() throws {
+    var s = DictationSettings()
+    s.autoPauseMs = 900
+    let data = try JSONEncoder().encode(s)
+    let decoded = try JSONDecoder().decode(DictationSettings.self, from: data)
+    #expect(decoded.autoPauseMs == 900)
+}
+
+@Test func autoPauseMsAbsentDecodesTo600() throws {
+    // A blob predating the pause setting has no autoPauseMs key.
+    let json = """
+    {"enabled":false,"trigger":"rightCommand","holdThresholdMs":250,
+     "model":"whisper-large-v3-turbo","insertMode":"autoInsert",
+     "showOverlay":false,"keepAudio":false,"streamLive":false,
+     "shortTapAction":"autoListening","language":"en"}
+    """
+    let decoded = try JSONDecoder().decode(DictationSettings.self, from: Data(json.utf8))
+    #expect(decoded.autoPauseMs == 600)
+}

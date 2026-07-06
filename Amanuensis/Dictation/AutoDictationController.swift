@@ -23,13 +23,17 @@ final class AutoDictationController {
 
     private let detector: StreamingVoiceDetector
     private let tempStore = DictationTempStore()
-    private let overlay = DictationOverlayController()
+    private let overlay = DictationOverlayController(compact: true)
 
     // Tuning. One frame = 4096 samples = 256 ms @ 16 kHz.
     private static let frameSamples = StreamingVoiceDetector.frameSize
     private static let maxSegmentFrames = 59          // ~15 s
-    private static let preRollFrames = 2              // ~512 ms
+    private static let preRollFrames = 4              // ~1 s: covers VAD onset lag so the first word isn't clipped
     private static let minSegmentSamples = 4_000      // ~250 ms: discard shorter
+
+    /// Set once the VAD model is loaded and the transcription model is resident,
+    /// so a repeat toggle-on skips the load path and starts instantly.
+    private var warmed = false
 
     private var tap: ContinuousMicTap?
     private var frameStream: AsyncStream<[Float]>.Continuation?
@@ -60,6 +64,32 @@ final class AutoDictationController {
 
     func toggle() { isRunning ? stop() : start() }
 
+    /// Preload the VAD model and warm the transcription model ahead of the first
+    /// toggle, so starting the loop is instant. Idempotent; no-op unless auto is
+    /// the selected mode on a supported machine. Called at launch and when the
+    /// user switches to auto-listening in Settings.
+    func warm() {
+        guard !warmed,
+              TranscriptionSource(providerID: settings.dictation.providerID) == .local,
+              LocalModelSupport.isSupported else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            do { try await self.detector.prepare() } catch {
+                self.log("Auto-dictation: VAD warm failed: \(error.localizedDescription)")
+                return
+            }
+            await self.ensureLocalModelResident(self.settings.dictation.model)
+            self.warmed = true
+        }
+    }
+
+    /// Push the current pause-detection setting to the VAD. Safe any time; a
+    /// change applies to the next detected utterance (no need to toggle off/on).
+    func pauseChanged() {
+        let seconds = TimeInterval(settings.dictation.autoPauseMs) / 1000
+        Task { [weak self] in await self?.detector.setEndpointSilence(seconds) }
+    }
+
     func stop() {
         guard isRunning else { return }
         isRunning = false
@@ -70,7 +100,7 @@ final class AutoDictationController {
         segmentStream?.finish(); segmentStream = nil   // lets the transcribe loop drain + exit
         preRoll.removeAll(); current.removeAll()
         segmenter = AutoDictationSegmenter(maxSegmentFrames: Self.maxSegmentFrames)
-        overlay.update(phase: .idle, enabled: settings.dictation.showOverlay)
+        overlay.update(phase: .idle, enabled: true)
     }
 
     private func start() {
@@ -82,11 +112,11 @@ final class AutoDictationController {
             return
         }
         isRunning = true
-        overlay.setModelLoading(true)
-        overlay.update(phase: .listening, enabled: settings.dictation.showOverlay)
+        overlay.update(phase: .listening, enabled: true)   // always show the compact "listening" dot while on
 
         runGeneration += 1
         let gen = runGeneration
+        let pause = TimeInterval(settings.dictation.autoPauseMs) / 1000
 
         // Serial transcription consumer: one segment at a time, in order.
         let (segStream, segCont) = AsyncStream<[Float]>.makeStream()
@@ -95,10 +125,26 @@ final class AutoDictationController {
             for await samples in segStream { await self?.transcribeAndInsert(samples, generation: gen) }
         }
 
+        if warmed {
+            // Instant path: model already loaded, so no "Loading model…" — just
+            // apply the pause, reset the stream, and start capturing.
+            prepareTask = Task { [weak self] in
+                guard let self else { return }
+                await self.detector.setEndpointSilence(pause)
+                await self.detector.reset()
+                guard self.isRunning, self.runGeneration == gen else { return }
+                self.beginCapture()
+            }
+            return
+        }
+
+        // Cold path: first ever start (or warm hasn't finished). Show the loader.
+        overlay.setModelLoading(true)
         prepareTask = Task { [weak self] in
             guard let self else { return }
             do {
                 try await self.detector.prepare()
+                await self.detector.setEndpointSilence(pause)
                 await self.detector.reset()
                 await self.ensureLocalModelResident(self.settings.dictation.model)
             } catch {
@@ -109,6 +155,7 @@ final class AutoDictationController {
                 return
             }
             guard self.isRunning, self.runGeneration == gen else { return }   // a stop()/restart happened during prepare — abandon this stale session
+            self.warmed = true
             self.overlay.setModelLoading(false)
             self.beginCapture()
         }
@@ -156,7 +203,7 @@ final class AutoDictationController {
             break
         case .beginSegment:
             current = preRoll.flatMap { $0 }   // include pre-roll + this frame
-            overlay.update(phase: .listening, enabled: settings.dictation.showOverlay)
+            overlay.update(phase: .listening, enabled: true)
         case .appendFrame:
             current.append(contentsOf: frame)
         case .finalizeSegment:
@@ -172,7 +219,7 @@ final class AutoDictationController {
         current.removeAll()
         guard samples.count >= Self.minSegmentSamples else { return }   // drop coughs/clicks
         segmentStream?.yield(samples)
-        overlay.update(phase: .transcribing, enabled: settings.dictation.showOverlay)
+        overlay.update(phase: .transcribing, enabled: true)
     }
 
     private func transcribeAndInsert(_ samples: [Float], generation gen: Int) async {
@@ -183,7 +230,7 @@ final class AutoDictationController {
             try await Task.detached { try SegmentAudioWriter.write(samples, to: url) }.value
         } catch {
             log("Auto-dictation: segment write failed: \(error.localizedDescription)")
-            if isRunning { overlay.update(phase: .listening, enabled: settings.dictation.showOverlay) }
+            if isRunning { overlay.update(phase: .listening, enabled: true) }
             return
         }
         let job = Job(
@@ -199,7 +246,7 @@ final class AutoDictationController {
                 audioFile: url, onPartial: { _ in }, onFinal: { box.value = $0 })
         } catch {
             log("Auto-dictation: transcription failed: \(error.localizedDescription)")
-            if isRunning { overlay.update(phase: .listening, enabled: settings.dictation.showOverlay) }
+            if isRunning { overlay.update(phase: .listening, enabled: true) }
             return
         }
         let text = box.value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -207,7 +254,7 @@ final class AutoDictationController {
         if !text.isEmpty {
             _ = TextInserter().insert(" " + text, mode: settings.dictation.insertMode)
         }
-        if isRunning { overlay.update(phase: .listening, enabled: settings.dictation.showOverlay) }
+        if isRunning { overlay.update(phase: .listening, enabled: true) }
     }
 }
 

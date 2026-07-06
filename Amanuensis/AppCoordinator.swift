@@ -148,6 +148,11 @@ final class AppCoordinator {
             guard let self else { return }
             await self.localModelsStore.refresh()
             await self.syncDictationWarmModel()
+            // Preload the VAD + transcription model up front when auto-listening
+            // is the selected mode, so the first toggle-on is instant.
+            if self.settings.dictation.shortTapAction == .autoListening {
+                self.autoDictation.warm()
+            }
         }
     }
 

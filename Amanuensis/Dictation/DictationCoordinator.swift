@@ -75,7 +75,17 @@ final class DictationCoordinator {
         }
         if !settings.dictation.enabled || settings.dictation.shortTapAction != .autoListening {
             autoController.stop()
+        } else {
+            autoController.warm()   // switching to auto-listening: preload ahead of the first toggle
         }
+        autoController.pauseChanged()
+    }
+
+    /// Lightweight hook for the pause-detection slider: push the new value to the
+    /// running loop without the full trigger/monitor reconfigure `settingsChanged`
+    /// does.
+    func autoPauseChanged() {
+        autoController.pauseChanged()
     }
 
     private func startMonitor() {

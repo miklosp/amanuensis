@@ -18,6 +18,9 @@ public struct DictationSettings: Codable, Equatable, Sendable {
     public var keepAudio: Bool
     public var streamLive: Bool
     public var shortTapAction: ShortTapAction
+    /// Auto-listening endpoint: trailing silence before an utterance is finalized
+    /// and typed. Only used when `shortTapAction == .autoListening`.
+    public var autoPauseMs: Int
     public var language: String
 
     public init(
@@ -31,6 +34,7 @@ public struct DictationSettings: Codable, Equatable, Sendable {
         keepAudio: Bool = false,
         streamLive: Bool = false,
         shortTapAction: ShortTapAction = .oneShot,
+        autoPauseMs: Int = 600,
         language: String = "en"
     ) {
         self.enabled = enabled
@@ -43,6 +47,7 @@ public struct DictationSettings: Codable, Equatable, Sendable {
         self.keepAudio = keepAudio
         self.streamLive = streamLive
         self.shortTapAction = shortTapAction
+        self.autoPauseMs = autoPauseMs
         self.language = language
     }
 
@@ -60,6 +65,7 @@ public struct DictationSettings: Codable, Equatable, Sendable {
         keepAudio = try c.decode(Bool.self, forKey: .keepAudio)
         streamLive = try c.decodeIfPresent(Bool.self, forKey: .streamLive) ?? false
         shortTapAction = try c.decodeIfPresent(ShortTapAction.self, forKey: .shortTapAction) ?? .oneShot
+        autoPauseMs = try c.decodeIfPresent(Int.self, forKey: .autoPauseMs) ?? 600
         language = try c.decodeIfPresent(String.self, forKey: .language) ?? "en"
     }
 

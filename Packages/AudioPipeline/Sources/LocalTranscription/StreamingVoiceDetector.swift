@@ -13,13 +13,17 @@ public actor StreamingVoiceDetector {
     public static let frameSize = VadManager.chunkSize   // 4096
 
     private let modelDirectory: URL
-    private let segConfig: VadSegmentationConfig
+    private var segConfig: VadSegmentationConfig
     private let vadConfig: VadConfig
 
     private var manager: VadManager?
     private var state: VadStreamState = .initial()
 
-    public init(modelDirectory: URL, endpointSilence: TimeInterval = 0.6, threshold: Float = 0.85) {
+    // Default threshold is deliberately below FluidAudio's 0.85: a lower entry
+    // threshold fires `speechStart` closer to the true onset, which (with the
+    // controller's pre-roll) keeps the first word from being clipped. Still high
+    // enough to reject steady background noise.
+    public init(modelDirectory: URL, endpointSilence: TimeInterval = 0.6, threshold: Float = 0.7) {
         self.modelDirectory = modelDirectory
         self.vadConfig = VadConfig(defaultThreshold: threshold)
         // maxSpeechDuration is unused by the streaming path (the segmenter owns
@@ -28,6 +32,13 @@ public actor StreamingVoiceDetector {
         self.segConfig = VadSegmentationConfig(
             minSilenceDuration: endpointSilence,
             speechPadding: 0.1)
+    }
+
+    /// Update the endpoint pause (trailing silence before an utterance is
+    /// finalized). Takes effect on the next processed frame; safe to call before
+    /// `prepare()` or between sessions.
+    public func setEndpointSilence(_ seconds: TimeInterval) {
+        segConfig = VadSegmentationConfig(minSilenceDuration: seconds, speechPadding: 0.1)
     }
 
     /// Load (downloading if needed) the Silero VAD model. Idempotent.
