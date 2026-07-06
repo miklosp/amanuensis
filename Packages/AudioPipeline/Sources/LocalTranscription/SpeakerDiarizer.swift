@@ -29,13 +29,17 @@ public actor FluidAudioDiarizer: SpeakerDiarizing {
     }
 
     public func diarize(samples: [Float]) async throws -> [DiarizedSegment] {
+        // A caller cancelled before diarization starts (e.g. during the resample step)
+        // shouldn't trigger the diarizer's first-run Core ML download/compile inside
+        // `ensureModels()`. Check before loading anything.
+        try Task.checkCancellation()
         let models = try await ensureModels()
-        // The detached task below is unstructured and never `.cancel()`'d, so a check
-        // inside it would always read not-cancelled. Check on this (cancellable) task
-        // instead: a caller that already cancelled — e.g. during the resample step —
-        // never starts the 10–30 s CPU-bound diarization or pins the samples buffer.
-        // Mid-flight cancellation isn't possible; `performCompleteDiarization` has no
-        // cooperative checkpoints.
+        // Check again after the model-load await: cancellation may have arrived while
+        // `ensureModels()` was downloading/compiling. The detached task below is
+        // unstructured and never `.cancel()`'d, so a check inside it would always read
+        // not-cancelled — this is the last cancellable point before the 10–30 s CPU-bound
+        // diarization starts and pins the samples buffer. Mid-flight cancellation isn't
+        // possible; `performCompleteDiarization` has no cooperative checkpoints.
         try Task.checkCancellation()
         return try await Task.detached(priority: .utility) {
             let manager = DiarizerManager(config: .default)   // numClusters: -1 → automatic speaker count
