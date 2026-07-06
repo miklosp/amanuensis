@@ -78,11 +78,16 @@ public actor LocalTranscriptionService {
         do {
             words = try await e.transcribeTimed(audioURL: audioURL, model: m, language: language)
         } catch let error as LocalTranscriptionError {
-            // Engine can't produce word timestamps → plain transcript, no labels.
-            if case .timestampsUnsupported = error {
+            switch error {
+            case .timestampsUnsupported:
+                // Engine ran no ASR (SenseVoice/Cohere/default) → the plain pass is the first one.
                 return try await e.transcribe(audioURL: audioURL, model: m, language: language)
+            case .timingsUnavailable(let plainText):
+                // Engine already transcribed but produced no timings → reuse its text, no second pass.
+                return plainText
+            default:
+                throw error
             }
-            throw error
         }
         let plain = words.map(\.text).joined().trimmingCharacters(in: .whitespaces)
         let segments: [DiarizedSegment]

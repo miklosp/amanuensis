@@ -302,9 +302,10 @@ public actor FluidAudioEngine: LocalTranscriptionEngine {
             }
             let result = try await runParakeet(audioURL: audioURL, model: model, language: language)
             let words = groupParakeetWords(result.tokenTimings ?? [])
-            // No timings (some configs return nil) → let the orchestration fall back to plain.
+            // No timings (some configs return nil) → hand back the already-transcribed text so
+            // the orchestration falls back to plain without running ASR a second time.
             guard !words.isEmpty else {
-                throw LocalTranscriptionError.timestampsUnsupported(model.displayName)
+                throw LocalTranscriptionError.timingsUnavailable(plainText: result.text)
             }
             return words
         default:
