@@ -55,9 +55,11 @@ final class AppCoordinator {
     let dictation: DictationCoordinator
     let localService: LocalTranscriptionService
     let localModelsStore: LocalModelsStore
-    // Handler map including the on-device sender. Shared by batch jobs (runJob)
-    // and dictation, so the local sender is constructed once.
+    // Handler map including the on-device sender (diarize off) — used by dictation only.
     let localHandlers: [JobShape: any AudioJobSending]
+    // Handler map for batch jobs (runJob): same on-device sender but with diarization
+    // enabled — only batch Jobs diarize, live dictation stays plain.
+    let batchLocalHandlers: [JobShape: any AudioJobSending]
 
     var allProviders: [Provider] { providers.providers }
 
@@ -107,6 +109,8 @@ final class AppCoordinator {
         let localHandlers = JobRunner.defaultHandlers.merging(
             [.localTranscription: LocalTranscriptionSender(service: localService)]) { _, new in new }
         self.localHandlers = localHandlers
+        self.batchLocalHandlers = JobRunner.defaultHandlers.merging(
+            [.localTranscription: LocalTranscriptionSender(service: localService, diarize: true)]) { _, new in new }
 
         self.dictation = DictationCoordinator(
             settings: settings,
@@ -310,7 +314,10 @@ final class AppCoordinator {
             mic: micURL,
             system: systemURL,
             destination: combinedURL,
-            keepSourcesOnSuccess: keepCAF
+            micFlac: folder.micFlacURL,
+            systemFlac: systemURL == nil ? nil : folder.systemFlacURL,
+            keepSourcesOnSuccess: keepCAF,
+            keepSeparateTracks: settings.keepSeparateTracks
         )
 
         Task { @MainActor in
@@ -415,7 +422,7 @@ final class AppCoordinator {
         let effectiveJob = grant.job
         if effectiveJob != job { jobs.upsert(effectiveJob) }
 
-        let runner = JobRunner(keychain: keychain, handlers: localHandlers)
+        let runner = JobRunner(keychain: keychain, handlers: batchLocalHandlers)
         do {
             let out = try await runner.run(job: effectiveJob, provider: provider, shape: shape, audioURL: target)
             await self.flashActivity("Done: '\(job.name)' → \(out.lastPathComponent)")

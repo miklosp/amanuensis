@@ -9,6 +9,7 @@ import AppSettings
 private enum PersistedKey {
     static let recordingsDirectory = "recordingsDirectory"
     static let keepOriginalCAF = "keepOriginalCAF"
+    static let keepSeparateTracks = "keepSeparateTracks"
     static let suggestRecordingWhenMicInUse = "suggestRecordingWhenMicInUse"
     static let suggestStoppingWhenMeetingEnds = "suggestStoppingWhenMeetingEnds"
 }
@@ -23,12 +24,19 @@ private func withIsolatedDefaults(_ body: (UserDefaults) -> Void) {
 }
 
 @Suite struct AppSettingsBehavior {
+    @Test func retentionDefaults() {
+        let defaults = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
+        let settings = AppSettings(defaults: defaults)
+        #expect(settings.keepSeparateTracks == true)
+        #expect(settings.keepOriginalCAF == false)
+    }
+
     @Test func freshSuite_usesBuiltInDefaults() {
         withIsolatedDefaults { defaults in
             let settings = AppSettings(defaults: defaults)
 
             #expect(settings.recordingsDirectory == AppSettings.defaultRecordingsDirectory)
-            #expect(settings.keepOriginalCAF == true)
+            #expect(settings.keepOriginalCAF == false)
             #expect(settings.suggestRecordingWhenMicInUse == true)
         }
     }

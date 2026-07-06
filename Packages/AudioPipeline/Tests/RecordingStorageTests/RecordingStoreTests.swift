@@ -78,4 +78,11 @@ import RecordingStorage
         #expect(folder.systemURL.deletingLastPathComponent() == folder.url)
         #expect(folder.metadataURL.deletingLastPathComponent() == folder.url)
     }
+
+    @Test func recordingFolderExposesPerTrackFlacURLs() {
+        let base = URL(filePath: "/tmp/rec")
+        let folder = RecordingFolder(url: base, name: "rec", startedAt: Date(timeIntervalSince1970: 0))
+        #expect(folder.micFlacURL.lastPathComponent == "mic.flac")
+        #expect(folder.systemFlacURL.lastPathComponent == "system.flac")
+    }
 }

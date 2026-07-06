@@ -58,6 +58,14 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                Toggle(isOn: $settings.keepSeparateTracks) {
+                    VStack(alignment: .leading) {
+                        Text("Keep separate mic & system tracks")
+                        Text("Also save mic.flac and system.flac next to the combined recording. Needed for per-speaker attribution of group recordings.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
             Section("Meetings") {
                 Toggle(isOn: $settings.suggestRecordingWhenMicInUse) {

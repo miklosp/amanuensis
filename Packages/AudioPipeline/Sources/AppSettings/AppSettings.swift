@@ -28,10 +28,15 @@ public final class AppSettings {
     // When true, the raw mic/system .caf files are kept on disk alongside the
     // combined .flac that is always produced at recording stop. When false,
     // the .caf files are deleted after the combined export succeeds. Default
-    // is true — a paranoid default that preserves the originals until the
-    // user explicitly opts out.
+    // is false.
     public var keepOriginalCAF: Bool {
         didSet { defaults.set(keepOriginalCAF, forKey: Keys.keepOriginalCAF) }
+    }
+
+    // When true, per-track mic.flac / system.flac are kept alongside combined.flac
+    // (needed for channel-aware diarization). Default true.
+    public var keepSeparateTracks: Bool {
+        didSet { defaults.set(keepSeparateTracks, forKey: Keys.keepSeparateTracks) }
     }
 
     // When true, Amanuensis watches the default input device and shows a cue
@@ -77,7 +82,13 @@ public final class AppSettings {
         if defaults.object(forKey: Keys.keepOriginalCAF) != nil {
             keepOriginalCAF = defaults.bool(forKey: Keys.keepOriginalCAF)
         } else {
-            keepOriginalCAF = true
+            keepOriginalCAF = false
+        }
+
+        if defaults.object(forKey: Keys.keepSeparateTracks) != nil {
+            keepSeparateTracks = defaults.bool(forKey: Keys.keepSeparateTracks)
+        } else {
+            keepSeparateTracks = true
         }
 
         if defaults.object(forKey: Keys.suggestRecordingWhenMicInUse) != nil {
@@ -110,6 +121,7 @@ public final class AppSettings {
         static let recordingsDirectory = "recordingsDirectory"
         static let recordingsDirectoryBookmark = "recordingsDirectoryBookmark"
         static let keepOriginalCAF = "keepOriginalCAF"
+        static let keepSeparateTracks = "keepSeparateTracks"
         static let suggestRecordingWhenMicInUse = "suggestRecordingWhenMicInUse"
         static let suggestStoppingWhenMeetingEnds = "suggestStoppingWhenMeetingEnds"
         static let dictation = "dictation"

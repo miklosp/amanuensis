@@ -26,13 +26,22 @@ public actor RecordingConversionService {
         _ mic: URL, _ system: URL?, _ destination: URL
     ) async throws -> Void
 
+    public typealias ExportTrack = @Sendable (_ source: URL, _ destination: URL) async throws -> Void
+
     private let combine: Combine
+    private let exportTrack: ExportTrack
     private var inflight: [String: Task<Outcome, Never>] = [:]
 
-    public init(combine: @escaping Combine = { mic, system, destination in
-        try await CombinedFLACExporter.combine(mic: mic, system: system, to: destination)
-    }) {
+    public init(
+        combine: @escaping Combine = { mic, system, destination in
+            try await CombinedFLACExporter.combine(mic: mic, system: system, to: destination)
+        },
+        exportTrack: @escaping ExportTrack = { source, destination in
+            try await CombinedFLACExporter.exportTrack(source: source, to: destination)
+        }
+    ) {
         self.combine = combine
+        self.exportTrack = exportTrack
     }
 
     public func startConversion(
@@ -40,27 +49,34 @@ public actor RecordingConversionService {
         mic: URL,
         system: URL?,
         destination: URL,
-        keepSourcesOnSuccess: Bool
+        micFlac: URL,
+        systemFlac: URL?,
+        keepSourcesOnSuccess: Bool,
+        keepSeparateTracks: Bool
     ) -> Task<Outcome, Never> {
         if let existing = inflight[folderName] { return existing }
         let combine = self.combine
+        let exportTrack = self.exportTrack
         let task = Task.detached(priority: .utility) {
             let outcome: Outcome
             do {
                 try await combine(mic, system, destination)
-                if !keepSourcesOnSuccess {
-                    do {
-                        try FileManager.default.removeItem(at: mic)
-                    } catch {
-                        Self.log.error("failed to remove mic CAF after conversion: \(String(describing: error), privacy: .public)")
-                    }
-                    if let system {
-                        do {
-                            try FileManager.default.removeItem(at: system)
-                        } catch {
-                            Self.log.error("failed to remove system CAF after conversion: \(String(describing: error), privacy: .public)")
-                        }
-                    }
+                // Per channel: optionally export the FLAC, then delete the raw
+                // .caf only if that channel's audio survives elsewhere. combined.flac
+                // is a mono SUM, so it cannot preserve an individual channel — a raw
+                // .caf is deleted only when its separate track was actually produced
+                // (or separate tracks weren't requested in the first place).
+                await Self.processTrack(
+                    caf: mic, flac: micFlac,
+                    keepSeparateTracks: keepSeparateTracks,
+                    keepSourcesOnSuccess: keepSourcesOnSuccess,
+                    exportTrack: exportTrack)
+                if let system {
+                    await Self.processTrack(
+                        caf: system, flac: systemFlac,
+                        keepSeparateTracks: keepSeparateTracks,
+                        keepSourcesOnSuccess: keepSourcesOnSuccess,
+                        exportTrack: exportTrack)
                 }
                 outcome = Outcome(folderName: folderName, result: .success(()))
             } catch {
@@ -75,6 +91,38 @@ public actor RecordingConversionService {
         }
         inflight[folderName] = task
         return task
+    }
+
+    /// Export one channel's FLAC (when requested) and delete its raw `.caf` only
+    /// if the channel's audio is preserved elsewhere. The raw `.caf` is deleted
+    /// only when the caller opted out of keeping sources AND either separate
+    /// tracks weren't requested, or the FLAC export for this channel succeeded.
+    /// A failed export therefore never leaves the channel with no recoverable
+    /// audio — `combined.flac` is a mono sum and cannot stand in for one channel.
+    private static func processTrack(
+        caf: URL,
+        flac: URL?,
+        keepSeparateTracks: Bool,
+        keepSourcesOnSuccess: Bool,
+        exportTrack: ExportTrack
+    ) async {
+        var separateTrackProduced = false
+        if keepSeparateTracks, let flac {
+            do {
+                try await exportTrack(caf, flac)
+                separateTrackProduced = true
+            } catch {
+                Self.log.error("failed to export FLAC for \(caf.lastPathComponent, privacy: .public); keeping .caf: \(String(describing: error), privacy: .public)")
+            }
+        }
+        guard !keepSourcesOnSuccess else { return }
+        // Keep the .caf when a separate track was requested but its export failed.
+        if keepSeparateTracks && !separateTrackProduced { return }
+        do {
+            try FileManager.default.removeItem(at: caf)
+        } catch {
+            Self.log.error("failed to remove \(caf.lastPathComponent, privacy: .public) after conversion: \(String(describing: error), privacy: .public)")
+        }
     }
 
     public func waitForConversion(folderName: String) async {

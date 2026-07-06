@@ -6,6 +6,7 @@ public protocol LocalTranscriptionEngine: Sendable {
     func download(_ model: LocalModel, progress: @escaping @Sendable (Double) -> Void) async throws
     func delete(_ model: LocalModel) async throws
     func transcribe(audioURL: URL, model: LocalModel, language: String?) async throws -> String
+    func transcribeTimed(audioURL: URL, model: LocalModel, language: String?) async throws -> [TimedWord]
     func preload(_ model: LocalModel) async throws
     func unloadResident() async
 }
@@ -13,18 +14,23 @@ public protocol LocalTranscriptionEngine: Sendable {
 public extension LocalTranscriptionEngine {
     func preload(_ model: LocalModel) async throws {}   // default: no warm cache; a later task overrides on the real engines
     func unloadResident() async {}
+    func transcribeTimed(audioURL: URL, model: LocalModel, language: String?) async throws -> [TimedWord] {
+        throw LocalTranscriptionError.timestampsUnsupported(model.displayName)
+    }
 }
 
 public enum LocalTranscriptionError: LocalizedError {
     case unsupportedModel(String)
     case modelNotDownloaded(String)
     case transcriptionFailed(String)
+    case timestampsUnsupported(String)
 
     public var errorDescription: String? {
         switch self {
         case .unsupportedModel(let id):  return "Unknown on-device model \"\(id)\"."
         case .modelNotDownloaded(let n): return "The on-device model \"\(n)\" is not downloaded. Download it in Settings → Models."
         case .transcriptionFailed(let m): return "On-device transcription failed: \(m)"
+        case .timestampsUnsupported(let m): return "Word timestamps are not supported by \(m)."
         }
     }
 }

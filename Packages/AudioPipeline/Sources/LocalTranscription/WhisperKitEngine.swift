@@ -116,4 +116,25 @@ public actor WhisperKitEngine: LocalTranscriptionEngine {
         let results = try await pipe.transcribe(audioPath: audioURL.path, decodeOptions: opts)
         return results.map(\.text).joined(separator: " ")
     }
+
+    public func transcribeTimed(audioURL: URL, model: LocalModel, language: String?) async throws -> [TimedWord] {
+        guard await isDownloaded(model) else {
+            throw LocalTranscriptionError.modelNotDownloaded(model.displayName)
+        }
+        let pipe: WhisperKit
+        if model.id == residentModelID, let cached = resident {
+            pipe = cached
+        } else {
+            pipe = try await buildPipeline(model)
+        }
+        let opts = DecodingOptions(
+            language: language,
+            detectLanguage: language == nil,
+            wordTimestamps: true,
+            chunkingStrategy: .vad)
+        let results = try await pipe.transcribe(audioPath: audioURL.path, decodeOptions: opts)
+        return results.flatMap { $0.allWords }.map {
+            TimedWord(text: $0.word, start: Double($0.start), end: Double($0.end))
+        }
+    }
 }

@@ -91,4 +91,20 @@ import RecordingCore
             #expect(FileManager.default.fileExists(atPath: dest.path))
         }
     }
+
+    @Test func exportTrackWrites16kMonoFlac() async throws {
+        try await withTempDirectory { tempURL in
+            let src = tempURL.appending(path: "src.caf", directoryHint: .notDirectory)
+            let dst = tempURL.appending(path: "src.flac", directoryHint: .notDirectory)
+
+            try SyntheticAudio.writeCAF(to: src, format: SyntheticAudio.mono44kHz, frameCount: 22_050)
+
+            try await CombinedFLACExporter.exportTrack(source: src, to: dst)
+
+            let out = try AVAudioFile(forReading: dst)
+            #expect(out.fileFormat.sampleRate == 16_000)
+            #expect(out.fileFormat.channelCount == 1)
+            #expect(out.length > 0)
+        }
+    }
 }
