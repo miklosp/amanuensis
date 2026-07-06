@@ -20,6 +20,10 @@ enum DictationOverlayState: Equatable {
 @Observable
 final class DictationOverlayModel {
     var state: DictationOverlayState = .listening
+    /// Compact rendering for always-on auto-listening: a small dot while
+    /// listening, a short "typing…" pill while transcribing — instead of the
+    /// full labelled pill the one-shot flow uses.
+    var compact = false
 }
 
 /// Bottom-center dictation HUD: a Liquid Glass pill whose contents cross-fade
@@ -32,8 +36,8 @@ struct DictationOverlayView: View {
     var body: some View {
         content
             .font(.callout)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 9)
+            .padding(.horizontal, model.compact ? 10 : 16)
+            .padding(.vertical, model.compact ? 7 : 9)
             .glassTile(in: Capsule())
             .fixedSize()
             .animation(.smooth(duration: 0.3), value: model.state)
@@ -53,6 +57,36 @@ struct DictationOverlayView: View {
 
     @ViewBuilder
     private var content: some View {
+        if model.compact { compactContent } else { fullContent }
+    }
+
+    /// Small always-on indicator for auto-listening: a pulsing dot while
+    /// listening, a short "typing…" pill during transcription. Errors still get
+    /// the text flash so failures aren't silent.
+    @ViewBuilder
+    private var compactContent: some View {
+        switch model.state {
+        case .listening, .inserted:
+            Image(systemName: "circle.fill")
+                .font(.system(size: 9))
+                .foregroundStyle(.red)
+                .symbolEffect(.pulse, options: .repeating)
+                .transition(.blurReplace)
+        case .transcribing:
+            pill {
+                ProgressView().controlSize(.mini)
+                Text("typing…")
+            }
+            .font(.caption)
+        case .loadingModel:
+            ProgressView().controlSize(.mini).transition(.blurReplace)
+        case .flash(let message):
+            Text(message).font(.caption).transition(.blurReplace)
+        }
+    }
+
+    @ViewBuilder
+    private var fullContent: some View {
         switch model.state {
         case .loadingModel:
             pill {

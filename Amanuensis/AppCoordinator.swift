@@ -53,6 +53,7 @@ final class AppCoordinator {
     let providers: ProvidersStore
     let logs: LogStore
     let dictation: DictationCoordinator
+    let autoDictation: AutoDictationController
     let localService: LocalTranscriptionService
     let localModelsStore: LocalModelsStore
     // Handler map including the on-device sender (diarize off) — used by dictation only.
@@ -112,6 +113,16 @@ final class AppCoordinator {
         self.batchLocalHandlers = JobRunner.defaultHandlers.merging(
             [.localTranscription: LocalTranscriptionSender(service: localService, diarize: true)]) { _, new in new }
 
+        let autoDictation = AutoDictationController(
+            settings: settings,
+            keychain: keychain,
+            handlers: localHandlers,
+            ensureLocalModelResident: { [localModelsStore] id in await localModelsStore.preload(modelID: id) },
+            log: { [logs] message in logs.log(.error, message, category: .recording) },
+            vadModelDirectory: (try? ModelStorage.base().appendingPathComponent("FluidAudioVAD", isDirectory: true))
+                ?? FileManager.default.temporaryDirectory.appendingPathComponent("FluidAudioVAD", isDirectory: true))
+        self.autoDictation = autoDictation
+
         self.dictation = DictationCoordinator(
             settings: settings,
             keychain: keychain,
@@ -120,6 +131,7 @@ final class AppCoordinator {
             handlers: localHandlers,
             ensureLocalModelResident: { [localModelsStore] id in await localModelsStore.preload(modelID: id) },
             isLocalModelResident: { [localModelsStore] id in localModelsStore.residentModelID == id },
+            autoController: autoDictation,
             log: { [logs] message in logs.log(.error, message, category: .recording) }
         )
 
@@ -140,6 +152,11 @@ final class AppCoordinator {
             guard let self else { return }
             await self.localModelsStore.refresh()
             await self.syncDictationWarmModel()
+            // Preload the VAD + transcription model up front when auto-listening
+            // is the selected mode, so the first toggle-on is instant.
+            if self.settings.dictation.shortTapAction == .autoListening {
+                self.autoDictation.warm()
+            }
         }
     }
 

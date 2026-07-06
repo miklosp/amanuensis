@@ -10,6 +10,10 @@ struct DictationMenuBarLabel: View {
             Image(systemName: "waveform")
                 .symbolRenderingMode(.hierarchical)
                 .symbolEffect(.variableColor.iterative, options: .repeating)
+        } else if coordinator.autoDictation.isRunning {
+            Image(systemName: "mic.fill")
+                .symbolRenderingMode(.hierarchical)
+                .symbolEffect(.variableColor.iterative, options: .repeating)
         } else if coordinator.isRecording {
             Image(systemName: "record.circle.fill")
                 .symbolRenderingMode(.hierarchical)

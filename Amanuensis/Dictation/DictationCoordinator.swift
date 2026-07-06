@@ -24,6 +24,7 @@ final class DictationCoordinator {
     private let ensureLocalModelResident: (String) async -> Void
     /// Whether the given on-device model is currently resident in memory.
     private let isLocalModelResident: (String) -> Bool
+    private let autoController: AutoDictationController
 
     private var recognizer: ModifierGestureRecognizer
     private var machine = DictationStateMachine()
@@ -44,6 +45,7 @@ final class DictationCoordinator {
          handlers: [JobShape: any AudioJobSending] = JobRunner.defaultHandlers,
          ensureLocalModelResident: @escaping (String) async -> Void = { _ in },
          isLocalModelResident: @escaping (String) -> Bool = { _ in true },
+         autoController: AutoDictationController,
          log: @escaping (String) -> Void) {
         self.settings = settings
         self.keychain = keychain
@@ -52,6 +54,7 @@ final class DictationCoordinator {
         self.handlers = handlers
         self.ensureLocalModelResident = ensureLocalModelResident
         self.isLocalModelResident = isLocalModelResident
+        self.autoController = autoController
         self.log = log
         self.recognizer = ModifierGestureRecognizer(trigger: settings.dictation.trigger)
         tempStore.sweep()                       // reclaim crash orphans on launch
@@ -70,6 +73,29 @@ final class DictationCoordinator {
             stopMonitor()
             abortCapture(flash: nil)
         }
+        if !settings.dictation.enabled
+            || settings.dictation.shortTapAction != .autoListening
+            || TranscriptionSource(providerID: settings.dictation.providerID) != .local {
+            autoController.stop()
+        } else {
+            autoController.warm()   // switching to auto-listening: preload ahead of the first toggle
+        }
+        autoController.pauseChanged()
+    }
+
+    /// Lightweight hook for the pause-detection slider: push the new value to the
+    /// running loop without the full trigger/monitor reconfigure `settingsChanged`
+    /// does.
+    func autoPauseChanged() {
+        autoController.pauseChanged()
+    }
+
+    /// The dictation provider or model changed. Stop any running auto loop so it
+    /// can't keep feeding later utterances a model it wasn't started with (the
+    /// user re-taps to resume with the new settings). Provider/model changes come
+    /// from Settings, which doesn't route through `settingsChanged()`.
+    func dictationSourceChanged() {
+        autoController.stop()
     }
 
     private func startMonitor() {
@@ -108,9 +134,16 @@ final class DictationCoordinator {
                 guard let self, !Task.isCancelled else { return }
                 self.applyGesture(self.recognizer.holdElapsed())
             }
-        case .toggle, .pttStart:
+        case .toggle:
+            switch settings.dictation.shortTapAction {
+            case .oneShot:       applyAction(machine.startOrToggle())
+            case .autoListening: autoController.toggle()
+            }
+        case .pttStart:
+            if autoController.isRunning { break }   // loop already captures everything
             applyAction(machine.startOrToggle())
         case .pttEnd:
+            if autoController.isRunning { break }
             applyAction(machine.release())
         case .cancel:
             holdTask?.cancel(); holdTask = nil

@@ -24,6 +24,30 @@ struct DictationView: View {
                 .onChange(of: settings.dictation.trigger) { _, _ in
                     coordinator.dictation.settingsChanged()
                 }
+
+                Picker("Short tap", selection: $settings.dictation.shortTapAction) {
+                    Text("Start / stop one capture").tag(DictationSettings.ShortTapAction.oneShot)
+                    Text("Toggle auto-listening").tag(DictationSettings.ShortTapAction.autoListening)
+                }
+                .onChange(of: settings.dictation.shortTapAction) { _, _ in
+                    coordinator.dictation.settingsChanged()
+                }
+                .help("With auto-listening, a tap of the trigger turns hands-free dictation on or off. Hold still works as push-to-talk.")
+
+                if settings.dictation.shortTapAction == .autoListening {
+                    LabeledContent("Pause before typing") {
+                        HStack {
+                            Slider(value: autoPauseBinding, in: 300...1500, step: 100)
+                            Text("\(settings.dictation.autoPauseMs) ms")
+                                .monospacedDigit().foregroundStyle(.secondary)
+                        }
+                    }
+                    .onChange(of: settings.dictation.autoPauseMs) { _, _ in
+                        coordinator.dictation.autoPauseChanged()
+                    }
+                    .help("How long a pause ends an utterance and types it. Shorter reacts faster; longer lets you pause mid-thought without it cutting in.")
+                }
+
                 if settings.dictation.trigger == .function {
                     Text("Fn may also trigger a macOS action (System Settings ▸ Keyboard ▸ “Press 🌐 to”).")
                         .font(.caption).foregroundStyle(.secondary)
@@ -49,6 +73,7 @@ struct DictationView: View {
                     }
                 }
                 .onChange(of: settings.dictation.providerID) { _, _ in
+                    coordinator.dictation.dictationSourceChanged()
                     Task { await coordinator.syncDictationWarmModel() }
                 }
 
@@ -60,6 +85,7 @@ struct DictationView: View {
                     isBusy: coordinator.localModelsStore.loadingModelID != nil
                         || coordinator.localModelsStore.unloadingModelID != nil)
                 .onChange(of: settings.dictation.model) { _, _ in
+                    coordinator.dictation.dictationSourceChanged()
                     normalizeDictationLanguage()
                     Task { await coordinator.syncDictationWarmModel() }
                 }
@@ -131,5 +157,11 @@ struct DictationView: View {
         Binding(
             get: { Double(settings.dictation.holdThresholdMs) },
             set: { settings.dictation.holdThresholdMs = Int($0) })
+    }
+
+    private var autoPauseBinding: Binding<Double> {
+        Binding(
+            get: { Double(settings.dictation.autoPauseMs) },
+            set: { settings.dictation.autoPauseMs = Int($0) })
     }
 }

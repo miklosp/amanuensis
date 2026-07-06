@@ -3,6 +3,11 @@ import Foundation
 /// All persisted dictation preferences. Stored by `AppSettings` as one JSON
 /// blob (see Task 6).
 public struct DictationSettings: Codable, Equatable, Sendable {
+    public enum ShortTapAction: String, Codable, Sendable {
+        case oneShot        // tap toggles a single capture (default, today's behaviour)
+        case autoListening  // tap toggles the always-on auto-dictation loop
+    }
+
     public var enabled: Bool
     public var trigger: TriggerModifier
     public var holdThresholdMs: Int
@@ -12,6 +17,10 @@ public struct DictationSettings: Codable, Equatable, Sendable {
     public var showOverlay: Bool
     public var keepAudio: Bool
     public var streamLive: Bool
+    public var shortTapAction: ShortTapAction
+    /// Auto-listening endpoint: trailing silence before an utterance is finalized
+    /// and typed. Only used when `shortTapAction == .autoListening`.
+    public var autoPauseMs: Int
     public var language: String
 
     public init(
@@ -24,6 +33,8 @@ public struct DictationSettings: Codable, Equatable, Sendable {
         showOverlay: Bool = false,
         keepAudio: Bool = false,
         streamLive: Bool = false,
+        shortTapAction: ShortTapAction = .oneShot,
+        autoPauseMs: Int = 600,
         language: String = "en"
     ) {
         self.enabled = enabled
@@ -35,6 +46,8 @@ public struct DictationSettings: Codable, Equatable, Sendable {
         self.showOverlay = showOverlay
         self.keepAudio = keepAudio
         self.streamLive = streamLive
+        self.shortTapAction = shortTapAction
+        self.autoPauseMs = autoPauseMs
         self.language = language
     }
 
@@ -51,6 +64,8 @@ public struct DictationSettings: Codable, Equatable, Sendable {
         showOverlay = try c.decode(Bool.self, forKey: .showOverlay)
         keepAudio = try c.decode(Bool.self, forKey: .keepAudio)
         streamLive = try c.decodeIfPresent(Bool.self, forKey: .streamLive) ?? false
+        shortTapAction = try c.decodeIfPresent(ShortTapAction.self, forKey: .shortTapAction) ?? .oneShot
+        autoPauseMs = try c.decodeIfPresent(Int.self, forKey: .autoPauseMs) ?? 600
         language = try c.decodeIfPresent(String.self, forKey: .language) ?? "en"
     }
 

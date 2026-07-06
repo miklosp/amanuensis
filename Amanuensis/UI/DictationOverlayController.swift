@@ -13,6 +13,12 @@ final class DictationOverlayController {
     private var panel: NSPanel?
     private let model = DictationOverlayModel()
     private var phase: DictationStateMachine.Phase = .idle
+
+    /// `compact` renders the small always-on auto-listening indicator instead of
+    /// the full labelled pill (see DictationOverlayView).
+    init(compact: Bool = false) {
+        model.compact = compact
+    }
     private var enabled = false
     private var shown = false
     private var flashing = false
