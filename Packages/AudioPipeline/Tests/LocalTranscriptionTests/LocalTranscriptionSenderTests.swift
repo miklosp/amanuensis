@@ -105,7 +105,7 @@ private struct SenderFakeDiarizer: SpeakerDiarizing {
         job: job, provider: stubProvider,
         audioURL: URL(fileURLWithPath: "/x.flac"), apiKey: ""
     )
-    #expect(text == "Speaker 1: hi\nSpeaker 2: yo")
+    #expect(text == "[00:00] Speaker 1: hi\n[00:02] Speaker 2: yo")
 }
 
 @Test func senderStaysPlainWhenDiarizeFlagIsOff() async throws {

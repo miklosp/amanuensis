@@ -11,8 +11,10 @@ private func seg(_ id: String, _ s: Double, _ e: Double) -> DiarizedSegment { Di
     #expect(runs.count == 2)
     #expect(runs[0].speaker == "S1")
     #expect(runs[0].text == "Hello there")
+    #expect(runs[0].start == 0.0)   // start time of the run's first word
     #expect(runs[1].speaker == "S2")
     #expect(runs[1].text == "hi")
+    #expect(runs[1].start == 2.0)
 }
 
 @Test func wordInGapUsesNearestSegment() {

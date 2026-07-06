@@ -35,7 +35,7 @@ private let turboID = "whisper-large-v3-turbo"
         diarizer: FakeDiarizer(segments: segs),
         loadSamples: { _ in [] })
     let out = try await service.transcribeDiarized(audioURL: URL(filePath: "/dev/null"), modelID: turboID, language: "en")
-    #expect(out == "Speaker 1: hi\nSpeaker 2: yo")
+    #expect(out == "[00:00] Speaker 1: hi\n[00:02] Speaker 2: yo")
 }
 
 @Test func diarizedOutputIsPlainForSingleSpeaker() async throws {

@@ -89,7 +89,7 @@ public actor LocalTranscriptionService {
         let runs = attributeSpeakers(words: words, segments: segments)
         let distinct = Set(runs.map(\.speaker))
         if distinct.count <= 1 { return plain }
-        return formatSpeakerRuns(runs)
+        return formatSpeakerRunsWithTimestamps(runs)
     }
     public func isDownloaded(modelID: String) async throws -> Bool { let (m, e) = try resolve(modelID); return await e.isDownloaded(m) }
     public func installedBytes(modelID: String) async throws -> Int64 { let (m, e) = try resolve(modelID); return await e.installedBytes(m) }
