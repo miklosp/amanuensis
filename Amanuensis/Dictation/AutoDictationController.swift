@@ -101,6 +101,7 @@ final class AutoDictationController {
                 await self.detector.reset()
                 await self.ensureLocalModelResident(self.settings.dictation.model)
             } catch {
+                guard self.isRunning, self.runGeneration == gen else { return }   // stale session (stopped/restarted during prepare) — don't flash or tear down the current one
                 self.log("Auto-dictation: VAD prepare failed: \(error.localizedDescription)")
                 self.overlay.flash("Couldn't start auto-dictation")
                 self.stop()
