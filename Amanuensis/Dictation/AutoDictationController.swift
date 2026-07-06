@@ -36,6 +36,8 @@ final class AutoDictationController {
     private var consumerTask: Task<Void, Never>?
     private var segmentStream: AsyncStream<[Float]>.Continuation?
     private var transcribeTask: Task<Void, Never>?
+    private var prepareTask: Task<Void, Never>?
+    private var runGeneration = 0
 
     // Consumer-loop state (main-actor isolated; only touched in consumerTask).
     private var segmenter = AutoDictationSegmenter(maxSegmentFrames: AutoDictationController.maxSegmentFrames)
@@ -61,6 +63,7 @@ final class AutoDictationController {
     func stop() {
         guard isRunning else { return }
         isRunning = false
+        prepareTask?.cancel(); prepareTask = nil
         tap?.stop(); tap = nil
         frameStream?.finish(); frameStream = nil
         consumerTask?.cancel(); consumerTask = nil
@@ -89,7 +92,9 @@ final class AutoDictationController {
             for await samples in segStream { await self?.transcribeAndInsert(samples) }
         }
 
-        Task { [weak self] in
+        runGeneration += 1
+        let gen = runGeneration
+        prepareTask = Task { [weak self] in
             guard let self else { return }
             do {
                 try await self.detector.prepare()
@@ -101,6 +106,7 @@ final class AutoDictationController {
                 self.stop()
                 return
             }
+            guard self.isRunning, self.runGeneration == gen else { return }   // a stop()/restart happened during prepare — abandon this stale session
             self.overlay.setModelLoading(false)
             self.beginCapture()
         }
@@ -112,6 +118,7 @@ final class AutoDictationController {
             bufferingPolicy: .bufferingNewest(64))
         frameStream = cont
         do {
+            self.tap?.stop()   // defensive: never leave a prior tap running
             let tap = try ContinuousMicTap(frameSize: Self.frameSamples) { [cont] frame in
                 cont.yield(frame)   // audio thread → stream; consumer hops to main
             }
@@ -173,6 +180,7 @@ final class AutoDictationController {
             try await Task.detached { try SegmentAudioWriter.write(samples, to: url) }.value
         } catch {
             log("Auto-dictation: segment write failed: \(error.localizedDescription)")
+            if isRunning { overlay.update(phase: .listening, enabled: settings.dictation.showOverlay) }
             return
         }
         let job = Job(
@@ -192,6 +200,7 @@ final class AutoDictationController {
             return
         }
         let text = box.value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isRunning else { return }   // toggled off mid-transcription: drop the tail utterance rather than insert into whatever is now focused
         if !text.isEmpty {
             _ = TextInserter().insert(" " + text, mode: settings.dictation.insertMode)
         }
