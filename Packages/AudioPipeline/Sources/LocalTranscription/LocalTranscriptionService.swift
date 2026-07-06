@@ -7,13 +7,19 @@ public actor LocalTranscriptionService {
     private let whisperKit: any LocalTranscriptionEngine
     private let indicConformer: any LocalTranscriptionEngine
     private let diarizer: any SpeakerDiarizing
-    private let loadSamples: @Sendable (URL) throws -> [Float]
+    private let loadSamples: @Sendable (URL) async throws -> [Float]
 
     public init(
         fluidAudio: any LocalTranscriptionEngine, whisperKit: any LocalTranscriptionEngine,
         indicConformer: any LocalTranscriptionEngine,
         diarizer: any SpeakerDiarizing = FluidAudioDiarizer(),
-        loadSamples: @escaping @Sendable (URL) throws -> [Float] = { try AudioConverter().resampleAudioFile($0) }
+        // Resampling a long recording is multi-second CPU work; run it off the
+        // service actor so it doesn't block preload/isDownloaded/delete meanwhile.
+        loadSamples: @escaping @Sendable (URL) async throws -> [Float] = { url in
+            try await Task.detached(priority: .utility) {
+                try AudioConverter().resampleAudioFile(url)
+            }.value
+        }
     ) {
         self.fluidAudio = fluidAudio
         self.whisperKit = whisperKit
@@ -81,7 +87,7 @@ public actor LocalTranscriptionService {
         let plain = words.map(\.text).joined().trimmingCharacters(in: .whitespaces)
         let segments: [DiarizedSegment]
         do {
-            let samples = try loadSamples(audioURL)
+            let samples = try await loadSamples(audioURL)
             segments = try await diarizer.diarize(samples: samples)
         } catch {
             return plain   // diarization failure degrades to plain transcript

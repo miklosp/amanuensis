@@ -266,3 +266,36 @@ private actor Counter {
     #expect(FileManager.default.fileExists(atPath: mic.path))      // .caf kept
     try? FileManager.default.removeItem(at: dir)
 }
+
+private struct ExportBoom: Error {}
+
+@Test func failedSeparateTrackExportPreservesSourceCAF() async throws {
+    // keepSeparateTracks on + keepSourcesOnSuccess off, but the FLAC export throws.
+    // The raw .caf must survive — combined.flac is a mono sum and can't stand in
+    // for the lost channel, so deleting the .caf here would be unrecoverable loss.
+    let dir = URL(filePath: NSTemporaryDirectory()).appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    let mic = dir.appending(path: "mic.caf");     FileManager.default.createFile(atPath: mic.path, contents: Data())
+    let sys = dir.appending(path: "system.caf");  FileManager.default.createFile(atPath: sys.path, contents: Data())
+    let combined = dir.appending(path: "combined.flac")
+    let micFlac = dir.appending(path: "mic.flac")
+    let sysFlac = dir.appending(path: "system.flac")
+
+    let svc = RecordingConversionService(
+        combine: { _, _, dest in FileManager.default.createFile(atPath: dest.path, contents: Data()) },
+        exportTrack: { _, _ in throw ExportBoom() })   // every per-track export fails
+
+    let outcome = await svc.startConversion(
+        folderName: "f", mic: mic, system: sys, destination: combined,
+        micFlac: micFlac, systemFlac: sysFlac,
+        keepSourcesOnSuccess: false, keepSeparateTracks: true).value
+
+    // Overall conversion still succeeds (combined.flac was produced)…
+    #expect({ if case .success = outcome.result { return true } else { return false } }())
+    // …but the FLACs were never written and BOTH .caf sources are preserved.
+    #expect(!FileManager.default.fileExists(atPath: micFlac.path))
+    #expect(!FileManager.default.fileExists(atPath: sysFlac.path))
+    #expect(FileManager.default.fileExists(atPath: mic.path))   // not deleted despite keepSources=false
+    #expect(FileManager.default.fileExists(atPath: sys.path))
+    try? FileManager.default.removeItem(at: dir)
+}
