@@ -24,6 +24,10 @@ public enum LocalTranscriptionError: LocalizedError {
     case modelNotDownloaded(String)
     case transcriptionFailed(String)
     case timestampsUnsupported(String)
+    /// The engine ran ASR and produced text but no word timings. Carries that text so the
+    /// diarized path can degrade to plain without a second full transcription pass. Never
+    /// surfaced to the user — `transcribeDiarized` consumes it as the plain fallback.
+    case timingsUnavailable(plainText: String)
 
     public var errorDescription: String? {
         switch self {
@@ -31,6 +35,7 @@ public enum LocalTranscriptionError: LocalizedError {
         case .modelNotDownloaded(let n): return "The on-device model \"\(n)\" is not downloaded. Download it in Settings → Models."
         case .transcriptionFailed(let m): return "On-device transcription failed: \(m)"
         case .timestampsUnsupported(let m): return "Word timestamps are not supported by \(m)."
+        case .timingsUnavailable: return "Word timestamps were unavailable for this recording."
         }
     }
 }

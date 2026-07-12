@@ -107,6 +107,24 @@ public actor FluidAudioEngine: LocalTranscriptionEngine {
         return try await CoherePipeline.loadModels(encoderDir: dir, decoderDir: dir, vocabDir: dir)
     }
 
+    /// Run the Parakeet ASR for `model` and return the full `ASRResult`. Shared by
+    /// `transcribe` (reads `.text`) and `transcribeTimed` (reads `.tokenTimings`) so the two
+    /// never drift. Reuses the resident manager when it's this model; otherwise loads a
+    /// transient one and lets it go — the resident slot is untouched.
+    private func runParakeet(audioURL: URL, model: LocalModel, language: String?) async throws -> ASRResult {
+        let version = parakeetVersion(model.selector)
+        let asr: AsrManager
+        if model.id == residentModelID, case .parakeet(let cached) = resident {
+            asr = cached
+        } else {
+            asr = try await loadParakeetManager(model)
+        }
+        // language hint is only honoured by the v3 joint decoder
+        let lang: Language? = version == .v3 ? language.flatMap { Language(rawValue: $0) } : nil
+        var state = try TdtDecoderState(decoderLayers: version.decoderLayers)
+        return try await asr.transcribe(audioURL, decoderState: &state, language: lang)
+    }
+
     // MARK: - LocalTranscriptionEngine
 
     public func isDownloaded(_ model: LocalModel) async -> Bool {
@@ -245,20 +263,7 @@ public actor FluidAudioEngine: LocalTranscriptionEngine {
         }
         switch model.runner {
         case .fluidAudioParakeet:
-            let version = parakeetVersion(model.selector)
-            // Reuse the resident manager if it's this model; otherwise load a
-            // transient one and let it go — the resident slot is untouched.
-            let asr: AsrManager
-            if model.id == residentModelID, case .parakeet(let cached) = resident {
-                asr = cached
-            } else {
-                asr = try await loadParakeetManager(model)
-            }
-            // language hint is only honoured by the v3 joint decoder
-            let lang: Language? = version == .v3 ? language.flatMap { Language(rawValue: $0) } : nil
-            var state = try TdtDecoderState(decoderLayers: version.decoderLayers)
-            let result = try await asr.transcribe(audioURL, decoderState: &state, language: lang)
-            return result.text
+            return try await runParakeet(audioURL: audioURL, model: model, language: language).text
         case .fluidAudioSenseVoice:
             let senseVoice: SenseVoiceManager
             if model.id == residentModelID, case .senseVoice(let cached) = resident {
@@ -286,6 +291,26 @@ public actor FluidAudioEngine: LocalTranscriptionEngine {
             return result.text
         default:
             throw LocalTranscriptionError.modelNotDownloaded(model.displayName)
+        }
+    }
+
+    public func transcribeTimed(audioURL: URL, model: LocalModel, language: String?) async throws -> [TimedWord] {
+        switch model.runner {
+        case .fluidAudioParakeet:
+            guard await isDownloaded(model) else {
+                throw LocalTranscriptionError.modelNotDownloaded(model.displayName)
+            }
+            let result = try await runParakeet(audioURL: audioURL, model: model, language: language)
+            let words = groupParakeetWords(result.tokenTimings ?? [])
+            // No timings (some configs return nil) → hand back the already-transcribed text so
+            // the orchestration falls back to plain without running ASR a second time.
+            guard !words.isEmpty else {
+                throw LocalTranscriptionError.timingsUnavailable(plainText: result.text)
+            }
+            return words
+        default:
+            // SenseVoice / Cohere expose no audio timestamps; stay plain.
+            throw LocalTranscriptionError.timestampsUnsupported(model.displayName)
         }
     }
 }
