@@ -62,6 +62,20 @@ private func seg(_ id: String, _ s: Double, _ e: Double) -> DiarizedSegment { Di
     #expect(runs[1].text == "near b")
 }
 
+@Test func gapWordNearestUnanchoredSegmentStaysWithThatSegment() {
+    // S2 is a short turn (5.0–5.4) whose only word "b" (mid 4.9) missed its own padded
+    // segment, so S2 has no strong-word anchor. "b" is a gap word 0.1 from the S2 segment
+    // but 4.3 from S1's only strong word "a". Anchoring to the nearest strong word would
+    // pull the whole S2 turn into S1; because S2's own segment is far nearer and S2 has no
+    // strong word to anchor to, "b" must stay with S2.
+    let words = [w(" a", 0.4, 0.6), w(" b", 4.8, 5.0)]
+    let segs  = [seg("S1", 0.0, 1.0), seg("S2", 5.0, 5.4)]
+    let runs = attributeSpeakers(words: words, segments: segs)
+    #expect(runs.map(\.speaker) == ["S1", "S2"])
+    #expect(runs[0].text == "a")
+    #expect(runs[1].text == "b")
+}
+
 @Test func equidistantGapWordPrefersPrecedingSpeaker() {
     // "mid" (mid 3.0) is equidistant between S1's "a" (gap 1.0) and S2's "b" (gap 1.0);
     // the tie goes to the preceding speaker, so a turn's trailing word stays with the

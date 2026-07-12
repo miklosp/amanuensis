@@ -13,8 +13,15 @@ import Foundation
 /// than the nearest segment. Diarizer segments are often padded with silence
 /// around the real speech, so nearest-segment pulls a turn's edge words toward a
 /// neighbour whose padding happens to sit closer; anchoring to real words keeps a
-/// turn's trailing/leading words with the turn. Falls back to nearest segment
-/// only when no word landed in any segment.
+/// turn's trailing/leading words with the turn.
+///
+/// The exception is a gap word whose nearest segment belongs to a speaker with no
+/// strong word anywhere — a short turn whose only word missed its own padded
+/// segment. That speaker has no real-word anchor to pull toward, so the nearest
+/// strong word necessarily belongs to a *different* speaker; honouring it would
+/// swallow the whole short turn. In that case the segment is the only anchor we
+/// have, so the word stays with the nearest segment. Falls back to nearest segment
+/// too when no word landed in any segment at all.
 func attributeSpeakers(words: [TimedWord], segments: [DiarizedSegment]) -> [(speaker: String, text: String, start: Double)] {
     guard !segments.isEmpty else { return [] }
 
@@ -25,13 +32,20 @@ func attributeSpeakers(words: [TimedWord], segments: [DiarizedSegment]) -> [(spe
         return segments.first { mid >= $0.start && mid <= $0.end }?.speakerId
     }
 
-    // Pass 2: resolve every word. Strong words keep their speaker; gap words take the nearest
-    // strong word's speaker, falling back to the nearest segment only when nothing landed strong.
+    // Speakers that actually own transcribed speech. A gap word only anchors to the nearest
+    // strong word when the nearest segment's speaker is in this set — otherwise that speaker has
+    // no real word to anchor to and the strong word would belong to someone else (see doc comment).
+    let anchoredSpeakers = Set(strong.compactMap { $0 })
+
+    // Pass 2: resolve every word. Strong words keep their speaker; a gap word takes the nearest
+    // strong word's speaker when its nearest segment's speaker is anchored, otherwise it stays
+    // with that nearest (unanchored, real-word-less) segment.
     let speakers: [String] = words.indices.map { i in
         if let s = strong[i] { return s }
         let mid = (words[i].start + words[i].end) / 2
-        return nearestStrongSpeaker(to: i, words: words, strong: strong)
-            ?? nearestSegmentSpeaker(toMidpoint: mid, in: segments)
+        let nearestSegment = nearestSegmentSpeaker(toMidpoint: mid, in: segments)
+        guard anchoredSpeakers.contains(nearestSegment) else { return nearestSegment }
+        return nearestStrongSpeaker(to: i, words: words, strong: strong) ?? nearestSegment
     }
 
     // Pass 3: merge consecutive same-speaker words into runs.
