@@ -138,6 +138,48 @@ public actor AppleSpeechEngine: LocalTranscriptionEngine {
     }
 
     public func unloadResident() async {}   // nothing retained between runs
+
+    // MARK: - Per-language installer support
+
+    /// App-facing 2-letter codes the OS supports (deduped from SpeechTranscriber.supportedLocales).
+    func availableLocaleCodes() async -> [String] {
+        let locales = await SpeechTranscriber.supportedLocales
+        return Array(Set(locales.compactMap { $0.language.languageCode?.identifier })).sorted()
+    }
+
+    func installedLocaleCodes() async -> [String] {
+        let locales = await SpeechTranscriber.installedLocales
+        return Array(Set(locales.compactMap { $0.language.languageCode?.identifier })).sorted()
+    }
+
+    func maxReservedLocales() async -> Int { AssetInventory.maximumReservedLocales }
+
+    /// The user's macOS preferred languages that Apple Speech supports — the default check set.
+    func systemPreferredCodes() async -> [String] {
+        let supported = Set(await availableLocaleCodes())
+        return Locale.preferredLanguages
+            .compactMap { Locale(identifier: $0).language.languageCode?.identifier }
+            .filter { supported.contains($0) }
+    }
+
+    func install(localeCode: String, progress: @escaping @Sendable (Double) -> Void) async throws {
+        guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: localeCode)) else {
+            throw LocalTranscriptionError.transcriptionFailed("Language \"\(localeCode)\" isn't available for Apple Speech.")
+        }
+        if await AssetInventory.reservedLocales.count >= AssetInventory.maximumReservedLocales,
+           !(await AssetInventory.reservedLocales.contains { $0.identifier == locale.identifier }) {
+            throw LocalTranscriptionError.transcriptionFailed(
+                "Apple Speech allows at most \(AssetInventory.maximumReservedLocales) reserved languages. Remove one first.")
+        }
+        progress(0)
+        try await ensureInstalled(locale)
+        progress(1)
+    }
+
+    func release(localeCode: String) async throws {
+        guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: localeCode)) else { return }
+        await AssetInventory.release(reservedLocale: locale)
+    }
 }
 
 @available(macOS 26, *)

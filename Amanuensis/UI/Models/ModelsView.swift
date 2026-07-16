@@ -19,7 +19,8 @@ struct ModelsView: View {
                         isLoading: model.id == store.loadingModelID,
                         isUnloading: model.id == store.unloadingModelID,
                         onDownload: { Task { await store.download(model) } },
-                        onDelete: { Task { await store.delete(model) } })
+                        onDelete: { Task { await store.delete(model) } },
+                        store: store)
                 }
             }
             .padding(16)

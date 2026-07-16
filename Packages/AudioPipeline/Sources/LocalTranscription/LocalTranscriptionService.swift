@@ -126,4 +126,26 @@ public actor LocalTranscriptionService {
         }
         try await e.delete(m)
     }
+
+    // Apple Speech per-locale management (no-ops when the engine is absent / not macOS 26).
+    public func appleSpeechAvailableLocales() async -> [String] {
+        if #available(macOS 26, *), let e = appleSpeech as? AppleSpeechEngine { return await e.availableLocaleCodes() }
+        return []
+    }
+    public func appleSpeechInstalledLocales() async -> [String] {
+        if #available(macOS 26, *), let e = appleSpeech as? AppleSpeechEngine { return await e.installedLocaleCodes() }
+        return []
+    }
+    public func appleSpeechSystemPreferred() async -> [String] {
+        if #available(macOS 26, *), let e = appleSpeech as? AppleSpeechEngine { return await e.systemPreferredCodes() }
+        return []
+    }
+    public func appleSpeechInstall(localeCode: String, progress: @escaping @Sendable (Double) -> Void) async throws {
+        if #available(macOS 26, *), let e = appleSpeech as? AppleSpeechEngine {
+            try await e.install(localeCode: localeCode, progress: progress)
+        }
+    }
+    public func appleSpeechRelease(localeCode: String) async throws {
+        if #available(macOS 26, *), let e = appleSpeech as? AppleSpeechEngine { try await e.release(localeCode: localeCode) }
+    }
 }
