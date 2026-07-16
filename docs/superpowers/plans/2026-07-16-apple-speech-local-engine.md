@@ -774,18 +774,18 @@ Add to the card body, after the `languagesRow`/`languageChips` block, a load-on-
             guard model.runner == .appleSpeech, languagesExpanded, store.appleLocales.available.isEmpty else { return }
             await store.refreshAppleLocales()
             // Pre-check system-preferred languages that aren't installed yet.
-            let preferred = await store.service_appleSpeechSystemPreferred()   // see note
+            let preferred = await store.systemPreferredAppleLocales()
             for code in preferred where !store.appleLocales.installed.contains(code) {
                 await store.toggleAppleLocale(code, install: true)
             }
         }
 ```
 
-> Note: expose `appleSpeechSystemPreferred()` on the store as a thin wrapper over `service.appleSpeechSystemPreferred()` (name it `systemPreferredAppleLocales()`), rather than reaching into `service` from the view. Add:
-> ```swift
-> public func systemPreferredAppleLocales() async -> [String] { await service.appleSpeechSystemPreferred() }
-> ```
-> and call `store.systemPreferredAppleLocales()` in the `.task` above.
+Add the store wrapper referenced above (thin pass-through, so the view never reaches into `service` directly) alongside the other store additions in Step 2:
+
+```swift
+    public func systemPreferredAppleLocales() async -> [String] { await service.appleSpeechSystemPreferred() }
+```
 
 - [ ] **Step 4: Build the app target**
 
@@ -829,13 +829,6 @@ import Foundation
 
 @available(macOS 26, *)
 @Suite struct AppleSpeechIntegrationTests {
-    /// Skips (passes) unless Apple Speech is available on this device — CI/sandbox safe.
-    private func requireAvailable() async throws {
-        guard await SpeechTranscriber.isAvailable else {
-            throw XCTSkipLikeSkip("Apple Speech unavailable on this device")
-        }
-    }
-
     @Test func transcribesEnglishClip() async throws {
         guard await SpeechTranscriber.isAvailable else { return }   // silent skip
         let engine = AppleSpeechEngine()
