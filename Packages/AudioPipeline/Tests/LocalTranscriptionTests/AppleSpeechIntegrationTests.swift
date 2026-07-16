@@ -13,6 +13,9 @@ import Speech
     @available(macOS 26, *)
     @Test func transcribesEnglishClipWhenAvailable() async throws {
         guard SpeechTranscriber.isAvailable,
+              // The Speech locale catalog only populates in a real app context, not a
+              // bare CLI/`swift test` process (supportedLocales comes back empty there).
+              !(await SpeechTranscriber.supportedLocales.isEmpty),
               let path = ProcessInfo.processInfo.environment["AMANUENSIS_APPLE_SPEECH_FIXTURE"],
               FileManager.default.fileExists(atPath: path) else { return }
         let clip = URL(fileURLWithPath: path)

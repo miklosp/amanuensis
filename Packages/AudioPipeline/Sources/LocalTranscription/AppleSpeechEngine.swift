@@ -20,18 +20,26 @@ public actor AppleSpeechEngine: LocalTranscriptionEngine {
 
     // MARK: - Locale resolution
 
+    /// Map a locale (or bare-language-code locale) to a SpeechTranscriber-supported locale.
+    /// Tries Apple's equivalence first, then scans supportedLocales by language code, so a
+    /// bare 2-letter code (the catalog's vocabulary, e.g. "en") resolves to a supported
+    /// regional variant (en-US) instead of failing.
+    private func supportedLocale(matching locale: Locale) async -> Locale? {
+        if let eq = await SpeechTranscriber.supportedLocale(equivalentTo: locale) { return eq }
+        guard let lang = locale.language.languageCode?.identifier else { return nil }
+        return await SpeechTranscriber.supportedLocales.first { $0.language.languageCode?.identifier == lang }
+    }
+
     /// Map an app language code (2-letter, e.g. "en") or nil to a concrete locale that
     /// SpeechTranscriber supports. An explicit-but-unsupported choice throws (never a
     /// silent wrong-language fallback); nil falls back to the system locale, then en-US.
     func resolveLocale(_ language: String?) async throws -> Locale {
         if let code = language?.trimmingCharacters(in: .whitespaces), !code.isEmpty {
-            if let supported = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: code)) {
-                return supported
-            }
+            if let m = await supportedLocale(matching: Locale(identifier: code)) { return m }
             throw LocalTranscriptionError.transcriptionFailed("Language \"\(code)\" isn't available for Apple Speech.")
         }
-        if let sys = await SpeechTranscriber.supportedLocale(equivalentTo: Locale.current) { return sys }
-        if let en = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "en-US")) { return en }
+        if let sys = await supportedLocale(matching: Locale.current) { return sys }
+        if let en = await supportedLocale(matching: Locale(identifier: "en-US")) { return en }
         throw LocalTranscriptionError.transcriptionFailed("No supported Apple Speech locale on this device.")
     }
 
