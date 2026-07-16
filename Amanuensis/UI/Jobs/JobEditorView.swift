@@ -65,7 +65,7 @@ struct JobEditorView: View {
     // Downloaded local models in stable catalog order (for the Picker).
     private var downloadedLocalIDs: [String] {
         guard LocalModelSupport.isSupported else { return [] }
-        return LocalModelCatalog.all.map(\.id).filter { localModelsStore.states[$0]?.isDownloaded == true }
+        return LocalModelCatalog.available.map(\.id).filter { localModelsStore.states[$0]?.isDownloaded == true }
     }
 
     // The JobShape backing a given providerID, used to decide whether a picker

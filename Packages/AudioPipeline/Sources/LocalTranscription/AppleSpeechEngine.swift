@@ -160,8 +160,6 @@ public actor AppleSpeechEngine: LocalTranscriptionEngine {
         return Array(Set(locales.compactMap { $0.language.languageCode?.identifier })).sorted()
     }
 
-    func maxReservedLocales() async -> Int { AssetInventory.maximumReservedLocales }
-
     /// The user's macOS preferred languages that Apple Speech supports — the default check set.
     func systemPreferredCodes() async -> [String] {
         let supported = Set(await availableLocaleCodes())

@@ -19,7 +19,7 @@ struct ModelCardView: View {
     }
 
     private var sizeText: String {
-        if model.approxBytes == 0 && !state.isDownloaded { return "System" }
+        if model.approxBytes == 0 { return "System" }
         return state.isDownloaded ? fmt(state.installedBytes) : "~\(fmt(model.approxBytes))"
     }
 
@@ -44,11 +44,6 @@ struct ModelCardView: View {
         .task(id: languagesExpanded) {
             guard model.runner == .appleSpeech, languagesExpanded, store.appleLocales.available.isEmpty else { return }
             await store.refreshAppleLocales()
-            // Pre-check system-preferred languages that aren't installed yet.
-            let preferred = await store.systemPreferredAppleLocales()
-            for code in preferred where !store.appleLocales.installed.contains(code) {
-                await store.toggleAppleLocale(code, install: true)
-            }
         }
     }
 
@@ -106,24 +101,33 @@ struct ModelCardView: View {
     }
 
     private var appleSpeechInstaller: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 64), spacing: 6)], alignment: .leading, spacing: 6) {
-            ForEach(store.appleLocales.available, id: \.self) { code in
-                let installed = store.appleLocales.installed.contains(code)
-                let busy = store.appleLocales.inFlight.contains(code)
-                Button {
-                    Task { await store.toggleAppleLocale(code, install: !installed) }
-                } label: {
-                    HStack(spacing: 4) {
-                        if busy { ProgressView().controlSize(.mini) }
-                        else { Image(systemName: installed ? "checkmark.circle.fill" : "circle") }
-                        Text(code).font(.caption2.monospaced())
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Tap a language to download it. Suggested for you are outlined.")
+                .font(.caption2).foregroundStyle(.tertiary)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 64), spacing: 6)], alignment: .leading, spacing: 6) {
+                ForEach(store.appleLocales.available, id: \.self) { code in
+                    let installed = store.appleLocales.installed.contains(code)
+                    let busy = store.appleLocales.inFlight.contains(code)
+                    let suggested = store.appleLocales.suggested.contains(code)
+                    Button {
+                        Task { await store.toggleAppleLocale(code, install: !installed) }
+                    } label: {
+                        HStack(spacing: 4) {
+                            if busy { ProgressView().controlSize(.mini) }
+                            else { Image(systemName: installed ? "checkmark.circle.fill" : "circle") }
+                            Text(code).font(.caption2.monospaced())
+                        }
+                        .padding(.horizontal, 6).padding(.vertical, 3)
+                        .background(installed ? AnyShapeStyle(.tint.opacity(0.18)) : AnyShapeStyle(.quinary),
+                                    in: RoundedRectangle(cornerRadius: 5))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 5)
+                                .strokeBorder(.tint, style: StrokeStyle(lineWidth: 1, dash: [3]))
+                                .opacity(suggested && !installed ? 1 : 0))
                     }
-                    .padding(.horizontal, 6).padding(.vertical, 3)
-                    .background(installed ? AnyShapeStyle(.tint.opacity(0.18)) : AnyShapeStyle(.quinary),
-                                in: RoundedRectangle(cornerRadius: 5))
+                    .buttonStyle(.plain)
+                    .disabled(busy)
                 }
-                .buttonStyle(.plain)
-                .disabled(busy)
             }
         }
     }
@@ -131,7 +135,10 @@ struct ModelCardView: View {
     @ViewBuilder private var footer: some View {
         HStack {
             Spacer()
-            if state.isDownloading {
+            if model.runner == .appleSpeech {
+                Text("Languages install individually — expand to choose")
+                    .font(.caption).foregroundStyle(.tertiary)
+            } else if state.isDownloading {
                 ProgressView(value: state.progress).frame(width: 90)
             } else if state.isDownloaded {
                 if isLoading || isUnloading {

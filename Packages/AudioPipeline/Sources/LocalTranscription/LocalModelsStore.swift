@@ -86,6 +86,7 @@ import Foundation
         public var available: [String] = []
         public var installed: Set<String> = []
         public var inFlight: Set<String> = []
+        public var suggested: Set<String> = []
         public init() {}
     }
     public private(set) var appleLocales = AppleSpeechLocaleState()
@@ -94,6 +95,7 @@ import Foundation
         var s = AppleSpeechLocaleState()
         s.available = await service.appleSpeechAvailableLocales()
         s.installed = Set(await service.appleSpeechInstalledLocales())
+        s.suggested = Set(await service.appleSpeechSystemPreferred())
         appleLocales = s
     }
 
@@ -110,6 +112,4 @@ import Foundation
         } catch { lastError = error.localizedDescription }
         appleLocales.inFlight.remove(code)
     }
-
-    public func systemPreferredAppleLocales() async -> [String] { await service.appleSpeechSystemPreferred() }
 }

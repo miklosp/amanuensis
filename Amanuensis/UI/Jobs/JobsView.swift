@@ -29,7 +29,7 @@ struct JobsView: View {
     // once any on-device model is downloaded.
     private var hasLocalModel: Bool {
         LocalModelSupport.isSupported
-            && LocalModelCatalog.all.contains { localModelsStore.states[$0.id]?.isDownloaded == true }
+            && LocalModelCatalog.available.contains { localModelsStore.states[$0.id]?.isDownloaded == true }
     }
 
     var body: some View {
