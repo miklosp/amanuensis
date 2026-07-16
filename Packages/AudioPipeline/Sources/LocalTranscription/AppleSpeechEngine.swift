@@ -171,7 +171,7 @@ public actor AppleSpeechEngine: LocalTranscriptionEngine {
     }
 
     func install(localeCode: String, progress: @escaping @Sendable (Double) -> Void) async throws {
-        guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: localeCode)) else {
+        guard let locale = await supportedLocale(matching: Locale(identifier: localeCode)) else {
             throw LocalTranscriptionError.transcriptionFailed("Language \"\(localeCode)\" isn't available for Apple Speech.")
         }
         if await AssetInventory.reservedLocales.count >= AssetInventory.maximumReservedLocales,
@@ -185,7 +185,7 @@ public actor AppleSpeechEngine: LocalTranscriptionEngine {
     }
 
     func release(localeCode: String) async throws {
-        guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: localeCode)) else { return }
+        guard let locale = await supportedLocale(matching: Locale(identifier: localeCode)) else { return }
         await AssetInventory.release(reservedLocale: locale)
     }
 }
