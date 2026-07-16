@@ -101,11 +101,14 @@ public actor AppleSpeechEngine: LocalTranscriptionEngine {
         do {
             _ = try await analyzer.analyzeSequence(from: file)
             try await analyzer.finalizeAndFinishThroughEndOfInput()
+            return try await collector.value
+        } catch is CancellationError {
+            collector.cancel()
+            throw CancellationError()   // honor cancellation; don't mask it as a transcription failure
         } catch {
             collector.cancel()
             throw LocalTranscriptionError.transcriptionFailed(error.localizedDescription)
         }
-        return try await collector.value
     }
 
     public func transcribe(audioURL: URL, model: LocalModel, language: String?) async throws -> String {
