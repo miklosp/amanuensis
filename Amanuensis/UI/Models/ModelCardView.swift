@@ -18,7 +18,8 @@ struct ModelCardView: View {
     }
 
     private var sizeText: String {
-        state.isDownloaded ? fmt(state.installedBytes) : "~\(fmt(model.approxBytes))"
+        if model.approxBytes == 0 && !state.isDownloaded { return "System" }
+        return state.isDownloaded ? fmt(state.installedBytes) : "~\(fmt(model.approxBytes))"
     }
 
     private var canExpandLanguages: Bool { model.supportedLanguages.count > 1 }
