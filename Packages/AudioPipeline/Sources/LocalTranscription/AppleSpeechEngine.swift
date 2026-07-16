@@ -1,6 +1,7 @@
 import Foundation
 import Speech
 import AVFoundation
+import CoreMedia
 
 /// On-device transcription engine backed by Apple's SpeechAnalyzer (macOS 26+).
 ///
@@ -11,8 +12,8 @@ import AVFoundation
 /// installed", `installedBytes` to 0 (no per-locale byte API), and `delete` to releasing
 /// our reservation (the shared system asset may persist).
 ///
-/// `transcribe` is a placeholder for now — Task 3 wires up the real `SpeechAnalyzer`
-/// transcription path (and overrides `transcribeTimed`/`preload`/`unloadResident`).
+/// Transcription runs a fresh `SpeechAnalyzer` + `SpeechTranscriber` over the whole file per
+/// call (batch, not streaming); word timings come from the `audioTimeRange` result attribute.
 @available(macOS 26, *)
 public actor AppleSpeechEngine: LocalTranscriptionEngine {
     public init() {}
@@ -63,14 +64,10 @@ public actor AppleSpeechEngine: LocalTranscriptionEngine {
             throw LocalTranscriptionError.transcriptionFailed("Apple Speech isn't available on this device.")
         }
         let locale = try await resolveLocale(model.defaultLanguage)
-        let probe = SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [], attributeOptions: [])
-        if let request = try await AssetInventory.assetInstallationRequest(supporting: [probe]) {
-            // Drive coarse progress off the request's Progress. (A KVO/AsyncSequence bridge
-            // can refine this later; downloadAndInstall() awaits completion regardless.)
-            progress(0)
-            try await request.downloadAndInstall()
-        }
-        _ = try? await AssetInventory.reserve(locale: locale)
+        // Drive coarse progress around the install + reserve step. (A KVO/AsyncSequence bridge
+        // can refine this later; ensureInstalled awaits completion regardless.)
+        progress(0)
+        try await ensureInstalled(locale)
         progress(1)
     }
 
@@ -80,9 +77,81 @@ public actor AppleSpeechEngine: LocalTranscriptionEngine {
         await AssetInventory.release(reservedLocale: locale)
     }
 
-    // MARK: - LocalTranscriptionEngine (transcription — Task 3)
+    // MARK: - LocalTranscriptionEngine (transcription)
+
+    /// One batch run: build a transcriber for `locale` (optionally with word time ranges),
+    /// feed the whole file through a fresh analyzer, and collect finalized results.
+    /// Returns the concatenated AttributedString so callers derive plain text or timings.
+    private func runAnalyzer(audioURL: URL, locale: Locale, timed: Bool) async throws -> AttributedString {
+        let transcriber = SpeechTranscriber(
+            locale: locale,
+            transcriptionOptions: [],
+            reportingOptions: [],                        // batch: final results only
+            attributeOptions: timed ? [.audioTimeRange] : [])
+        let analyzer = SpeechAnalyzer(modules: [transcriber])
+        let file = try AVAudioFile(forReading: audioURL)
+
+        let collector = Task {
+            var acc = AttributedString()
+            for try await result in transcriber.results where result.isFinal {
+                acc.append(result.text)
+            }
+            return acc
+        }
+        do {
+            _ = try await analyzer.analyzeSequence(from: file)
+            try await analyzer.finalizeAndFinishThroughEndOfInput()
+        } catch {
+            collector.cancel()
+            throw LocalTranscriptionError.transcriptionFailed(error.localizedDescription)
+        }
+        return try await collector.value
+    }
 
     public func transcribe(audioURL: URL, model: LocalModel, language: String?) async throws -> String {
-        throw LocalTranscriptionError.transcriptionFailed("Apple Speech transcription is not yet implemented.")
+        let locale = try await resolveLocale(language)
+        try await ensureInstalled(locale)
+        let acc = try await runAnalyzer(audioURL: audioURL, locale: locale, timed: false)
+        return String(acc.characters).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    public func transcribeTimed(audioURL: URL, model: LocalModel, language: String?) async throws -> [TimedWord] {
+        let locale = try await resolveLocale(language)
+        try await ensureInstalled(locale)
+        let acc = try await runAnalyzer(audioURL: audioURL, locale: locale, timed: true)
+        let words = Self.timedWords(from: acc)
+        if words.isEmpty {
+            // Text but no timings → let the diarized path degrade to plain, no second pass.
+            throw LocalTranscriptionError.timingsUnavailable(
+                plainText: String(acc.characters).trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        return words
+    }
+
+    public func preload(_ model: LocalModel) async throws {
+        // Warm the locale asset so the first real transcription doesn't pay install latency.
+        let locale = try await resolveLocale(model.defaultLanguage)
+        try await ensureInstalled(locale)
+    }
+
+    public func unloadResident() async {}   // nothing retained between runs
+}
+
+@available(macOS 26, *)
+public extension AppleSpeechEngine {
+    /// Extract per-run words + seconds from a transcription's AttributedString. Each run
+    /// that carries the Speech time-range attribute becomes one `TimedWord`; untimed runs
+    /// (rare, e.g. joins) are skipped. `text[run.range]` is the run's substring.
+    nonisolated static func timedWords(from text: AttributedString) -> [TimedWord] {
+        var out: [TimedWord] = []
+        for run in text.runs {
+            guard let range = run.audioTimeRange else { continue }
+            let piece = String(text[run.range].characters)
+            out.append(TimedWord(
+                text: piece,
+                start: CMTimeGetSeconds(range.start),
+                end: CMTimeGetSeconds(range.end)))
+        }
+        return out
     }
 }
