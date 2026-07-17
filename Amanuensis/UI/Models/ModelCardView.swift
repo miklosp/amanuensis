@@ -13,6 +13,7 @@ struct ModelCardView: View {
     let store: LocalModelsStore
 
     @State private var languagesExpanded = false
+    @State private var seeAllLanguages = false
 
     private func fmt(_ bytes: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
@@ -23,9 +24,7 @@ struct ModelCardView: View {
         return state.isDownloaded ? fmt(state.installedBytes) : "~\(fmt(model.approxBytes))"
     }
 
-    private var canExpandLanguages: Bool {
-        model.runner == .appleSpeech ? true : model.supportedLanguages.count > 1
-    }
+    private var canExpandLanguages: Bool { model.supportedLanguages.count > 1 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -33,16 +32,20 @@ struct ModelCardView: View {
             Text(model.summary)
                 .font(.subheadline).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            languagesRow
-            if languagesExpanded { languageChips }
-            Divider()
-            footer
+            if model.runner == .appleSpeech {
+                appleSpeechSection
+            } else {
+                languagesRow
+                if languagesExpanded { languageChips }
+                Divider()
+                footer
+            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
-        .task(id: languagesExpanded) {
-            guard model.runner == .appleSpeech, languagesExpanded, store.appleLocales.available.isEmpty else { return }
+        .task {
+            guard model.runner == .appleSpeech, store.appleLocales.available.isEmpty else { return }
             await store.refreshAppleLocales()
         }
     }
@@ -61,6 +64,97 @@ struct ModelCardView: View {
             .padding(.horizontal, 6).padding(.vertical, 2)
             .background(fill.opacity(0.2), in: Capsule())
     }
+
+    // MARK: - Apple Speech per-language installer
+
+    /// The system model's languages are managed per-locale by Apple, so the card shows a
+    /// live installer instead of a fixed download: installed languages (removable) on top,
+    /// a one-tap "Download <your languages>" for the system-preferred set, and a "See all"
+    /// toggle revealing every remaining supported language. Nothing installs on its own —
+    /// each download is an explicit tap.
+    @ViewBuilder private var appleSpeechSection: some View {
+        let a = store.appleLocales
+        let installed = a.installed.sorted()
+        let suggestedToDownload = a.suggested.subtracting(a.installed).sorted()
+        let notInstalled = a.available.filter { !a.installed.contains($0) }.sorted()
+
+        Text(a.available.isEmpty ? "System · system-managed languages"
+                                 : "System · \(a.available.count) languages")
+            .font(.caption).foregroundStyle(.tertiary)
+
+        if !installed.isEmpty {
+            localeGrid(installed) { localeChip($0, installed: true) }
+        }
+
+        if !suggestedToDownload.isEmpty {
+            Button {
+                Task { await store.downloadSuggestedAppleLocales() }
+            } label: {
+                Label("Download \(suggestedToDownload.joined(separator: ", "))",
+                      systemImage: "arrow.down.circle")
+                    .font(.caption)
+            }
+            .buttonStyle(.borderless)
+        }
+
+        if !notInstalled.isEmpty {
+            Button {
+                withAnimation(.snappy) { seeAllLanguages.toggle() }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(seeAllLanguages ? "Hide languages" : "See all languages")
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                        .rotationEffect(.degrees(seeAllLanguages ? 90 : 0))
+                }
+                .font(.caption)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.tint)
+
+            if seeAllLanguages {
+                localeGrid(notInstalled) { localeChip($0, installed: false) }
+            }
+        }
+    }
+
+    private func localeGrid<Chip: View>(
+        _ codes: [String], @ViewBuilder _ chip: @escaping (String) -> Chip
+    ) -> some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 60), spacing: 6)],
+                  alignment: .leading, spacing: 6) {
+            ForEach(codes, id: \.self) { chip($0) }
+        }
+    }
+
+    /// One language pill. Installed → code + trash (tap removes); not installed → code +
+    /// download (tap installs). While the install/release is in flight, a spinner replaces
+    /// the icon and the pill is disabled.
+    private func localeChip(_ code: String, installed: Bool) -> some View {
+        let busy = store.appleLocales.inFlight.contains(code)
+        return Button {
+            Task { await store.toggleAppleLocale(code, install: !installed) }
+        } label: {
+            HStack(spacing: 4) {
+                Text(code).font(.caption2.monospaced())
+                if busy {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Image(systemName: installed ? "trash" : "arrow.down.circle")
+                        .font(.caption2)
+                        .foregroundStyle(installed ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
+                }
+            }
+            .padding(.horizontal, 7).padding(.vertical, 3)
+            .background(installed ? AnyShapeStyle(.tint.opacity(0.14)) : AnyShapeStyle(.quinary),
+                        in: RoundedRectangle(cornerRadius: 5))
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
+        .help(installed ? "Remove \(code)" : "Download \(code)")
+    }
+
+    // MARK: - Generic (non-Apple) rows
 
     @ViewBuilder private var languagesRow: some View {
         let label = Text("\(sizeText) · \(model.languages)")
@@ -82,52 +176,16 @@ struct ModelCardView: View {
         }
     }
 
-    @ViewBuilder private var languageChips: some View {
-        if model.runner == .appleSpeech {
-            appleSpeechInstaller
-        } else {
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 30), spacing: 4)],
-                alignment: .leading, spacing: 4
-            ) {
-                ForEach(model.supportedLanguages, id: \.self) { code in
-                    Text(code)
-                        .font(.caption2.monospaced())
-                        .padding(.horizontal, 5).padding(.vertical, 2)
-                        .background(.quinary, in: RoundedRectangle(cornerRadius: 4))
-                }
-            }
-        }
-    }
-
-    private var appleSpeechInstaller: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Tap a language to download it. Suggested for you are outlined.")
-                .font(.caption2).foregroundStyle(.tertiary)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 64), spacing: 6)], alignment: .leading, spacing: 6) {
-                ForEach(store.appleLocales.available, id: \.self) { code in
-                    let installed = store.appleLocales.installed.contains(code)
-                    let busy = store.appleLocales.inFlight.contains(code)
-                    let suggested = store.appleLocales.suggested.contains(code)
-                    Button {
-                        Task { await store.toggleAppleLocale(code, install: !installed) }
-                    } label: {
-                        HStack(spacing: 4) {
-                            if busy { ProgressView().controlSize(.mini) }
-                            else { Image(systemName: installed ? "checkmark.circle.fill" : "circle") }
-                            Text(code).font(.caption2.monospaced())
-                        }
-                        .padding(.horizontal, 6).padding(.vertical, 3)
-                        .background(installed ? AnyShapeStyle(.tint.opacity(0.18)) : AnyShapeStyle(.quinary),
-                                    in: RoundedRectangle(cornerRadius: 5))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 5)
-                                .strokeBorder(.tint, style: StrokeStyle(lineWidth: 1, dash: [3]))
-                                .opacity(suggested && !installed ? 1 : 0))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(busy)
-                }
+    private var languageChips: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 30), spacing: 4)],
+            alignment: .leading, spacing: 4
+        ) {
+            ForEach(model.supportedLanguages, id: \.self) { code in
+                Text(code)
+                    .font(.caption2.monospaced())
+                    .padding(.horizontal, 5).padding(.vertical, 2)
+                    .background(.quinary, in: RoundedRectangle(cornerRadius: 4))
             }
         }
     }
@@ -135,10 +193,7 @@ struct ModelCardView: View {
     @ViewBuilder private var footer: some View {
         HStack {
             Spacer()
-            if model.runner == .appleSpeech {
-                Text("Languages install individually — expand to choose")
-                    .font(.caption).foregroundStyle(.tertiary)
-            } else if state.isDownloading {
+            if state.isDownloading {
                 ProgressView(value: state.progress).frame(width: 90)
             } else if state.isDownloaded {
                 if isLoading || isUnloading {

@@ -112,4 +112,13 @@ import Foundation
         } catch { lastError = error.localizedDescription }
         appleLocales.inFlight.remove(code)
     }
+
+    /// Install every system-preferred language that isn't already installed — the
+    /// "Download <your languages>" quick action. Each is installed individually so
+    /// per-chip in-flight state stays accurate.
+    public func downloadSuggestedAppleLocales() async {
+        for code in appleLocales.suggested.subtracting(appleLocales.installed).sorted() {
+            await toggleAppleLocale(code, install: true)
+        }
+    }
 }
