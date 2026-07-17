@@ -1,10 +1,10 @@
 import Testing
 @testable import LocalTranscription
 
-@Test func catalogHasSevenModelsWithUniqueIDs() {
+@Test func catalogHasEightModelsWithUniqueIDs() {
     let all = LocalModelCatalog.all
-    #expect(all.count == 7)
-    #expect(Set(all.map(\.id)).count == 7)
+    #expect(all.count == 8)
+    #expect(Set(all.map(\.id)).count == 8)
 }
 
 @Test func indicConformerIsPresentWithSevenLanguages() {

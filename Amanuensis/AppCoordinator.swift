@@ -100,10 +100,14 @@ final class AppCoordinator {
 
         // Local transcription must exist before DictationCoordinator so its
         // handler map (shared with runJob) can carry the on-device sender.
+        let appleSpeech: (any LocalTranscriptionEngine)? = {
+            if #available(macOS 26, *) { return AppleSpeechEngine() } else { return nil }
+        }()
         let localService = LocalTranscriptionService(
             fluidAudio: FluidAudioEngine(),
             whisperKit: WhisperKitEngine(),
-            indicConformer: IndicConformerEngine())
+            indicConformer: IndicConformerEngine(),
+            appleSpeech: appleSpeech)
         self.localService = localService
         let localModelsStore = LocalModelsStore(service: localService)
         self.localModelsStore = localModelsStore

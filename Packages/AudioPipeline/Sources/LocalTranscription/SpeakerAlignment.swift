@@ -1,10 +1,12 @@
 import Foundation
 
 /// Assign each transcribed word to a diarized speaker by time, then merge
-/// consecutive same-speaker words into runs. Words carry their own leading
-/// spaces, so run text is a plain concatenation, trimmed per run. Each run also
-/// carries `start` — the start time of its first word — so the renderer can
-/// prefix a per-turn timestamp.
+/// consecutive same-speaker words into runs. Word boundary whitespace isn't a
+/// fixed leading- or trailing-space convention across engines (Apple's
+/// `TimedWord`s carry trailing spaces), so run text is a plain concatenation
+/// that relies on each run being trimmed per run rather than on where the
+/// space lives. Each run also carries `start` — the start time of its first
+/// word — so the renderer can prefix a per-turn timestamp.
 ///
 /// A word whose midpoint lands inside a diarizer segment ("strong") takes that
 /// segment's speaker. A word that falls in a gap between segments ("weak") — the

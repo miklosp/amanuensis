@@ -28,6 +28,7 @@ public enum LocalTranscriptionError: LocalizedError {
     /// diarized path can degrade to plain without a second full transcription pass. Never
     /// surfaced to the user — `transcribeDiarized` consumes it as the plain fallback.
     case timingsUnavailable(plainText: String)
+    case requiresNewerOS(String)
 
     public var errorDescription: String? {
         switch self {
@@ -36,6 +37,7 @@ public enum LocalTranscriptionError: LocalizedError {
         case .transcriptionFailed(let m): return "On-device transcription failed: \(m)"
         case .timestampsUnsupported(let m): return "Word timestamps are not supported by \(m)."
         case .timingsUnavailable: return "Word timestamps were unavailable for this recording."
+        case .requiresNewerOS(let n): return "\(n) requires macOS 26 or later."
         }
     }
 }

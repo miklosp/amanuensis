@@ -16,6 +16,8 @@ actor FakeEngine: LocalTranscriptionEngine {
     private var preloadGate: CheckedContinuation<Void, Never>?
     private var unloadGate: CheckedContinuation<Void, Never>?
 
+    func setDownloaded(_ ids: Set<String>) { downloaded = ids }
+    func setTranscript(_ t: String) { transcript = t }
     func setPreloadShouldThrow(_ v: Bool) { preloadShouldThrow = v }
     func setPreloadShouldBlock(_ v: Bool) { preloadShouldBlock = v }
     func setUnloadShouldBlock(_ v: Bool) { unloadShouldBlock = v }

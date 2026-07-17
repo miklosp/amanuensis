@@ -10,7 +10,7 @@ struct ModelsView: View {
     var body: some View {
         ScrollView {
             LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
-                ForEach(LocalModelCatalog.all) { model in
+                ForEach(LocalModelCatalog.available) { model in
                     ModelCardView(
                         model: model,
                         state: store.states[model.id] ?? .init(),
@@ -19,7 +19,8 @@ struct ModelsView: View {
                         isLoading: model.id == store.loadingModelID,
                         isUnloading: model.id == store.unloadingModelID,
                         onDownload: { Task { await store.download(model) } },
-                        onDelete: { Task { await store.delete(model) } })
+                        onDelete: { Task { await store.delete(model) } },
+                        store: store)
                 }
             }
             .padding(16)

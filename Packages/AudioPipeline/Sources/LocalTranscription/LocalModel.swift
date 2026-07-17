@@ -6,6 +6,7 @@ public enum LocalRunner: String, Codable, Sendable, Hashable {
     case fluidAudioCohere        // CoherePipeline
     case whisperKit              // WhisperKit
     case indicConformer          // IndicConformer (catalog row + service wiring: Task 10)
+    case appleSpeech             // Apple SpeechAnalyzer (macOS 26+); engine is optional on the service
 }
 
 public struct LocalModel: Identifiable, Hashable, Sendable {
@@ -37,6 +38,19 @@ public struct LocalModel: Identifiable, Hashable, Sendable {
         self.selector = selector
         self.recommended = recommended
         self.defaultLanguage = defaultLanguage
+    }
+}
+
+public extension LocalModel {
+    /// False for a model whose engine needs a newer OS than the running system,
+    /// so UI lists can hide it. Non-OS-gated models are always available.
+    var isAvailableOnThisOS: Bool {
+        switch runner {
+        case .appleSpeech:
+            if #available(macOS 26, *) { return true } else { return false }
+        default:
+            return true
+        }
     }
 }
 
@@ -104,8 +118,22 @@ public enum LocalModelCatalog {
                    approxBytes: 700 * MB,
                    runner: .indicConformer, selector: "multilingual", recommended: false,
                    defaultLanguage: "hi"),
+        LocalModel(id: "apple-speech", displayName: "Apple Speech (System)",
+                   summary: "Built into macOS 26. No download; Apple-managed languages. Fast, private, on-device.",
+                   languages: "~30 languages (system-managed)",
+                   supportedLanguages: [
+                       "en", "es", "fr", "de", "it", "pt", "zh", "yue", "ja", "ko",
+                       "ar", "hi", "ru", "nl", "sv", "da", "nb", "fi", "pl", "tr",
+                       "uk", "id", "th", "vi",
+                   ],
+                   approxBytes: 0,
+                   runner: .appleSpeech, selector: "", recommended: false,
+                   defaultLanguage: nil),
     ]
     public static func model(id: String) -> LocalModel? { all.first { $0.id == id } }
+
+    /// Catalog rows whose engine can actually run on this OS — for UI listing.
+    public static var available: [LocalModel] { all.filter(\.isAvailableOnThisOS) }
 
     /// The id a local-model picker should fall back to when `current` isn't among
     /// `downloaded` (empty setting, or the saved model was deleted): the first

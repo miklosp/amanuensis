@@ -6,12 +6,14 @@ public actor LocalTranscriptionService {
     private let fluidAudio: any LocalTranscriptionEngine
     private let whisperKit: any LocalTranscriptionEngine
     private let indicConformer: any LocalTranscriptionEngine
+    private let appleSpeech: (any LocalTranscriptionEngine)?
     private let diarizer: any SpeakerDiarizing
     private let loadSamples: @Sendable (URL) async throws -> [Float]
 
     public init(
         fluidAudio: any LocalTranscriptionEngine, whisperKit: any LocalTranscriptionEngine,
         indicConformer: any LocalTranscriptionEngine,
+        appleSpeech: (any LocalTranscriptionEngine)? = nil,
         diarizer: any SpeakerDiarizing = FluidAudioDiarizer(),
         // Resampling a long recording is multi-second CPU work; run it off the
         // service actor so it doesn't block preload/isDownloaded/delete meanwhile.
@@ -24,6 +26,7 @@ public actor LocalTranscriptionService {
         self.fluidAudio = fluidAudio
         self.whisperKit = whisperKit
         self.indicConformer = indicConformer
+        self.appleSpeech = appleSpeech
         self.diarizer = diarizer
         self.loadSamples = loadSamples
     }
@@ -34,6 +37,9 @@ public actor LocalTranscriptionService {
         case .whisperKit: return (m, whisperKit)
         case .indicConformer: return (m, indicConformer)
         case .fluidAudioParakeet, .fluidAudioSenseVoice, .fluidAudioCohere: return (m, fluidAudio)
+        case .appleSpeech:
+            guard let e = appleSpeech else { throw LocalTranscriptionError.requiresNewerOS(m.displayName) }
+            return (m, e)
         }
     }
 
@@ -119,5 +125,27 @@ public actor LocalTranscriptionService {
             await e.unloadResident()
         }
         try await e.delete(m)
+    }
+
+    // Apple Speech per-locale management (no-ops when the engine is absent / not macOS 26).
+    public func appleSpeechAvailableLocales() async -> [String] {
+        if #available(macOS 26, *), let e = appleSpeech as? AppleSpeechEngine { return await e.availableLocaleCodes() }
+        return []
+    }
+    public func appleSpeechInstalledLocales() async -> [String] {
+        if #available(macOS 26, *), let e = appleSpeech as? AppleSpeechEngine { return await e.installedLocaleCodes() }
+        return []
+    }
+    public func appleSpeechSystemPreferred() async -> [String] {
+        if #available(macOS 26, *), let e = appleSpeech as? AppleSpeechEngine { return await e.systemPreferredCodes() }
+        return []
+    }
+    public func appleSpeechInstall(localeCode: String, progress: @escaping @Sendable (Double) -> Void) async throws {
+        if #available(macOS 26, *), let e = appleSpeech as? AppleSpeechEngine {
+            try await e.install(localeCode: localeCode, progress: progress)
+        }
+    }
+    public func appleSpeechRelease(localeCode: String) async throws {
+        if #available(macOS 26, *), let e = appleSpeech as? AppleSpeechEngine { try await e.release(localeCode: localeCode) }
     }
 }

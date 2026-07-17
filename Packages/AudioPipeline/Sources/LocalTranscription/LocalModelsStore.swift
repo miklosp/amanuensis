@@ -81,4 +81,44 @@ import Foundation
         }
         residentModelID = await service.residentModelID()
     }
+
+    public struct AppleSpeechLocaleState: Sendable, Equatable {
+        public var available: [String] = []
+        public var installed: Set<String> = []
+        public var inFlight: Set<String> = []
+        public var suggested: Set<String> = []
+        public init() {}
+    }
+    public private(set) var appleLocales = AppleSpeechLocaleState()
+
+    public func refreshAppleLocales() async {
+        var s = AppleSpeechLocaleState()
+        s.available = await service.appleSpeechAvailableLocales()
+        s.installed = Set(await service.appleSpeechInstalledLocales())
+        s.suggested = Set(await service.appleSpeechSystemPreferred())
+        appleLocales = s
+    }
+
+    public func toggleAppleLocale(_ code: String, install: Bool) async {
+        appleLocales.inFlight.insert(code)
+        do {
+            if install {
+                try await service.appleSpeechInstall(localeCode: code) { _ in }
+                appleLocales.installed.insert(code)
+            } else {
+                try await service.appleSpeechRelease(localeCode: code)
+                appleLocales.installed.remove(code)
+            }
+        } catch { lastError = error.localizedDescription }
+        appleLocales.inFlight.remove(code)
+    }
+
+    /// Install every system-preferred language that isn't already installed — the
+    /// "Download <your languages>" quick action. Each is installed individually so
+    /// per-chip in-flight state stays accurate.
+    public func downloadSuggestedAppleLocales() async {
+        for code in appleLocales.suggested.subtracting(appleLocales.installed).sorted() {
+            await toggleAppleLocale(code, install: true)
+        }
+    }
 }
