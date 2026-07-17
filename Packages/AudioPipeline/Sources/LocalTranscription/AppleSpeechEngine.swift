@@ -150,30 +150,28 @@ public actor AppleSpeechEngine: LocalTranscriptionEngine {
     // MARK: - Per-language installer support
 
     /// App-facing 2-letter codes the OS supports (deduped from SpeechTranscriber.supportedLocales).
-    /// Every supported locale as a full BCP-47 identifier (e.g. "en-US", "en-GB"), so the
-    /// installer lists regional variants separately rather than collapsing them to a base
-    /// language. `install`/`release` round-trip these ids through `supportedLocale(matching:)`.
+    /// Supported languages as base codes (e.g. "en", "hu"), deduped. Apple's speech assets
+    /// are per-language, not per-region — installing "en" covers en-US/en-GB/… and
+    /// `installedLocales` then reports every en-* variant — so regional variants are
+    /// collapsed to one entry to match what actually downloads.
     func availableLocaleCodes() async -> [String] {
         let locales = await SpeechTranscriber.supportedLocales
-        return locales.map { $0.identifier(.bcp47) }.sorted()
+        return Array(Set(locales.compactMap { $0.language.languageCode?.identifier })).sorted()
     }
 
     func installedLocaleCodes() async -> [String] {
         let locales = await SpeechTranscriber.installedLocales
-        return locales.map { $0.identifier(.bcp47) }.sorted()
+        return Array(Set(locales.compactMap { $0.language.languageCode?.identifier })).sorted()
     }
 
-    /// The user's macOS preferred languages mapped to the specific supported locale for
-    /// each — the default set the "Download …" action installs, in preference order.
+    /// The user's macOS preferred languages that Apple Speech supports — the default set
+    /// the "Download …" action installs, in preference order (deduped to base languages).
     func systemPreferredCodes() async -> [String] {
-        var out: [String] = []
-        for tag in Locale.preferredLanguages {
-            if let supported = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: tag)) {
-                out.append(supported.identifier(.bcp47))
-            }
-        }
+        let supported = Set(await availableLocaleCodes())
         var seen = Set<String>()
-        return out.filter { seen.insert($0).inserted }   // dedup, preserving preference order
+        return Locale.preferredLanguages
+            .compactMap { Locale(identifier: $0).language.languageCode?.identifier }
+            .filter { supported.contains($0) && seen.insert($0).inserted }
     }
 
     func install(localeCode: String, progress: @escaping @Sendable (Double) -> Void) async throws {
