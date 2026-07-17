@@ -150,22 +150,30 @@ public actor AppleSpeechEngine: LocalTranscriptionEngine {
     // MARK: - Per-language installer support
 
     /// App-facing 2-letter codes the OS supports (deduped from SpeechTranscriber.supportedLocales).
+    /// Every supported locale as a full BCP-47 identifier (e.g. "en-US", "en-GB"), so the
+    /// installer lists regional variants separately rather than collapsing them to a base
+    /// language. `install`/`release` round-trip these ids through `supportedLocale(matching:)`.
     func availableLocaleCodes() async -> [String] {
         let locales = await SpeechTranscriber.supportedLocales
-        return Array(Set(locales.compactMap { $0.language.languageCode?.identifier })).sorted()
+        return locales.map { $0.identifier(.bcp47) }.sorted()
     }
 
     func installedLocaleCodes() async -> [String] {
         let locales = await SpeechTranscriber.installedLocales
-        return Array(Set(locales.compactMap { $0.language.languageCode?.identifier })).sorted()
+        return locales.map { $0.identifier(.bcp47) }.sorted()
     }
 
-    /// The user's macOS preferred languages that Apple Speech supports — the default check set.
+    /// The user's macOS preferred languages mapped to the specific supported locale for
+    /// each — the default set the "Download …" action installs, in preference order.
     func systemPreferredCodes() async -> [String] {
-        let supported = Set(await availableLocaleCodes())
-        return Locale.preferredLanguages
-            .compactMap { Locale(identifier: $0).language.languageCode?.identifier }
-            .filter { supported.contains($0) }
+        var out: [String] = []
+        for tag in Locale.preferredLanguages {
+            if let supported = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: tag)) {
+                out.append(supported.identifier(.bcp47))
+            }
+        }
+        var seen = Set<String>()
+        return out.filter { seen.insert($0).inserted }   // dedup, preserving preference order
     }
 
     func install(localeCode: String, progress: @escaping @Sendable (Double) -> Void) async throws {

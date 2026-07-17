@@ -78,8 +78,8 @@ struct ModelCardView: View {
         let suggestedToDownload = a.suggested.subtracting(a.installed).sorted()
         let notInstalled = a.available.filter { !a.installed.contains($0) }.sorted()
 
-        Text(a.available.isEmpty ? "System · system-managed languages"
-                                 : "System · \(a.available.count) languages")
+        Text(a.available.isEmpty ? "System · system-managed"
+                                 : "System · \(a.available.count) locales")
             .font(.caption).foregroundStyle(.tertiary)
 
         if !installed.isEmpty {
@@ -121,7 +121,7 @@ struct ModelCardView: View {
     private func localeGrid<Chip: View>(
         _ codes: [String], @ViewBuilder _ chip: @escaping (String) -> Chip
     ) -> some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 60), spacing: 6)],
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 78), spacing: 6)],
                   alignment: .leading, spacing: 6) {
             ForEach(codes, id: \.self) { chip($0) }
         }
